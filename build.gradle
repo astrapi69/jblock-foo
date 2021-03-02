@@ -188,7 +188,9 @@ gradle.startParameter.excludedTaskNames += "licenseTest"
 dependencies {
     compileOnly("org.projectlombok:lombok:$lombokVersion")
     annotationProcessor("org.projectlombok:lombok:$lombokVersion")
-    testCompileOnly("org.projectlombok:lombok:$lombokVersion")
+    implementation("org.bouncycastle:bcpkix-jdk15on:$bcpkixJdk15onVersion")
+    implementation("com.google.code.gson:gson:$gsonVersion")
+    testCompileOnly("org.projectlombok:lombok:$lombokVersion")    
     testAnnotationProcessor("org.projectlombok:lombok:$lombokVersion")
     testImplementation("io.github.astrapi69:silly-io:$sillyIoVersion")
     testImplementation("io.github.astrapi69:file-worker:$fileWorkerVersion")
