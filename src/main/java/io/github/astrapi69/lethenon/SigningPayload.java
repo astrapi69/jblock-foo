@@ -57,20 +57,25 @@ public final class SigningPayload
 	 *
 	 * @param body
 	 *            the transfer
-	 * @return the labelled payload: tag, chain, type and the digest of the canonical encoding
+	 * @param suite
+	 *            the scheme that signs it, named in the payload so a signature cannot be
+	 *            reinterpreted under another suite
+	 * @return the labelled payload: tag, chain, type, suite and the digest of the canonical
+	 *         encoding
 	 */
-	public static byte[] of(final TransactionBody body)
+	public static byte[] of(final TransactionBody body, final SignatureSuite suite)
 	{
 		ByteArrayOutputStream payload = new ByteArrayOutputStream();
-		payload.writeBytes(label(body.chainIdentifier(), TYPE_TRANSFER));
+		payload.writeBytes(label(body.chainIdentifier(), TYPE_TRANSFER, suite));
 		payload.writeBytes(digestOf(CanonicalEncoding.encode(body)));
 		return payload.toByteArray();
 	}
 
-	private static byte[] label(final String chainIdentifier, final String type)
+	private static byte[] label(final String chainIdentifier, final String type,
+		final SignatureSuite suite)
 	{
-		return (DOMAIN_TAG + SEPARATOR + chainIdentifier + SEPARATOR + type + SEPARATOR)
-			.getBytes(StandardCharsets.UTF_8);
+		return (DOMAIN_TAG + SEPARATOR + chainIdentifier + SEPARATOR + type + SEPARATOR
+			+ suite.identifier() + SEPARATOR).getBytes(StandardCharsets.UTF_8);
 	}
 
 	private static byte[] digestOf(final byte[] content)
