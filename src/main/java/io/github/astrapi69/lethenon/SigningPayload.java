@@ -29,6 +29,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
+import io.github.astrapi69.crypt.api.algorithm.HashAlgorithm;
+
 /**
  * The bytes a signature actually covers.
  * <p>
@@ -82,12 +84,14 @@ public final class SigningPayload
 	{
 		try
 		{
-			return MessageDigest.getInstance("SHA-256").digest(content);
+			return MessageDigest.getInstance(HashAlgorithm.SHA_256.getAlgorithm()).digest(content);
 		}
 		catch (NoSuchAlgorithmException never)
 		{
-			// SHA-256 is required of every Java platform
-			throw new IllegalStateException("SHA-256 is missing from this Java runtime", never);
+			// SHA-256 is required of every Java platform; the name comes from crypt-api rather
+			// than from a string literal here
+			throw new IllegalStateException(
+				HashAlgorithm.SHA_256.getAlgorithm() + " is missing from this Java runtime", never);
 		}
 	}
 }

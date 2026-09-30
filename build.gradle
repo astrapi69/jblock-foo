@@ -35,6 +35,9 @@ dependencies {
     // them. Where the library has no answer, the gap is reported there rather than worked around
     // here.
     implementation "io.github.astrapi69:mystic-crypt:$mysticCryptVersion"
+    // declared although mystic-crypt brings it: the algorithm names and the hash algorithm are
+    // used here directly, and a dependency that is used is a dependency that is named
+    implementation "io.github.astrapi69:crypt-api:$cryptApiVersion"
 
     testImplementation platform("org.junit:junit-bom:$junitVersion")
     testImplementation "org.junit.jupiter:junit-jupiter"
