@@ -27,18 +27,26 @@ package io.github.astrapi69.lethenon;
 import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.KeyPair;
-import java.security.KeyPairGenerator;
 import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.security.Signature;
 import java.security.spec.X509EncodedKeySpec;
+
+import io.github.astrapi69.mystic.crypt.key.Ed25519Signer;
+import io.github.astrapi69.mystic.crypt.key.Ed25519Verifier;
 
 /**
  * Signs a transfer, and checks a signed one.
  * <p>
- * Everything cryptographic here comes from the platform: JDK 25 ships Ed25519 in SunEC, so this
- * class writes no primitive, only the rules around one - what gets signed, which suite is named in
- * it, and whose key has to match.
+ * Everything cryptographic here comes from this family's own library - {@code Ed25519Signer} and
+ * {@code Ed25519Verifier} out of mystic-crypt - rather than from the platform directly. The chain
+ * is the library's acceptance test (issue #1): primitives that cannot carry a chain are not
+ * primitives, and reaching past them into {@code java.security} would mean never finding that out.
+ * Where the library has no answer, the gap is reported there instead of being worked around here:
+ * the first one is already visible, because a suite-dispatching signer does not exist yet and
+ * milestone 2 needs one for ML-DSA.
+ * <p>
+ * This class writes no primitive either way, only the rules around one - what gets signed, which
+ * suite is named in it, and whose key has to match.
  */
 public final class TransactionSigner
 {
@@ -58,7 +66,10 @@ public final class TransactionSigner
 	{
 		try
 		{
-			return KeyPairGenerator.getInstance(suite.algorithm()).generateKeyPair();
+			return switch (suite)
+			{
+				case ED25519 -> Ed25519Signer.newKeyPair();
+			};
 		}
 		catch (GeneralSecurityException missing)
 		{
@@ -97,10 +108,11 @@ public final class TransactionSigner
 	{
 		try
 		{
-			Signature signature = Signature.getInstance(suite.algorithm());
-			signature.initSign(privateKey);
-			signature.update(SigningPayload.of(body, suite));
-			return new SignedTransaction(body, suite, Bytes.of(signature.sign()));
+			byte[] signature = switch (suite)
+			{
+				case ED25519 -> new Ed25519Signer(privateKey).sign(SigningPayload.of(body, suite));
+			};
+			return new SignedTransaction(body, suite, Bytes.of(signature));
 		}
 		catch (GeneralSecurityException refused)
 		{
@@ -122,10 +134,12 @@ public final class TransactionSigner
 		{
 			PublicKey publicKey = KeyFactory.getInstance(transaction.suite().algorithm())
 				.generatePublic(new X509EncodedKeySpec(transaction.body().sender().toByteArray()));
-			Signature signature = Signature.getInstance(transaction.suite().algorithm());
-			signature.initVerify(publicKey);
-			signature.update(SigningPayload.of(transaction.body(), transaction.suite()));
-			return signature.verify(transaction.signature().toByteArray());
+			byte[] payload = SigningPayload.of(transaction.body(), transaction.suite());
+			return switch (transaction.suite())
+			{
+				case ED25519 -> new Ed25519Verifier(publicKey).verify(payload,
+					transaction.signature().toByteArray());
+			};
 		}
 		catch (GeneralSecurityException refused)
 		{

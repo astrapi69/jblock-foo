@@ -24,32 +24,42 @@
  */
 package io.github.astrapi69.lethenon;
 
+import io.github.astrapi69.crypt.api.algorithm.key.KeyPairGeneratorAlgorithm;
+
 /**
  * Which signature scheme signed a transaction, named inside the bytes that were signed.
  * <p>
- * Crypto-agility only counts if it is in the format from the first block: adding a suite field to a
- * signed structure later is a hard fork. ML-DSA-65 arrives in milestone 2, and it arrives into a
- * format that already expects it - a signature made for one suite must not verify as another, which
- * is why the identifier is part of the signing payload rather than a field beside it.
+ * The algorithm itself is not defined here: {@link KeyPairGeneratorAlgorithm} in crypt-api already
+ * carries Ed25519, the three ML-DSA parameter sets and the SLH-DSA family, and a second list of the
+ * same names is a list that drifts. What is defined here is the one thing that belongs to the
+ * chain: the short identifier that goes into the signed bytes and into every block ever written.
+ * <p>
+ * That identifier is deliberately not the enum's own name. A persisted format must not move when an
+ * upstream enum is renamed or reordered - the wire is forever, the library is a dependency.
+ * <p>
+ * Crypto-agility counts only if it is in the format from the first block: ML-DSA-65 arrives in
+ * milestone 2 into a format that already expects it, and a signature made for one suite cannot be
+ * reinterpreted as another, because the identifier is part of the payload rather than a field
+ * beside it.
  */
 public enum SignatureSuite
 {
 
 	/** Ed25519, 64 byte signatures, what every tool reads */
-	ED25519("ed25519", "Ed25519");
+	ED25519("ed25519", KeyPairGeneratorAlgorithm.Ed25519);
 
 	private final String identifier;
 
-	private final String algorithm;
+	private final KeyPairGeneratorAlgorithm algorithm;
 
-	SignatureSuite(final String identifier, final String algorithm)
+	SignatureSuite(final String identifier, final KeyPairGeneratorAlgorithm algorithm)
 	{
 		this.identifier = identifier;
 		this.algorithm = algorithm;
 	}
 
 	/**
-	 * The name that goes into the signed bytes
+	 * The name that goes into the signed bytes, stable for the life of the chain
 	 *
 	 * @return the identifier
 	 */
@@ -59,13 +69,14 @@ public enum SignatureSuite
 	}
 
 	/**
-	 * The algorithm name this platform knows the scheme by
+	 * The algorithm name this platform knows the scheme by, from crypt-api rather than from a
+	 * string in this project
 	 *
-	 * @return the algorithm
+	 * @return the algorithm name
 	 */
 	public String algorithm()
 	{
-		return algorithm;
+		return algorithm.getAlgorithm();
 	}
 
 	/**
