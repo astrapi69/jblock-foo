@@ -48,7 +48,8 @@ class TransactionSignerTest
 	private static TransactionBody aTransferFrom(final KeyPair signer, final long nonce)
 	{
 		return new TransactionBody(Chain.IDENTIFIER, nonce,
-			TransactionSigner.asBytes(signer.getPublic()), Bytes.of(new byte[] { 7, 7 }),
+			TransactionSigner.asBytes(signer.getPublic()),
+			Destination.direct(Bytes.of(new byte[] { 7, 7 })),
 			Amount.ofLeth(3L), Amount.ofLethe(10L), "watching is not protecting");
 	}
 

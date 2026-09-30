@@ -61,7 +61,7 @@ public final class CanonicalEncoding
 		writeText(bytes, body.chainIdentifier());
 		writeLong(bytes, body.nonce());
 		writeBytes(bytes, body.sender());
-		writeBytes(bytes, body.recipient());
+		writeDestination(bytes, body.recipient());
 		writeLong(bytes, body.amount().lethe());
 		writeLong(bytes, body.fee().lethe());
 		writeText(bytes, body.memo());
@@ -90,11 +90,29 @@ public final class CanonicalEncoding
 		String chainIdentifier = readText(buffer);
 		long nonce = buffer.getLong();
 		Bytes sender = readBytes(buffer);
-		Bytes recipient = readBytes(buffer);
+		Destination recipient = readDestination(buffer);
 		Amount amount = Amount.ofLethe(buffer.getLong());
 		Amount fee = Amount.ofLethe(buffer.getLong());
 		String memo = readText(buffer);
 		return new TransactionBody(chainIdentifier, nonce, sender, recipient, amount, fee, memo);
+	}
+
+	private static void writeDestination(final ByteArrayOutputStream bytes,
+		final Destination destination)
+	{
+		writeText(bytes, destination.scheme().identifier());
+		writeBytes(bytes, destination.key());
+		writeBytes(bytes, destination.ephemeralKey());
+		bytes.write(destination.viewTag());
+	}
+
+	private static Destination readDestination(final ByteBuffer buffer)
+	{
+		AddressScheme scheme = AddressScheme.withIdentifier(readText(buffer));
+		Bytes key = readBytes(buffer);
+		Bytes ephemeralKey = readBytes(buffer);
+		int viewTag = Byte.toUnsignedInt(buffer.get());
+		return new Destination(scheme, key, ephemeralKey, viewTag);
 	}
 
 	private static void writeLong(final ByteArrayOutputStream bytes, final long value)
