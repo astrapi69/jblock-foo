@@ -29,3 +29,8 @@ financial product with real losers, and in the EU it falls under MiCA.
 - integers only for money, `Math.addExact`, and the supply invariant after every block
 - every number in a commit message or an issue carries the command that measured it
 - `./gradlew build` prints what ran, including "no test classes" while that is true
+- no attribution to a non-human collaborator: no `Co-Authored-By` trailer for an AI tool or a
+  bot, no commit authored or committed under an AI tool's identity, no "generated with" line in a
+  pull request. Enforced by `scripts/check-commit-provenance.sh` in CI and in `.githooks`
+  (`git config core.hooksPath .githooks`); an exception carries `Co-Author-Exception: <reason>` in
+  the commit body (#10)
