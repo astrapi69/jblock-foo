@@ -56,7 +56,7 @@ class SigningPayloadTest
 	@DisplayName("the payload starts with the domain tag and names the chain and the type")
 	void thePayload_isLabelled()
 	{
-		byte[] payload = SigningPayload.of(aTransfer(1L));
+		byte[] payload = SigningPayload.of(aTransfer(1L), SignatureSuite.ED25519);
 		String readable = new String(payload, StandardCharsets.UTF_8);
 
 		assertTrue(readable.startsWith(SigningPayload.DOMAIN_TAG),
@@ -64,13 +64,15 @@ class SigningPayloadTest
 		assertTrue(readable.contains(Chain.IDENTIFIER),
 			"and the chain identifier is what keeps it off another network");
 		assertTrue(readable.contains(SigningPayload.TYPE_TRANSFER), "and the type is named");
+		assertTrue(readable.contains(SignatureSuite.ED25519.identifier()),
+			"and the suite, so a signature cannot be reinterpreted under another scheme");
 	}
 
 	@Test
 	@DisplayName("the same transaction always gives the same bytes to sign")
 	void thePayload_isStable()
 	{
-		assertArrayEquals(SigningPayload.of(aTransfer(1L)), SigningPayload.of(aTransfer(1L)));
+		assertArrayEquals(SigningPayload.of(aTransfer(1L), SignatureSuite.ED25519), SigningPayload.of(aTransfer(1L), SignatureSuite.ED25519));
 	}
 
 	@Test
@@ -78,7 +80,7 @@ class SigningPayloadTest
 	void aDifferentTransaction_givesADifferentPayload()
 	{
 		assertFalse(
-			Arrays.equals(SigningPayload.of(aTransfer(1L)), SigningPayload.of(aTransfer(2L))),
+			Arrays.equals(SigningPayload.of(aTransfer(1L), SignatureSuite.ED25519), SigningPayload.of(aTransfer(2L), SignatureSuite.ED25519)),
 			"otherwise one signature would pay twice");
 	}
 
@@ -86,11 +88,14 @@ class SigningPayloadTest
 	@DisplayName("the payload carries a digest of the encoding, not the encoding itself")
 	void thePayload_carriesADigest()
 	{
-		byte[] payload = SigningPayload.of(aTransfer(1L));
+		byte[] payload = SigningPayload.of(aTransfer(1L), SignatureSuite.ED25519);
 
-		assertEquals(SigningPayload.DOMAIN_TAG.length() + Chain.IDENTIFIER.length()
-			+ SigningPayload.TYPE_TRANSFER.length() + 3 + 32, payload.length,
-			"tag, chain, type, three separators and a SHA-256 digest - a fixed length, whatever "
-				+ "the memo says");
+		assertEquals(
+			SigningPayload.DOMAIN_TAG.length() + Chain.IDENTIFIER.length()
+				+ SigningPayload.TYPE_TRANSFER.length()
+				+ SignatureSuite.ED25519.identifier().length() + 4 + 32,
+			payload.length,
+			"tag, chain, type, suite, four separators and a SHA-256 digest - a fixed length, "
+				+ "whatever the memo says");
 	}
 }
