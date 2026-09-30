@@ -49,7 +49,8 @@ class SigningPayloadTest
 	private static TransactionBody aTransfer(final long nonce)
 	{
 		return new TransactionBody(Chain.IDENTIFIER, nonce, Bytes.of(new byte[] { 1 }),
-			Bytes.of(new byte[] { 2 }), Amount.ofLeth(1L), Amount.ZERO, "for the record");
+			Destination.direct(Bytes.of(new byte[] { 2 })), Amount.ofLeth(1L), Amount.ZERO,
+			"for the record");
 	}
 
 	@Test

@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 
@@ -49,9 +50,26 @@ class CanonicalEncodingTest
 
 	private static TransactionBody aTransfer()
 	{
+		return aTransferTo(Destination.direct(Bytes.of(new byte[] { 4, 5, 6 })));
+	}
+
+	private static TransactionBody aStealthTransfer()
+	{
+		return aTransferTo(new Destination(AddressScheme.STEALTH_V1, Bytes.of(new byte[] { 4, 5, 6 }),
+			Bytes.of(new byte[] { 7, 8, 9 }), 200));
+	}
+
+	private static TransactionBody aTransferTo(final Destination recipient)
+	{
 		return new TransactionBody(Chain.IDENTIFIER, 7L, Bytes.of(new byte[] { 1, 2, 3 }),
-			Bytes.of(new byte[] { 4, 5, 6 }), Amount.ofLeth(12L), Amount.ofLethe(500L),
-			"no permanent record about people");
+			recipient, Amount.ofLeth(12L), Amount.ofLethe(500L), "no permanent record about people");
+	}
+
+	private static TransactionBody withRecipient(final TransactionBody body,
+		final Destination recipient)
+	{
+		return new TransactionBody(body.chainIdentifier(), body.nonce(), body.sender(), recipient,
+			body.amount(), body.fee(), body.memo());
 	}
 
 	@Test
@@ -64,6 +82,32 @@ class CanonicalEncodingTest
 	}
 
 	@Test
+	@DisplayName("a one-time destination reads back with its scheme, ephemeral key and view tag")
+	void aStealthTransaction_roundTrips()
+	{
+		TransactionBody body = aStealthTransfer();
+
+		assertEquals(body, CanonicalEncoding.readTransaction(CanonicalEncoding.encode(body)));
+	}
+
+	@Test
+	@DisplayName("a destination whose scheme this build does not know is refused when read")
+	void anUnknownScheme_isRefusedWhenRead()
+	{
+		// a direct destination under an unknown name: its shape is valid for every scheme a lenient
+		// reader could fall back to, so only the name itself can be what is refused
+		byte[] encoded = CanonicalEncoding.encode(aTransfer());
+		String asText = new String(encoded, java.nio.charset.StandardCharsets.ISO_8859_1);
+		byte[] renamed = asText.replace("direct", "dirext")
+			.getBytes(java.nio.charset.StandardCharsets.ISO_8859_1);
+
+		IllegalArgumentException refusal = assertThrows(IllegalArgumentException.class,
+			() -> CanonicalEncoding.readTransaction(renamed),
+			"funds sent under a scheme nobody here knows cannot be attributed to anybody");
+		assertTrue(refusal.getMessage().contains("'dirext'"), refusal.getMessage());
+	}
+
+	@Test
 	@DisplayName("equal transactions encode to identical bytes")
 	void equalTransactions_encodeIdentically()
 	{
@@ -73,17 +117,23 @@ class CanonicalEncodingTest
 	}
 
 	@ParameterizedTest(name = "a different {0} changes the bytes")
-	@ValueSource(strings = { "nonce", "recipient", "amount", "fee", "memo" })
+	@ValueSource(strings = { "nonce", "recipient", "amount", "fee", "memo", "scheme",
+			"ephemeral key", "view tag" })
 	void aChangedField_changesTheBytes(final String field)
 	{
-		TransactionBody body = aTransfer();
+		TransactionBody body = aStealthTransfer();
+		Destination to = body.recipient();
 		TransactionBody changed = switch (field)
 		{
 			case "nonce" -> new TransactionBody(body.chainIdentifier(), body.nonce() + 1,
 				body.sender(), body.recipient(), body.amount(), body.fee(), body.memo());
-			case "recipient" -> new TransactionBody(body.chainIdentifier(), body.nonce(),
-				body.sender(), Bytes.of(new byte[] { 4, 5, 7 }), body.amount(), body.fee(),
-				body.memo());
+			case "recipient" -> withRecipient(body, new Destination(to.scheme(),
+				Bytes.of(new byte[] { 4, 5, 7 }), to.ephemeralKey(), to.viewTag()));
+			case "scheme" -> withRecipient(body, Destination.direct(to.key()));
+			case "ephemeral key" -> withRecipient(body, new Destination(to.scheme(), to.key(),
+				Bytes.of(new byte[] { 7, 8, 8 }), to.viewTag()));
+			case "view tag" -> withRecipient(body,
+				new Destination(to.scheme(), to.key(), to.ephemeralKey(), to.viewTag() + 1));
 			case "amount" -> new TransactionBody(body.chainIdentifier(), body.nonce(),
 				body.sender(), body.recipient(), Amount.ofLeth(13L), body.fee(), body.memo());
 			case "fee" -> new TransactionBody(body.chainIdentifier(), body.nonce(), body.sender(),
@@ -116,7 +166,7 @@ class CanonicalEncodingTest
 	void aMemo_keepsItsText()
 	{
 		TransactionBody body = new TransactionBody(Chain.IDENTIFIER, 1L, Bytes.of(new byte[] { 9 }),
-			Bytes.of(new byte[] { 8 }), Amount.ZERO, Amount.ZERO,
+			Destination.direct(Bytes.of(new byte[] { 8 })), Amount.ZERO, Amount.ZERO,
 			"Überwachung ist kein Schutz - Ärger für Späher");
 
 		assertEquals(body.memo(),
@@ -131,7 +181,7 @@ class CanonicalEncodingTest
 
 		assertThrows(IllegalArgumentException.class,
 			() -> new TransactionBody(Chain.IDENTIFIER, 1L, Bytes.of(new byte[] { 9 }),
-				Bytes.of(new byte[] { 8 }), Amount.ZERO, Amount.ZERO, tooLong),
+				Destination.direct(Bytes.of(new byte[] { 8 })), Amount.ZERO, Amount.ZERO, tooLong),
 			"a memo nobody bounded is a block size nobody bounded");
 	}
 }

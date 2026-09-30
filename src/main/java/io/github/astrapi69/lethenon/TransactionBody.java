@@ -39,7 +39,8 @@ package io.github.astrapi69.lethenon;
  * @param sender
  *            the sender's public key
  * @param recipient
- *            the destination address, one-time and derived by the sender
+ *            where the transfer goes: a destination with its scheme, key, ephemeral key and view
+ *            tag, one-time when the scheme is
  * @param amount
  *            what is transferred
  * @param fee
@@ -48,7 +49,7 @@ package io.github.astrapi69.lethenon;
  *            the text that is signed with the transfer - the protest is inside the chain, not
  *            beside it
  */
-public record TransactionBody(String chainIdentifier, long nonce, Bytes sender, Bytes recipient,
+public record TransactionBody(String chainIdentifier, long nonce, Bytes sender, Destination recipient,
 	Amount amount, Amount fee, String memo)
 {
 
