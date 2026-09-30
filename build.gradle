@@ -38,6 +38,11 @@ dependencies {
     // declared although mystic-crypt brings it: the algorithm names and the hash algorithm are
     // used here directly, and a dependency that is used is a dependency that is named
     implementation "io.github.astrapi69:crypt-api:$cryptApiVersion"
+    implementation "io.github.astrapi69:crypt-data:$cryptDataVersion"
+    // crypt-data's HexExtensions declares org.apache.commons.codec.DecoderException on its public
+    // API but carries commons-codec as an implementation dependency, so a caller has to name it
+    // itself (crypt-data#51)
+    implementation "commons-codec:commons-codec:$commonsCodecVersion"
 
     testImplementation platform("org.junit:junit-bom:$junitVersion")
     testImplementation "org.junit.jupiter:junit-jupiter"

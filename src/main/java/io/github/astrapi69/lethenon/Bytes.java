@@ -25,7 +25,8 @@
 package io.github.astrapi69.lethenon;
 
 import java.util.Arrays;
-import java.util.HexFormat;
+
+import io.github.astrapi69.crypt.data.hex.HexExtensions;
 
 /**
  * An immutable sequence of bytes, so that a key, an address or a hash can live in a record and
@@ -33,6 +34,10 @@ import java.util.HexFormat;
  * <p>
  * A bare {@code byte[]} in a record compares by identity, which makes two equal transactions
  * unequal and a signature check pass or fail by accident.
+ * <p>
+ * The hexadecimal form goes through crypt-data's {@code HexExtensions} rather than through
+ * {@code java.util.HexFormat}: this family publishes that conversion, and a chain that reaches past
+ * its own libraries never finds out whether they are any good.
  */
 public final class Bytes
 {
@@ -65,7 +70,15 @@ public final class Bytes
 	 */
 	public static Bytes ofHex(final String hexadecimal)
 	{
-		return new Bytes(HexFormat.of().parseHex(hexadecimal));
+		try
+		{
+			return new Bytes(HexExtensions.decodeHex(hexadecimal.toCharArray()));
+		}
+		catch (org.apache.commons.codec.DecoderException notHexadecimal)
+		{
+			throw new IllegalArgumentException("'" + hexadecimal + "' is not hexadecimal",
+				notHexadecimal);
+		}
 	}
 
 	/**
@@ -103,6 +116,6 @@ public final class Bytes
 	@Override
 	public String toString()
 	{
-		return HexFormat.of().formatHex(content);
+		return String.valueOf(HexExtensions.encodeHex(content));
 	}
 }
