@@ -29,6 +29,13 @@ repositories {
 }
 
 dependencies {
+    // The chain consumes this family's own cryptography rather than reaching past it into the
+    // platform. That is the point of the teaching chain in the first place (issue #1): primitives
+    // that cannot carry a chain are not primitives, and the only way to find that out is to use
+    // them. Where the library has no answer, the gap is reported there rather than worked around
+    // here.
+    implementation "io.github.astrapi69:mystic-crypt:$mysticCryptVersion"
+
     testImplementation platform("org.junit:junit-bom:$junitVersion")
     testImplementation "org.junit.jupiter:junit-jupiter"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher"
