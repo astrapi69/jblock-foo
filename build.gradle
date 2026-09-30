@@ -1,199 +1,70 @@
-
-buildscript {
-    repositories {
-        maven {
-            url "https://plugins.gradle.org/m2/"
-        }
-    }
-    dependencies {
-        classpath "com.github.ben-manes:gradle-versions-plugin:$gradlePluginVersionsVersion"
-        classpath "gradle.plugin.com.hierynomus.gradle.plugins:license-gradle-plugin:$licenseGradlePluginVersion"
-    }
+/*
+ * The build of the Lethenon chain.
+ *
+ * Deliberately small. What stood here was the 2021 java-library-template: Gradle 6.8.1 against a
+ * JDK that did not exist yet, jcenter as a repository after it was shut down, and a publishing and
+ * signing block for an artifact that has never been published. It did not build at all - "Unsupported
+ * class file major version 69" before it read a single source file.
+ *
+ * Publishing, signing, coverage and the license plugin come back when there is something to publish
+ * and something to cover. A build that carries a release path nobody has run is the shape the
+ * sibling project paid for at its 8.6 release (mystic-crypt-ui#431).
+ */
+plugins {
+    id 'java'
 }
-
-apply plugin: "java"
-apply plugin: "java-library"
-apply plugin: "maven-publish"
-apply plugin: "signing"
-apply plugin: "com.github.ben-manes.versions"
-apply plugin: "com.github.hierynomus.license"
-apply plugin: "jacoco"
 
 group = "$groupPackage"
 version = "$projectVersion"
-description = "$rootProject.name"
-sourceCompatibility = "$projectSourceCompatibility"
+description = "$projectDescription"
 
-repositories {
-    mavenLocal()
-    mavenCentral()
-    jcenter()
-}
-
-tasks.withType(GenerateModuleMetadata) {
-    enabled = false
-}
-
-javadoc {
-    failOnError = false
-    if(JavaVersion.current().isJava9Compatible()) {
-        options.addBooleanOption("html5", true)
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
     }
 }
 
-tasks.withType(JavaCompile) {
-    options.encoding = "UTF-8"
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation platform("org.junit:junit-bom:$junitVersion")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
 }
 
 test {
     useJUnitPlatform()
 }
 
-task sourcesJar(type: Jar) {
-    archiveClassifier.set("sources")
-    from(sourceSets.main.allJava)
-}
-
-task javadocJar(type: Jar) {
-    from javadoc
-    archiveClassifier.set("javadoc")
-    javadoc.properties.failOnError = true
-}
-
-jacocoTestReport {
-    reports {
-        xml.enabled true
-        html.enabled true
-    }
-}
-
-check.dependsOn jacocoTestReport
-
-def releaseVersion = !version.endsWith("SNAPSHOT")
-
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            artifactId = "$rootProject.name"
-            from components.java
-            artifact sourcesJar
-            artifact javadocJar
-            pom {
-                name = "$rootProject.name"
-                description = "$projectDescription"
-                url = "$projectScmProviderUrl"+"$projectHolderUsername"+"$slash"+"$rootProject.name"
-                organization {
-                    name = "$projectOrganizationName"
-                    url = "$projectOrganizationUrl"
-                }
-                issueManagement {
-                    system = "$projectIssueManagementSystem"
-                    url = "$projectScmProviderUrl"+"$projectHolderUsername"+"$slash"+"$rootProject.name"+"$issuesPath"
-                }
-                licenses {
-                    license {
-                        name = "$projectLicenseName"
-                        url = "$projectLicenseUrl"
-                        distribution = "$projectLicenseDistribution"
-                    }
-                }
-                developers {
-                    developer {
-                        id = "$projectHolderUsername"
-                        name = "$projectLeaderName"
-                    }
-                }
-                scm {
-                    connection = "$projectScmGitUrlPrefix" + "$projectScmProviderDomain" + "$colon" + "$projectHolderUsername" + "$slash" + "$rootProject.name" + "$projectScmGitUrlSuffix"
-                    developerConnection = "$projectScmGitUrlPrefix" + "$projectScmProviderDomain" + "$colon" + "$projectHolderUsername" + "$slash" + "$rootProject.name" + "$projectScmGitUrlSuffix"
-                    url = "$projectScmGitUrlPrefix" + "$projectScmProviderDomain" + "$colon" + "$projectHolderUsername" + "$slash" + "$rootProject.name" + "$projectScmGitUrlSuffix"
-                }
-            }
+/**
+ * What ran, printed on success as well as on failure - the sibling project's rule: "0 findings" and
+ * "0 files scanned" must not print the same green. While this project has no tests yet, this says so
+ * out loud instead of letting an empty suite read as a passing one.
+ */
+tasks.register('testSummary') {
+    def resultDir = layout.buildDirectory.dir('test-results/test')
+    doLast {
+        def files = resultDir.get().asFile.listFiles({ f -> f.name.startsWith('TEST-') && f.name.endsWith('.xml') } as FileFilter)
+        if (files == null || files.length == 0) {
+            println 'test: no test classes - the build compiles, it verifies nothing yet'
+            return
         }
-    }
-    repositories {
-        maven {
-            credentials {
-                username System.getenv("$projectRepositoriesUserNameKey") ?: project.property("$projectRepositoriesUserNameKey")
-                password System.getenv("$projectRepositoriesPasswordKey") ?: project.property("$projectRepositoriesPasswordKey")
-            }
-            def releasesRepoUrl = "$projectRepositoriesReleasesRepoUrl"
-            def snapshotsRepoUrl = "$projectRepositoriesSnapshotsRepoUrl"
-            url = releaseVersion ? releasesRepoUrl : snapshotsRepoUrl
+        int tests = 0, failures = 0, errors = 0, skipped = 0
+        files.each { file ->
+            def suite = new groovy.xml.XmlSlurper().parse(file)
+            tests += (suite.@tests.toString() ?: '0') as int
+            failures += (suite.@failures.toString() ?: '0') as int
+            errors += (suite.@errors.toString() ?: '0') as int
+            skipped += (suite.@skipped.toString() ?: '0') as int
         }
+        println "test: ${files.length} classes, ${tests} tests, ${failures} failures, ${errors} errors, ${skipped} skipped"
     }
 }
 
-signing {
-    if (releaseVersion) {
-        sign publishing.publications.mavenJava
-    }
-}
-
-jar {
-    manifest {
-        attributes(
-                "Name"                  : project.name,
-                "Manifest-Version"      : project.version,
-                "Implementation-Title"  : "$groupPackage" + "." + "$rootProject.name",
-                "Implementation-Version": project.version,
-                "Implementation-Vendor" : "$projectLeaderName",
-                "Created-By"            : "Gradle ${gradle.gradleVersion}",
-                "Built-By"              : "$projectLeaderName",
-                "Build-Timestamp"       : new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ").format(new Date()),
-                "Build-Jdk"             : "${System.properties['java.version']} (${System.properties['java.vendor']} ${System.properties['java.vm.version']})",
-                "Build-OS"              : "${System.properties['os.name']} ${System.properties['os.arch']} ${System.properties['os.version']}")
-    }
-}
-
-license {
-    ext.year="$projectInceptionYear"
-    ext.owner="$projectLeaderName"
-    header rootProject.file("src/main/resources/LICENSE.txt")
-    excludes(["**/README",
-              "**/README.md",
-              "**/LICENSE",
-              "**/NOTICE",
-              "**/*.xml",
-              "**/*.xsl",
-              "**/*.xsd",
-              "**/*.dtd",
-              "**/*.html",
-              "**/*.jsp",
-              "**/*.jpa",
-              "**/*.sql",
-              "**/*.properties",
-              "**/*.bat",
-              "**/*.gradle",
-              "**/*.MF",
-              "**/*.txt",
-              "**/*.vm",
-              "**/*.log",
-              "**/*.map",
-              "**/*.js.map",
-              "**/*.tmpl",
-              "**/*.js.tmpl",
-              "**/*.editorconfig",
-              "src/test/resources/**",
-              "src/main/resources/**",
-              "out/**",
-              "build/**"])
-}
-// workhack for license issue #76
-gradle.startParameter.excludedTaskNames += "licenseMain"
-gradle.startParameter.excludedTaskNames += "licenseTest"
-
-dependencies {
-    compileOnly("org.projectlombok:lombok:$lombokVersion")
-    annotationProcessor("org.projectlombok:lombok:$lombokVersion")
-    testCompileOnly("org.projectlombok:lombok:$lombokVersion")
-    testAnnotationProcessor("org.projectlombok:lombok:$lombokVersion")
-    testImplementation("io.github.astrapi69:silly-io:$sillyIoVersion")
-    testImplementation("io.github.astrapi69:file-worker:$fileWorkerVersion")
-    testImplementation("io.github.astrapi69:throw-able:$throwAbleVersion")
-    testImplementation("io.github.astrapi69:gradle-migration-data:$gradleMigrationDataVersion")
-    testImplementation("org.apache.commons:commons-text:$commonsTextVersion")
-    testImplementation("org.meanbean:meanbean:$meanbeanVersion")
-    testImplementation("org.junit.jupiter:junit-jupiter-api:$junitJupiterVersion")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:$junitJupiterVersion")
-}
+test.finalizedBy tasks.named('testSummary')
