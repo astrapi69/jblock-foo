@@ -66,6 +66,12 @@ same address land on unrelated destinations; a wallet that never asks a server f
 address, because that query is how most light wallets expose their users; transport over Tor; and no
 account, no identity check, no telemetry.
 
+**Built of that so far:** the one-time destinations, and a balance that is computed instead of
+requested - `WalletScan` replays the chain and recognises its own payments with the view private
+key alone, and `NoBalanceQueryTest` keeps the whole chain package unable to name a networking type,
+so the property holds for every run rather than for one captured one. The Tor transport is still
+ahead.
+
 **Out, with the reason:** amount confidentiality (Pedersen commitments, Bulletproofs) and sender
 ambiguity (ring signatures). Both mean writing new cryptography, which this project does not do.
 

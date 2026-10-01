@@ -28,6 +28,9 @@ financial product with real losers, and in the EU it falls under MiCA.
   right test fail, revert
 - integers only for money, `Math.addExact`, and the supply invariant after every block
 - every number in a commit message or an issue carries the command that measured it
+- data minimisation is a rule, not a setting: no account, no identity check, no telemetry, and a
+  balance is computed from the chain rather than requested from anybody (`NoBalanceQueryTest`
+  fails when the chain package can name a networking type at all)
 - `./gradlew build` prints what ran, including "no test classes" while that is true
 - no attribution to a non-human collaborator: no `Co-Authored-By` trailer for an AI tool or a
   bot, no commit authored or committed under an AI tool's identity, no "generated with" line in a
