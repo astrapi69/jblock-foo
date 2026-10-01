@@ -80,7 +80,15 @@ public final class SigningPayload
 			+ suite.identifier() + SEPARATOR).getBytes(StandardCharsets.UTF_8);
 	}
 
-	private static byte[] digestOf(final byte[] content)
+	/**
+	 * The one digest this chain uses, SHA-256 named through crypt-api rather than as a literal.
+	 * Package visible because a block hashes the same way a transaction does
+	 *
+	 * @param content
+	 *            what to hash
+	 * @return the digest
+	 */
+	static byte[] digestOf(final byte[] content)
 	{
 		try
 		{
