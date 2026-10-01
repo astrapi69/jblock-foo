@@ -65,8 +65,14 @@ class BlocksTest
 	private static BlockBody aBlock(final int difficulty, final String pun,
 		final List<SignedTransaction> transactions)
 	{
-		return new BlockBody(Chain.IDENTIFIER, 1L, Bytes.of(new byte[32]), transactions,
-			1_759_000_000_000L, difficulty, pun);
+		return aBlockPaying(Bytes.of(new byte[] { 5 }), difficulty, pun, transactions);
+	}
+
+	private static BlockBody aBlockPaying(final Bytes beneficiary, final int difficulty,
+		final String pun, final List<SignedTransaction> transactions)
+	{
+		return new BlockBody(Chain.IDENTIFIER, 1L, Bytes.of(new byte[32]), beneficiary,
+			transactions, 1_759_000_000_000L, difficulty, pun);
 	}
 
 	@Test
@@ -81,6 +87,28 @@ class BlocksTest
 		assertNotEquals(Blocks.hashOf(aBlock(0, "a pun", transactions)),
 			Blocks.hashOf(aBlock(0, "another pun", transactions)),
 			"a pun the hash did not cover would prove nothing when it is mined");
+	}
+
+	@Test
+	@DisplayName("who a block pays is inside its hash: another beneficiary is another block")
+	void theBeneficiary_isCoveredByTheHash()
+	{
+		List<SignedTransaction> transactions = List.of(aTransfer(1L));
+
+		assertNotEquals(
+			Blocks.hashOf(aBlockPaying(Bytes.of(new byte[] { 5 }), 0, "a pun", transactions)),
+			Blocks.hashOf(aBlockPaying(Bytes.of(new byte[] { 6 }), 0, "a pun", transactions)),
+			"a miner the hash did not cover could be swapped by whoever replays the chain");
+	}
+
+	@Test
+	@DisplayName("a block that names nobody to pay is refused when it is made")
+	void aBlockPayingNobody_isRefused()
+	{
+		IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+			() -> aBlockPaying(Bytes.of(new byte[0]), 0, "a pun", List.of()));
+
+		assertTrue(refused.getMessage().contains("names none"), refused.getMessage());
 	}
 
 	@Test

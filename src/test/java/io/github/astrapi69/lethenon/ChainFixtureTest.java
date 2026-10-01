@@ -66,8 +66,12 @@ class ChainFixtureTest
 		Bytes holder = Bytes.of(resource("holder.key"));
 		Bytes miner = Bytes.of(resource("miner.key"));
 
-		Replay replay = Replay.verify(chain, List.of(miner, miner), holder);
+		Replay replay = Replay.verify(chain);
 
+		assertEquals(List.of(holder, miner), chain.stream().map(BlockBody::beneficiary).toList(),
+			"the chain itself names who it paid - the key files only say whom to expect");
+		assertEquals(Emission.TOTAL_SUPPLY.minus(Emission.MINING_POOL).minus(Amount.ofLeth(42L))
+			.minus(Amount.ofLethe(100L)), replay.finalState().balanceOf(holder));
 		assertEquals(2L, replay.blocks());
 		assertEquals(1L, replay.transactions());
 		assertEquals(Emission.TOTAL_SUPPLY, replay.finalState().total());
@@ -81,11 +85,8 @@ class ChainFixtureTest
 	void theCorruptedFile_isRefused() throws IOException
 	{
 		List<BlockBody> chain = CanonicalEncoding.readChain(resource("chain-corrupted.lethenon"));
-		Bytes holder = Bytes.of(resource("holder.key"));
-		Bytes miner = Bytes.of(resource("miner.key"));
 
-		ChainRejected refused = assertThrows(ChainRejected.class,
-			() -> Replay.verify(chain, List.of(miner, miner), holder));
+		ChainRejected refused = assertThrows(ChainRejected.class, () -> Replay.verify(chain));
 
 		assertTrue(refused.getMessage().contains("signature"), refused.getMessage());
 	}

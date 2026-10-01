@@ -86,10 +86,6 @@ public record WalletScan(List<Received> received, Amount balance, long blocksRea
 	 *
 	 * @param chain
 	 *            the blocks, genesis first
-	 * @param miners
-	 *            the miner of each block, one per block
-	 * @param genesisHolder
-	 *            the account the genesis allocation went to
 	 * @param address
 	 *            the published address the payments were sent to
 	 * @param viewPrivateKey
@@ -98,10 +94,10 @@ public record WalletScan(List<Received> received, Amount balance, long blocksRea
 	 * @throws ChainRejected
 	 *             when the chain does not verify, in which case there is no balance to report
 	 */
-	public static WalletScan over(final List<BlockBody> chain, final List<Bytes> miners,
-		final Bytes genesisHolder, final PublishedAddress address, final PrivateKey viewPrivateKey)
+	public static WalletScan over(final List<BlockBody> chain, final PublishedAddress address,
+		final PrivateKey viewPrivateKey)
 	{
-		Replay replay = Replay.verify(chain, miners, genesisHolder);
+		Replay replay = Replay.verify(chain);
 		List<Received> received = new ArrayList<>();
 		long transactions = 0L;
 		for (BlockBody block : chain)

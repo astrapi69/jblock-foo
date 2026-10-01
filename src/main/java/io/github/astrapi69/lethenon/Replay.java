@@ -54,29 +54,21 @@ public record Replay(long blocks, long transactions, long signatures, ChainState
 	 * Replays a chain
 	 *
 	 * @param chain
-	 *            the blocks, lowest height first; the first is the genesis block
-	 * @param miners
-	 *            the account each block's reward goes to, in the same order
-	 * @param genesisHolder
-	 *            the account the genesis block allocates the non-pool half to
+	 *            the blocks, lowest height first; the first is the genesis block. Nothing else is
+	 *            needed: who holds the genesis allocation and who mined each block are named by the
+	 *            blocks themselves, inside their hashes (lethenon#23)
 	 * @return what was verified
 	 * @throws ChainRejected
 	 *             with the reason, at the first thing that does not hold
 	 */
-	public static Replay verify(final List<BlockBody> chain, final List<Bytes> miners,
-		final Bytes genesisHolder)
+	public static Replay verify(final List<BlockBody> chain)
 	{
 		if (chain.isEmpty())
 		{
 			throw new ChainRejected("an empty chain has no genesis block");
 		}
-		if (chain.size() != miners.size())
-		{
-			throw new ChainRejected("every block names a miner: " + chain.size() + " blocks and "
-				+ miners.size() + " miners");
-		}
 		ChainState state = new ChainState();
-		state.allocateGenesis(genesisHolder);
+		state.allocateGenesis(chain.getFirst());
 		long transactions = 0;
 		long signatures = 0;
 		Bytes previousHash = Bytes.of(new byte[32]);
@@ -96,7 +88,7 @@ public record Replay(long blocks, long transactions, long signatures, ChainState
 			if (height > 0)
 			{
 				// the genesis block carries the allocation rather than transfers
-				state.apply(block, miners.get(height));
+				state.apply(block);
 				transactions += block.transactions().size();
 				signatures += block.transactions().size();
 			}

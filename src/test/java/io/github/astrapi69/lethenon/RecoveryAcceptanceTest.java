@@ -25,7 +25,6 @@
 package io.github.astrapi69.lethenon;
 
 import static io.github.astrapi69.lethenon.TestChains.chainWith;
-import static io.github.astrapi69.lethenon.TestChains.minersFor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -69,9 +68,9 @@ class RecoveryAcceptanceTest
 		SignedTransaction transfer = restored.sign(new TransactionBody(Chain.IDENTIFIER, 0L, holder,
 			Destination.direct(recipient), Amount.ofLeth(42L), Amount.ZERO,
 			"restored from three pieces of paper"), suite);
-		List<BlockBody> chain = chainWith(transfer);
+		List<BlockBody> chain = chainWith(holder, transfer);
 
-		Replay replay = Replay.verify(chain, minersFor(chain), holder);
+		Replay replay = Replay.verify(chain);
 
 		assertEquals(1L, replay.signatures(), replay.describe());
 		assertEquals(Amount.ofLeth(42L), replay.finalState().balanceOf(recipient),
@@ -93,9 +92,9 @@ class RecoveryAcceptanceTest
 		SignedTransaction transfer = restored.sign(new TransactionBody(Chain.IDENTIFIER, 0L, holder,
 			Destination.direct(recipient), Amount.ofLeth(42L), Amount.ZERO,
 			"restored from twenty-four words"), suite);
-		List<BlockBody> chain = chainWith(transfer);
+		List<BlockBody> chain = chainWith(holder, transfer);
 
-		Replay replay = Replay.verify(chain, minersFor(chain), holder);
+		Replay replay = Replay.verify(chain);
 
 		assertEquals(1L, replay.signatures(), replay.describe());
 		assertEquals(Amount.ofLeth(42L), replay.finalState().balanceOf(recipient),
@@ -119,9 +118,9 @@ class RecoveryAcceptanceTest
 		SignedTransaction transfer = restored.sign(new TransactionBody(Chain.IDENTIFIER, 0L, holder,
 			Destination.direct(recipient), Amount.ofLeth(42L), Amount.ZERO,
 			"read back from its own file"), suite);
-		List<BlockBody> chain = chainWith(transfer);
+		List<BlockBody> chain = chainWith(holder, transfer);
 
-		Replay replay = Replay.verify(chain, minersFor(chain), holder);
+		Replay replay = Replay.verify(chain);
 
 		assertEquals(1L, replay.signatures(), replay.describe());
 		assertEquals(Amount.ofLeth(42L), replay.finalState().balanceOf(recipient),
@@ -138,10 +137,10 @@ class RecoveryAcceptanceTest
 		SignedTransaction transfer = stranger.sign(new TransactionBody(Chain.IDENTIFIER, 0L,
 			stranger.spendKey(suite), Destination.direct(holder), Amount.ofLeth(1L), Amount.ZERO,
 			"not the holder"), suite);
-		List<BlockBody> chain = chainWith(transfer);
+		List<BlockBody> chain = chainWith(holder, transfer);
 
 		ChainRejected refused = assertThrows(ChainRejected.class,
-			() -> Replay.verify(chain, minersFor(chain), holder));
+			() -> Replay.verify(chain));
 
 		assertTrue(refused.getMessage().contains("from an account holding"), refused.getMessage());
 	}

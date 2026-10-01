@@ -35,6 +35,11 @@ import java.util.List;
  *            how many blocks precede this one; the genesis block is zero
  * @param previousHash
  *            the hash of the block before, which is what makes this a chain
+ * @param beneficiary
+ *            the account this block pays: at height 0 the holder of the non-pool half of the
+ *            supply, at every later height the miner who receives the reward. It is inside the
+ *            hash, so it cannot be changed without mining the block again - the chain says who was
+ *            paid, not whoever replays it (lethenon#23)
  * @param transactions
  *            the signed transfers this block carries, in the order they are applied
  * @param timestamp
@@ -48,7 +53,8 @@ import java.util.List;
  *            nothing
  */
 public record BlockBody(String chainIdentifier, long height, Bytes previousHash,
-	List<SignedTransaction> transactions, long timestamp, int difficulty, String pun)
+	Bytes beneficiary, List<SignedTransaction> transactions, long timestamp, int difficulty,
+	String pun)
 {
 
 	/** How long a pun may be, for the same reason a memo is bounded */
@@ -59,6 +65,11 @@ public record BlockBody(String chainIdentifier, long height, Bytes previousHash,
 		if (height < 0L)
 		{
 			throw new IllegalArgumentException("a height counts from zero, unlike " + height);
+		}
+		if (beneficiary.length() == 0)
+		{
+			throw new IllegalArgumentException("a block names the account it pays; block " + height
+				+ " names none");
 		}
 		if (difficulty < 0)
 		{

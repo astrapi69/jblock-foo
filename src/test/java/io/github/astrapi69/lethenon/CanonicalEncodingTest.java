@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
+import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -153,12 +154,54 @@ class CanonicalEncodingTest
 	{
 		byte[] encoded = CanonicalEncoding.encode(aTransfer());
 
-		assertEquals(CanonicalEncoding.VERSION, encoded[0],
+		assertEquals(CanonicalEncoding.TRANSACTION_VERSION, encoded[0],
 			"the version is the first byte, so a reader knows before it parses");
-		encoded[0] = (byte)(CanonicalEncoding.VERSION + 1);
+		encoded[0] = (byte)(CanonicalEncoding.TRANSACTION_VERSION + 1);
 		assertThrows(IllegalArgumentException.class,
 			() -> CanonicalEncoding.readTransaction(encoded),
 			"a build that cannot know what a newer version changed must not guess");
+	}
+
+	@Test
+	@DisplayName("a transfer is still encoding version 1: a block format change signs nothing anew")
+	void theTransactionVersion_didNotMoveWithTheBlockFormat()
+	{
+		assertEquals(1, CanonicalEncoding.TRANSACTION_VERSION);
+		assertEquals(1, CanonicalEncoding.encode(aTransfer())[0]);
+	}
+
+	@Test
+	@DisplayName("a chain file keeps who each block paid, and carries the block version")
+	void aChainFile_keepsTheBeneficiaryOfEveryBlock()
+	{
+		BlockBody genesis = new BlockBody(Chain.IDENTIFIER, 0L, Bytes.of(new byte[32]),
+			Bytes.of(new byte[] { 1, 2, 3 }), List.of(), 1_759_000_000_000L, 0, "genesis");
+		BlockBody next = new BlockBody(Chain.IDENTIFIER, 1L, Blocks.hashOf(genesis),
+			Bytes.of(new byte[] { 4, 5 }), List.of(), 1_759_000_060_000L, 0, "next");
+
+		byte[] file = CanonicalEncoding.encodeChain(List.of(genesis, next));
+		List<BlockBody> readBack = CanonicalEncoding.readChain(file);
+
+		assertEquals(CanonicalEncoding.BLOCK_VERSION, file[0]);
+		assertEquals(2, CanonicalEncoding.BLOCK_VERSION);
+		assertEquals(List.of(genesis, next), readBack);
+		assertEquals(List.of(Bytes.of(new byte[] { 1, 2, 3 }), Bytes.of(new byte[] { 4, 5 })),
+			readBack.stream().map(BlockBody::beneficiary).toList());
+	}
+
+	@Test
+	@DisplayName("a chain file of the first block version is refused rather than replayed blind")
+	void aChainFileOfVersionOne_isRefused()
+	{
+		byte[] file = CanonicalEncoding.encodeChain(List.of(new BlockBody(Chain.IDENTIFIER, 0L,
+			Bytes.of(new byte[32]), Bytes.of(new byte[] { 1 }), List.of(), 0L, 0, "old")));
+		file[0] = 1;
+
+		IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+			() -> CanonicalEncoding.readChain(file));
+
+		assertTrue(refused.getMessage().contains("block encoding version 2"), refused.getMessage());
+		assertTrue(refused.getMessage().contains("carry version 1"), refused.getMessage());
 	}
 
 	@Test

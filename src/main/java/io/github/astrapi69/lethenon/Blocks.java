@@ -136,7 +136,8 @@ public final class Blocks
 				return java.util.Optional.empty();
 			}
 			BlockBody candidate = new BlockBody(body.chainIdentifier(), body.height(),
-				body.previousHash(), body.transactions(), body.timestamp(), body.difficulty(), pun);
+				body.previousHash(), body.beneficiary(), body.transactions(), body.timestamp(),
+				body.difficulty(), pun);
 			if (isMined(candidate))
 			{
 				return java.util.Optional.of(candidate);

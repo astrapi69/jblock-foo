@@ -83,3 +83,14 @@ tasks.register('testSummary') {
 }
 
 test.finalizedBy tasks.named('testSummary')
+
+/**
+ * Writes src/test/resources/chain again - after an encoding change, which is the only reason the
+ * fixtures change (lethenon#23). Fresh keys every run; no private key is written.
+ */
+tasks.register('writeChainFixtures', JavaExec) {
+    description = 'Regenerates the chain fixtures in src/test/resources/chain'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'io.github.astrapi69.lethenon.ChainFixtureWriter'
+    args layout.projectDirectory.dir('src/test/resources/chain').asFile.path
+}
