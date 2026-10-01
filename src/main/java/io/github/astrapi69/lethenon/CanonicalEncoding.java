@@ -177,7 +177,16 @@ public final class CanonicalEncoding
 		return chain;
 	}
 
-	private static SignedTransaction readSignedTransaction(final byte[] encoded)
+	/**
+	 * Reads what {@link #encode(SignedTransaction)} wrote
+	 *
+	 * @param encoded
+	 *            the bytes of one signed transfer
+	 * @return the signed transfer
+	 * @throws IllegalArgumentException
+	 *             for an unknown transaction version, signature suite or address scheme
+	 */
+	public static SignedTransaction readSignedTransaction(final byte[] encoded)
 	{
 		ByteBuffer buffer = ByteBuffer.wrap(encoded);
 		TransactionBody body = readTransaction(readBytes(buffer).toByteArray());

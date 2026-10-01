@@ -12,6 +12,7 @@
  */
 plugins {
     id 'java'
+    id 'application'
 }
 
 group = "$groupPackage"
@@ -43,10 +44,17 @@ dependencies {
     // used here directly, and a dependency that is used is a dependency that is named
     implementation "io.github.astrapi69:crypt-api:$cryptApiVersion"
     implementation "io.github.astrapi69:crypt-data:$cryptDataVersion"
+    // the command line (lethenon#2, milestone 4) - the version mystic-crypt's own CLI uses, so the
+    // family runs one picocli. Declared directly because it is used directly
+    implementation "info.picocli:picocli:$picocliVersion"
 
     testImplementation platform("org.junit:junit-bom:$junitVersion")
     testImplementation "org.junit.jupiter:junit-jupiter"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+application {
+    mainClass = 'io.github.astrapi69.lethenon.cli.LethenonCli'
 }
 
 tasks.withType(JavaCompile).configureEach {
