@@ -82,6 +82,7 @@ public record Replay(long blocks, long transactions, long signatures, ChainState
 			requireThat(previousHash.equals(block.previousHash()), "block " + height
 				+ " names " + block.previousHash() + " as the previous hash, and the block before "
 				+ "it hashes to " + previousHash);
+			requireRules(chain.subList(0, height), block);
 			requireThat(Blocks.isMined(block), "block " + height + " is not mined: its hash carries "
 				+ Blocks.leadingZeroBits(Blocks.hashOf(block).toByteArray())
 				+ " leading zero bits and its difficulty asks for " + block.difficulty());
@@ -95,6 +96,24 @@ public record Replay(long blocks, long transactions, long signatures, ChainState
 			previousHash = Blocks.hashOf(block);
 		}
 		return new Replay(chain.size(), transactions, signatures, state);
+	}
+
+	/**
+	 * The two rules of lethenon#24: the difficulty a block declares is the one the rule gives for
+	 * its place in the chain - a block cannot choose how hard it is - and its timestamp is later
+	 * than the median of the ones before
+	 */
+	private static void requireRules(final List<BlockBody> before, final BlockBody block)
+	{
+		int required = DifficultyRule.requiredFor(before);
+		requireThat(block.difficulty() == required, "block " + block.height()
+			+ " declares difficulty " + block.difficulty() + ", and the rule requires " + required);
+		if (!DifficultyRule.timestampAllowed(before, block.timestamp()))
+		{
+			throw new ChainRejected("block " + block.height() + " has timestamp "
+				+ block.timestamp() + ", which is not after the median "
+				+ DifficultyRule.medianTimePast(before) + " of the timestamps before it");
+		}
 	}
 
 	private static void requireThat(final boolean held, final String reason)

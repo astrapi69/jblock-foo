@@ -186,14 +186,68 @@ class ReplayTest
 	@DisplayName("a block that was not mined is refused, with both numbers in the reason")
 	void anUnminedBlock_isRefused()
 	{
-		BlockBody genesis = new BlockBody(Chain.IDENTIFIER, 0L, Bytes.of(new byte[32]),
-			holderKey(), new ArrayList<>(), 1_759_000_000_000L, 24, "nobody looked for this one");
+		BlockBody genesis = anUnminedGenesis();
 
 		ChainRejected refused = assertThrows(ChainRejected.class,
 			() -> Replay.verify(List.of(genesis)));
 
 		assertTrue(refused.getMessage().contains("not mined"), refused.getMessage());
-		assertTrue(refused.getMessage().contains("24"), refused.getMessage());
+		assertTrue(refused.getMessage().contains("asks for " + DifficultyRule.MINIMUM),
+			refused.getMessage());
+	}
+
+	@Test
+	@DisplayName("a block of difficulty 0 is refused: the rule, not the miner, says how hard")
+	void aBlockOfDifficultyZero_isRefused()
+	{
+		BlockBody genesis = Blocks.mine(new BlockBody(Chain.IDENTIFIER, 0L, Bytes.of(new byte[32]),
+			holderKey(), new ArrayList<>(), 1_759_000_000_000L, 0, "no work at all"), 1L)
+			.orElseThrow();
+
+		ChainRejected refused = assertThrows(ChainRejected.class,
+			() -> Replay.verify(List.of(genesis)));
+
+		assertTrue(refused.getMessage().contains("declares difficulty 0"), refused.getMessage());
+		assertTrue(refused.getMessage().contains("requires 8"), refused.getMessage());
+	}
+
+	@Test
+	@DisplayName("a timestamp that is not after the median of the ones before is refused")
+	void aBackdatedBlock_isRefused()
+	{
+		BlockBody genesis = aChain(new ArrayList<>()).getFirst();
+		BlockBody backdated = Blocks.mine(new BlockBody(Chain.IDENTIFIER, 1L,
+			Blocks.hashOf(genesis), minerKey(), new ArrayList<>(), genesis.timestamp(),
+			DifficultyRule.MINIMUM, "same time as genesis"), 1_000_000L).orElseThrow();
+
+		ChainRejected refused = assertThrows(ChainRejected.class,
+			() -> Replay.verify(List.of(genesis, backdated)));
+
+		assertTrue(refused.getMessage().contains("median"), refused.getMessage());
+	}
+
+	@Test
+	@DisplayName("after thirty blocks at a second each, block 30 has to be two bits harder")
+	void theRetarget_isEnforced()
+	{
+		List<BlockBody> fast = new ArrayList<>();
+		for (int height = 0; height < DifficultyRule.INTERVAL; height++)
+		{
+			fast.add(mined(fast, height, DifficultyRule.MINIMUM));
+		}
+		List<BlockBody> unchanged = new ArrayList<>(fast);
+		unchanged.add(mined(fast, DifficultyRule.INTERVAL, DifficultyRule.MINIMUM));
+		List<BlockBody> retargeted = new ArrayList<>(fast);
+		retargeted.add(mined(fast, DifficultyRule.INTERVAL, DifficultyRule.MINIMUM + 2));
+
+		ChainRejected refused = assertThrows(ChainRejected.class,
+			() -> Replay.verify(unchanged));
+		Replay replay = Replay.verify(retargeted);
+
+		assertTrue(refused.getMessage().contains("block 30 declares difficulty 8"),
+			refused.getMessage());
+		assertTrue(refused.getMessage().contains("requires 10"), refused.getMessage());
+		assertEquals(31L, replay.blocks(), replay.describe());
 	}
 
 	@Test
@@ -237,5 +291,32 @@ class ReplayTest
 			() -> Replay.verify(chain));
 
 		assertTrue(refused.getMessage().contains("holding"), refused.getMessage());
+	}
+
+	/** A genesis block of the right difficulty whose hash happens not to meet it */
+	private BlockBody anUnminedGenesis()
+	{
+		for (int attempt = 0;; attempt++)
+		{
+			BlockBody candidate = new BlockBody(Chain.IDENTIFIER, 0L, Bytes.of(new byte[32]),
+				holderKey(), new ArrayList<>(), 1_759_000_000_000L, DifficultyRule.MINIMUM,
+				"nobody looked for this one #" + attempt);
+			if (!Blocks.isMined(candidate))
+			{
+				return candidate;
+			}
+		}
+	}
+
+	/** The next block of a chain, one second after the one before, mined at a difficulty */
+	private BlockBody mined(final List<BlockBody> before, final int height, final int difficulty)
+	{
+		Bytes previous = before.isEmpty()
+			? Bytes.of(new byte[32])
+			: Blocks.hashOf(before.getLast());
+		Bytes beneficiary = before.isEmpty() ? holderKey() : minerKey();
+		return Blocks.mine(new BlockBody(Chain.IDENTIFIER, height, previous, beneficiary,
+			new ArrayList<>(), 1_759_000_000_000L + 1_000L * height, difficulty, "fast"),
+			1_000_000L).orElseThrow();
 	}
 }
