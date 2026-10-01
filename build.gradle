@@ -6,13 +6,18 @@
  * signing block for an artifact that has never been published. It did not build at all - "Unsupported
  * class file major version 69" before it read a single source file.
  *
- * Publishing, signing, coverage and the license plugin come back when there is something to publish
- * and something to cover. A build that carries a release path nobody has run is the shape the
- * sibling project paid for at its 8.6 release (mystic-crypt-ui#431).
+ * Publishing and signing came back with lethenon#30, when there was something to publish: the
+ * library, for the milestone 5 plugin (gradle/publishing.gradle). Coverage and the license plugin
+ * come back when there is something to cover. A build that carries a release path nobody has run is
+ * the shape the sibling project paid for at its 8.6 release (mystic-crypt-ui#431), so the snapshot
+ * path is run once before anything depends on it.
  */
 plugins {
     id 'java'
     id 'application'
+    id 'maven-publish'
+    id 'signing'
+    id 'com.gradleup.nmcp' version '1.6.2'
 }
 
 group = "$groupPackage"
@@ -102,3 +107,5 @@ tasks.register('writeChainFixtures', JavaExec) {
     mainClass = 'io.github.astrapi69.lethenon.ChainFixtureWriter'
     args layout.projectDirectory.dir('src/test/resources/chain').asFile.path
 }
+
+apply from: "gradle/publishing.gradle"

@@ -1,0 +1,100 @@
+/*
+ * Publishing the library to Maven Central (lethenon#30).
+ *
+ * The library is published so that the mystic-crypt-ui plugin (milestone 5) can depend on a version
+ * that CI and a fresh clone of a tag resolve - not on a path or a developer's local repository. The
+ * chain is not published: there is no pool, no listing, nothing tradeable.
+ *
+ * The shape is the siblings' (crypt-api, crypt-data, mystic-crypt) and nothing more.
+ */
+def releaseVersion = !version.endsWith("SNAPSHOT")
+
+java {
+    withSourcesJar()
+    withJavadocJar()
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId = rootProject.name
+            from components.java
+            pom {
+                name = rootProject.name
+                description = projectDescription
+                url = "https://github.com/${projectHolderUsername}/${rootProject.name}"
+                inceptionYear = projectInceptionYear
+                issueManagement {
+                    system = "GitHub"
+                    url = "https://github.com/${projectHolderUsername}/${rootProject.name}/issues"
+                }
+                licenses {
+                    license {
+                        name = projectLicenseName
+                        url = projectLicenseUrl
+                        distribution = "repo"
+                    }
+                }
+                developers {
+                    developer {
+                        id = projectHolderUsername
+                        name = projectLeaderName
+                    }
+                }
+                scm {
+                    connection = "scm:git:git://github.com/${projectHolderUsername}/${rootProject.name}.git"
+                    developerConnection = "scm:git:ssh://github.com/${projectHolderUsername}/${rootProject.name}.git"
+                    url = "https://github.com/${projectHolderUsername}/${rootProject.name}"
+                }
+            }
+        }
+    }
+}
+
+// The per-project "com.gradleup.nmcp" plugin, as in the siblings: the settings plugin's aggregation
+// passes a Project as a dependency notation, which Gradle 10 removes.
+nmcp {
+    publishAllPublicationsToCentralPortal {
+        // a Central Portal user token, not the legacy OSSRH login
+        username = System.getenv("CENTRAL_PORTAL_TOKEN_USERNAME") ?: ""
+        password = System.getenv("CENTRAL_PORTAL_TOKEN_PASSWORD") ?: ""
+        // the upload waits in the Portal for a click: a released version can never be replaced
+        publishingType = "USER_MANAGED"
+    }
+}
+
+// Signing follows the KEY, not the version form (mystic-crypt#137), so a manual snapshot publish
+// rehearses the whole release path including the signature.
+//
+//   release  + key      sign
+//   snapshot + key      sign, so the rehearsal covers the last step too
+//   snapshot, no key    skip - a local build needs no signature
+//   release,  no key    the publish task REFUSES; publishing a release unsigned is worse than
+//                       not publishing it
+def signingKey = System.getenv("GPG_PRIVATE_KEY")
+def signingPassphrase = System.getenv("GPG_PASSPHRASE")
+def hasInMemoryKey = signingKey && signingPassphrase
+def hasLocalKey = ["signing.keyId", "signing.gnupg.keyName", "signing.secretKeyRingFile"]
+    .any { project.hasProperty(it) }
+
+signing {
+    if (hasInMemoryKey) {
+        useInMemoryPgpKeys(signingKey, signingPassphrase)
+        sign publishing.publications.mavenJava
+    }
+    else if (hasLocalKey) {
+        // the local gpg command with the key from signing.gnupg.keyName
+        useGpgCmd()
+        sign publishing.publications.mavenJava
+    }
+}
+
+tasks.matching { it.name.startsWith("nmcpPublishAllPublicationsToCentralPortal") }.configureEach {
+    doFirst {
+        if (releaseVersion && !hasInMemoryKey && !hasLocalKey) {
+            throw new GradleException("Refusing to publish ${project.version} unsigned. "
+                + "Set GPG_PRIVATE_KEY and GPG_PASSPHRASE, or a local signing.keyId / "
+                + "signing.gnupg.keyName / signing.secretKeyRingFile property.")
+        }
+    }
+}
