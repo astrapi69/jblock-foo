@@ -69,6 +69,31 @@ public final class CanonicalEncoding
 	}
 
 	/**
+	 * The canonical bytes of a block: its header, with the Merkle root standing for the
+	 * transactions it carries. The pun is in here like every other field - a pun the hash did not
+	 * cover would prove nothing when it is mined
+	 *
+	 * @param body
+	 *            the block
+	 * @param merkleRoot
+	 *            the root over its transactions
+	 * @return its bytes
+	 */
+	public static byte[] encode(final BlockBody body, final Bytes merkleRoot)
+	{
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+		bytes.write(VERSION);
+		writeText(bytes, body.chainIdentifier());
+		writeLong(bytes, body.height());
+		writeBytes(bytes, body.previousHash());
+		writeBytes(bytes, merkleRoot);
+		writeLong(bytes, body.timestamp());
+		writeLong(bytes, body.difficulty());
+		writeText(bytes, body.pun());
+		return bytes.toByteArray();
+	}
+
+	/**
 	 * Reads back what {@link #encode(TransactionBody)} wrote
 	 *
 	 * @param encoded
