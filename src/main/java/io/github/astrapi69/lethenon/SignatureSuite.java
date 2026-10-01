@@ -46,7 +46,15 @@ public enum SignatureSuite
 {
 
 	/** Ed25519, 64 byte signatures, what every tool reads */
-	ED25519("ed25519", KeyPairGeneratorAlgorithm.Ed25519);
+	ED25519("ed25519", KeyPairGeneratorAlgorithm.Ed25519),
+
+	/**
+	 * ML-DSA-65, FIPS 204. Measured with OpenSSL 3.5.5: a signature is 3309 bytes against
+	 * Ed25519's 64, and a public key 1974 against 44 - the price of an answer to "harvest now,
+	 * decrypt later", stated rather than hidden. It is why this chain uses accounts rather than
+	 * UTXO: one signature per transaction instead of one per input
+	 */
+	ML_DSA_65("ml-dsa-65", KeyPairGeneratorAlgorithm.ML_DSA_65);
 
 	private final String identifier;
 
