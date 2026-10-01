@@ -73,6 +73,28 @@ public final class Wallet
 
 	private final byte[] seed;
 
+	/**
+	 * The wallet of some entropy, for the wallet file
+	 *
+	 * @param entropy
+	 *            32 bytes; copied
+	 * @return the wallet
+	 */
+	static Wallet ofEntropy(final byte[] entropy)
+	{
+		return new Wallet(entropy);
+	}
+
+	/**
+	 * The entropy, for the wallet file
+	 *
+	 * @return a copy the caller is expected to overwrite
+	 */
+	byte[] entropy()
+	{
+		return entropy.clone();
+	}
+
 	private Wallet(final byte[] entropy)
 	{
 		if (entropy.length != ENTROPY_LENGTH)
