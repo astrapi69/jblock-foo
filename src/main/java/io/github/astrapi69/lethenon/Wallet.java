@@ -34,10 +34,13 @@ import io.github.astrapi69.mystic.crypt.secret.SecretShare;
 import io.github.astrapi69.mystic.crypt.secret.SecretSharing;
 
 /**
- * A wallet that can be recovered: one seed, every key derived from it, and the seed split into
- * shares as the backup (lethenon#2, milestone 4).
+ * A wallet that can be recovered: 32 bytes of entropy, every key derived from them, and two ways
+ * back - the 24 words of its {@link SeedPhrase BIP-39 phrase}, or enough Shamir shares of the
+ * entropy (lethenon#2, milestone 4). Both reach the same wallet: the shares split the entropy, and
+ * the entropy is what the words encode.
  * <p>
- * The keys are never stored on their own. Each one is a path below the seed, after SLIP-0010:
+ * The keys are never stored on their own. The phrase is stretched into the 64 byte BIP-39 seed,
+ * with an empty passphrase, and each key is a path below that seed, after SLIP-0010:
  *
  * <pre>
  * ed25519 tree     m/1984'/0'/0'   the Ed25519 spend key
@@ -50,15 +53,15 @@ import io.github.astrapi69.mystic.crypt.secret.SecretSharing;
  * nothing else uses, and FIPS 204 makes the key pair from them. These paths are a recovery format:
  * once a wallet exists, changing one makes its keys unreachable from its own backup.
  * <p>
- * The backup is {@link SecretSharing} from mystic-crypt - Shamir over the seed, with every share
+ * The backup is {@link SecretSharing} from mystic-crypt - Shamir over the entropy, with every share
  * knowing its split and its threshold, so shares of two different wallets or too few of them are
- * refused instead of combining into a wrong seed and a wallet that is silently somebody else's.
+ * refused instead of combining into wrong entropy and a wallet that is silently somebody else's.
  */
 public final class Wallet
 {
 
-	/** How many bytes of seed a new wallet is made from */
-	public static final int SEED_LENGTH = 32;
+	/** How many bytes of entropy a wallet is: 24 words */
+	public static final int ENTROPY_LENGTH = 32;
 
 	/** This chain's purpose number, the first step of every path */
 	static final int PURPOSE = 1984;
@@ -66,16 +69,19 @@ public final class Wallet
 	/** The only account so far */
 	static final int ACCOUNT = 0;
 
+	private final byte[] entropy;
+
 	private final byte[] seed;
 
-	private Wallet(final byte[] seed)
+	private Wallet(final byte[] entropy)
 	{
-		if (seed.length != SEED_LENGTH)
+		if (entropy.length != ENTROPY_LENGTH)
 		{
-			throw new IllegalArgumentException("a wallet seed is " + SEED_LENGTH
-				+ " bytes, and this one is " + seed.length + " bytes");
+			throw new IllegalArgumentException("a wallet is " + ENTROPY_LENGTH
+				+ " bytes of entropy, 24 words, and this is " + entropy.length + " bytes");
 		}
-		this.seed = seed.clone();
+		this.entropy = entropy.clone();
+		this.seed = SeedPhrase.seed(SeedPhrase.fromEntropy(entropy), "");
 	}
 
 	/**
@@ -85,9 +91,9 @@ public final class Wallet
 	 */
 	public static Wallet create()
 	{
-		byte[] seed = new byte[SEED_LENGTH];
-		new SecureRandom().nextBytes(seed);
-		return new Wallet(seed);
+		byte[] entropy = new byte[ENTROPY_LENGTH];
+		new SecureRandom().nextBytes(entropy);
+		return new Wallet(entropy);
 	}
 
 	/**
@@ -98,7 +104,7 @@ public final class Wallet
 	 * @return the wallet, with every key it had
 	 * @throws IllegalArgumentException
 	 *             for too few shares, shares of different splits, a share given twice, or a secret
-	 *             that is not a wallet seed
+	 *             that is not a wallet's entropy
 	 */
 	public static Wallet restore(final List<SecretShare> shares)
 	{
@@ -106,7 +112,7 @@ public final class Wallet
 	}
 
 	/**
-	 * Splits the seed into shares, any {@code threshold} of which bring the wallet back
+	 * Splits the entropy into shares, any {@code threshold} of which bring the wallet back
 	 *
 	 * @param threshold
 	 *            how many shares a restore needs, at least 2
@@ -114,9 +120,34 @@ public final class Wallet
 	 *            how many shares to make
 	 * @return the shares, each one encodable as a line of text with {@link SecretShare#encode()}
 	 */
+	/**
+	 * The wallet that a phrase was written down for
+	 *
+	 * @param phrase
+	 *            the 24 words, separated by any whitespace, in any case
+	 * @return the wallet, with every key it had
+	 * @throws IllegalArgumentException
+	 *             for a word that is not in the list, a checksum that does not match, or a valid
+	 *             phrase of fewer words, which is not a wallet of this chain
+	 */
+	public static Wallet fromPhrase(final String phrase)
+	{
+		return new Wallet(SeedPhrase.toEntropy(SeedPhrase.parse(phrase)));
+	}
+
+	/**
+	 * The 24 words to write down
+	 *
+	 * @return the phrase, words separated by single spaces
+	 */
+	public String phrase()
+	{
+		return String.join(" ", SeedPhrase.fromEntropy(entropy));
+	}
+
 	public List<SecretShare> split(final int threshold, final int shares)
 	{
-		return SecretSharing.split(seed, threshold, shares);
+		return SecretSharing.split(entropy, threshold, shares);
 	}
 
 	/**

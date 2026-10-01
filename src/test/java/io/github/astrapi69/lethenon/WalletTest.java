@@ -73,30 +73,36 @@ class WalletTest
 	}
 
 	/**
-	 * The paths are a recovery format: a backup made today has to bring back the same keys after
-	 * any later change to this class. Seed 00 01 .. 1f. The Ed25519 and X25519 keys were computed a
-	 * second time outside this code, with Python's hmac and pyca/cryptography, along SLIP-0010
-	 * m/1984'/0'/0' and m/1984'/0'/1'. The ML-DSA-65 key has no second implementation to compare
-	 * with; its SHA-256 is pinned as first measured, so that it can at least not move unnoticed.
+	 * The phrase and the paths are a recovery format: a backup made today has to bring back the
+	 * same keys after any later change to this class. Entropy 00 01 .. 1f. The phrase and the
+	 * Ed25519 and X25519 keys were computed a second time outside this code, in Python with the
+	 * BIP-39 word list, hashlib's pbkdf2_hmac and hmac, and pyca/cryptography, along SLIP-0010
+	 * m/1984'/0'/0' and m/1984'/0'/1' below the BIP-39 seed. The ML-DSA-65 key has no second
+	 * implementation to compare with; its SHA-256 is pinned as first measured, so that it can at
+	 * least not move unnoticed.
 	 */
 	@Test
-	void theKeysOfAKnownSeed_staySoForever()
+	void theWordsAndKeysOfKnownEntropy_staySoForever()
 	{
-		byte[] seed = new byte[Wallet.SEED_LENGTH];
-		for (int index = 0; index < seed.length; index++)
+		byte[] entropy = new byte[Wallet.ENTROPY_LENGTH];
+		for (int index = 0; index < entropy.length; index++)
 		{
-			seed[index] = (byte)index;
+			entropy[index] = (byte)index;
 		}
-		Wallet known = Wallet.restore(SecretSharing.split(seed, 2, 2));
+		Wallet known = Wallet.restore(SecretSharing.split(entropy, 2, 2));
+
+		assertEquals("abandon amount liar amount expire adjust cage candy arch gather drum bullet "
+			+ "absurd math era live bid rhythm alien crouch range attend journey unaware",
+			known.phrase());
 
 		assertEquals(
-			Bytes.ofHex("d01538323336d200de992273a7904049a56a59ab10605f1a41ed417504feb0b3"),
+			Bytes.ofHex("7d1ff75d64b43a8464e156099d0e6518b93419ae333efa8e2bb6380c1469dea4"),
 			last32(known.spendKey(SignatureSuite.ED25519)));
 		assertEquals(
-			Bytes.ofHex("ba46d9d5ea1cac475b50f4647249e0502693817a937217d718d0f6fbeb645c2a"),
+			Bytes.ofHex("4c152971064364dddf0556477864bb8841d4ad1173add31ef3c99879f4eddc1a"),
 			last32(known.address().viewKey()));
 		assertEquals(
-			Bytes.ofHex("e519a8b5bc04559ef5c7e2f14de82d549c35b560cddd023657f5ee8fa6aff534"),
+			Bytes.ofHex("f25ed3a473f93af9ac8ff2769fd85f3f9e95afbaaee139bc43d8606321804624"),
 			Bytes.of(SigningPayload
 				.digestOf(known.spendKey(SignatureSuite.ML_DSA_65).toByteArray())));
 	}
@@ -130,6 +136,46 @@ class WalletTest
 			restored.viewKeyPair().getPrivate());
 
 		assertEquals(Amount.ofLeth(9L), scan.balance(), scan.describe());
+	}
+
+	@Test
+	void thePhraseHasTwentyFourWords_andBringsBackTheSameWalletAsTheShares()
+	{
+		String phrase = original.phrase();
+
+		Wallet fromWords = Wallet.fromPhrase(phrase);
+		Wallet fromShares = Wallet.restore(shares.subList(2, 5));
+
+		assertEquals(24, SeedPhrase.parse(phrase).size(), phrase);
+		for (SignatureSuite suite : SignatureSuite.values())
+		{
+			assertEquals(original.spendKey(suite), fromWords.spendKey(suite), suite.identifier());
+			assertEquals(original.spendKey(suite), fromShares.spendKey(suite), suite.identifier());
+		}
+		assertEquals(original.address(), fromWords.address());
+	}
+
+	@Test
+	void aPhraseWithOneWrongWord_isRefused_ratherThanReadAsAnotherWallet()
+	{
+		List<String> words = new ArrayList<>(SeedPhrase.parse(original.phrase()));
+		words.set(7, words.get(7).equals("zoo") ? "zebra" : "zoo");
+
+		IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+			() -> Wallet.fromPhrase(String.join(" ", words)));
+
+		assertTrue(refused.getMessage().contains("checksum"), refused.getMessage());
+	}
+
+	@Test
+	void aShorterPhrase_isAValidPhraseButNoWallet()
+	{
+		String twelveWords = String.join(" ", SeedPhrase.fromEntropy(new byte[16]));
+
+		IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+			() -> Wallet.fromPhrase(twelveWords));
+
+		assertTrue(refused.getMessage().contains("16 bytes"), refused.getMessage());
 	}
 
 	@Test
