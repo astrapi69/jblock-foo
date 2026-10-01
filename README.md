@@ -13,12 +13,34 @@ the only argument software can actually make - a working demonstration.
 
 ## Status
 
-**Nothing is implemented yet.** This repository was created in 2021 for "tests with blockchain
-technology" and carried a template class until its build was replaced in September 2026. It was
-renamed from `jblock-foo` to `lethenon` on 2026-09-30. The plan, the decisions behind it and the
-milestones are in the issues: [#1](https://github.com/astrapi69/lethenon/issues/1) is the
-brainstorm with the reasoning, [#2](https://github.com/astrapi69/lethenon/issues/2) is the cut
-into four milestones.
+Milestones 1 to 3 of [#2](https://github.com/astrapi69/lethenon/issues/2) are built - canonical
+encoding, Ed25519 and ML-DSA-65 signatures, proof of pun, a replay that verifies a chain from its
+bytes alone, one-time destinations and a balance computed from the chain - and milestone 4, a
+wallet that can be recovered, comes with a command line (below). Known gaps are open issues, among
+them that funds at one-time destinations cannot be spent yet
+([#21](https://github.com/astrapi69/lethenon/issues/21)) and that the difficulty has no rule yet
+([#24](https://github.com/astrapi69/lethenon/issues/24)). The plan and the decisions behind it are
+in the issues: [#1](https://github.com/astrapi69/lethenon/issues/1) is the brainstorm with the
+reasoning, [#2](https://github.com/astrapi69/lethenon/issues/2) the cut into five milestones.
+
+### Command line
+
+`./gradlew installDist` builds `build/install/lethenon/bin/lethenon`. Two kinds of file: the chain
+file, which anybody can replay, and a wallet file, which only its password opens. A password is
+never an argument; it is the first line of standard input.
+
+```
+lethenon wallet create  --wallet holder.wallet          # prints the account and the 24 words
+lethenon wallet restore --wallet again.wallet           # stdin: the 24 words, then a new password
+lethenon mine    --chain chain.lethenon --wallet holder.wallet   # first run: the genesis block
+lethenon faucet  --chain chain.lethenon --wallet holder.wallet --to <account>
+lethenon send    --chain chain.lethenon --wallet w.wallet --to <account> --amount 12.5 --memo "..."
+lethenon balance --chain chain.lethenon --wallet w.wallet       # replays the chain, asks nobody
+```
+
+`send` and `faucet` sign a transfer that waits in `chain.lethenon.pending`; the next `mine` puts
+every waiting transfer into a block, replays the result and only then writes it. Exit codes: 0
+done, 1 refused with the reason on standard error, 2 a command line that was not understood.
 
 The chain is called Lethenon, from
 [Lethe](https://en.wikipedia.org/wiki/Lethe), the river of forgetting - the opposite of a permanent
@@ -89,7 +111,7 @@ Decided in [#1](https://github.com/astrapi69/lethenon/issues/1), with the reason
 | Decision | Choice |
 |---|---|
 | Model | accounts with a nonce, not UTXO - one signature per transaction instead of one per input, which is what makes post-quantum signatures affordable |
-| Consensus | **proof of pun**: a block is valid when its memo hash carries the required prefix, longest chain wins, difficulty adjusted every N blocks. Mining with wordplay instead of nonces, CPU-friendly on purpose - Monero gives the same reasoning for RandomX, "designed to make the use of mining-specific hardware unfeasible", and a protest whose mining needs bought hardware is a poor protest |
+| Consensus | **proof of pun**: a block is valid when its memo hash carries the required prefix, longest chain wins, difficulty adjusted every N blocks (planned, not yet a rule: [#24](https://github.com/astrapi69/lethenon/issues/24)). Mining with wordplay instead of nonces, CPU-friendly on purpose - Monero gives the same reasoning for RandomX, "designed to make the use of mining-specific hardware unfeasible", and a protest whose mining needs bought hardware is a poor protest |
 | Signatures | Ed25519 by default, ML-DSA-65 selectable per transaction, the suite identifier inside the signed bytes |
 | Encoding | one canonical encoder, a round-trip property test, a format version in every persisted structure |
 | Arithmetic | integers only, `Math.addExact` and `Math.subtractExact`, and the supply invariant checked after every block |
