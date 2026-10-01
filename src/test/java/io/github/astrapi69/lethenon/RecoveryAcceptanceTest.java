@@ -30,8 +30,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Path;
 import java.util.List;
 
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -91,6 +93,32 @@ class RecoveryAcceptanceTest
 		SignedTransaction transfer = restored.sign(new TransactionBody(Chain.IDENTIFIER, 0L, holder,
 			Destination.direct(recipient), Amount.ofLeth(42L), Amount.ZERO,
 			"restored from twenty-four words"), suite);
+		List<BlockBody> chain = chainWith(transfer);
+
+		Replay replay = Replay.verify(chain, minersFor(chain), holder);
+
+		assertEquals(1L, replay.signatures(), replay.describe());
+		assertEquals(Amount.ofLeth(42L), replay.finalState().balanceOf(recipient),
+			replay.describe());
+	}
+
+	@ParameterizedTest(name = "{0}")
+	@EnumSource(SignatureSuite.class)
+	void aWalletReadFromItsPasswordProtectedFileAlone_signsATransferTheReplayAccepts(
+		final SignatureSuite suite, @TempDir final Path directory) throws Exception
+	{
+		Wallet original = Wallet.create();
+		Bytes holder = original.spendKey(suite);
+		Path file = directory.resolve("wallet.lethenon");
+		char[] password = Wallet.create().phrase().toCharArray();
+		WalletFile.write(file, original, password);
+		original = null;
+
+		Wallet restored = WalletFile.read(file, password);
+		Bytes recipient = Bytes.of("whoever was paid".getBytes());
+		SignedTransaction transfer = restored.sign(new TransactionBody(Chain.IDENTIFIER, 0L, holder,
+			Destination.direct(recipient), Amount.ofLeth(42L), Amount.ZERO,
+			"read back from its own file"), suite);
 		List<BlockBody> chain = chainWith(transfer);
 
 		Replay replay = Replay.verify(chain, minersFor(chain), holder);
