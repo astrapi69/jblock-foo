@@ -45,6 +45,12 @@ import io.github.astrapi69.crypt.api.algorithm.MacAlgorithm;
  * vectors is what makes that checkable. The only primitive is HMAC-SHA512, from the platform; this
  * family has no hierarchical derivation, and HMAC itself is not something to write.
  * <p>
+ * That missing piece is filed as <a href="https://github.com/astrapi69/mystic-crypt/issues/163">
+ * mystic-crypt#163</a>: SLIP-0010 derivation and the HMAC helper belong in the library, where one
+ * seed-to-key-pair mapping serves every consumer. The steps below are the workaround while it is
+ * open, and this class calls the library instead once it lands - a seed-to-key-pair mapping is the
+ * last thing that may differ between two implementations.
+ * <p>
  * Only hardened children exist for these two curves - SLIP-0010 defines no other kind for them -
  * so every index is taken as hardened and a path is given as plain numbers.
  *
