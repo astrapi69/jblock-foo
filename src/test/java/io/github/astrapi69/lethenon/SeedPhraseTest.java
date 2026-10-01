@@ -41,16 +41,14 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Known answers for the seed phrase: every English vector of the BIP-39 reference implementation
  * (src/test/resources/bip39/vectors-english.csv) - entropy to words, words back to entropy, and
- * words with the passphrase "TREZOR" to the 64 byte seed.
+ * words with the vectors' passphrase to the 64 byte seed.
  */
 class SeedPhraseTest
 {
 
-	private static final String PASSPHRASE = "TREZOR";
-
 	@ParameterizedTest(name = "{0}")
 	@CsvFileSource(resources = "/bip39/vectors-english.csv", delimiter = '|')
-	void entropyBecomesTheWordsOfBip39(final String entropy, final String words, final String seed)
+	void entropyBecomesTheWordsOfBip39(final String entropy, final String words)
 	{
 		assertEquals(List.of(words.split(" ")),
 			SeedPhrase.fromEntropy(Bytes.ofHex(entropy).toByteArray()));
@@ -58,7 +56,7 @@ class SeedPhraseTest
 
 	@ParameterizedTest(name = "{0}")
 	@CsvFileSource(resources = "/bip39/vectors-english.csv", delimiter = '|')
-	void theWordsGiveTheirEntropyBack(final String entropy, final String words, final String seed)
+	void theWordsGiveTheirEntropyBack(final String entropy, final String words)
 	{
 		assertArrayEquals(Bytes.ofHex(entropy).toByteArray(),
 			SeedPhrase.toEntropy(SeedPhrase.parse(words)));
@@ -67,10 +65,10 @@ class SeedPhraseTest
 	@ParameterizedTest(name = "{0}")
 	@CsvFileSource(resources = "/bip39/vectors-english.csv", delimiter = '|')
 	void theWordsAndThePassphraseGiveTheSeedOfBip39(final String entropy, final String words,
-		final String seed)
+		final String passphrase, final String seed)
 	{
 		assertEquals(Bytes.ofHex(seed),
-			Bytes.of(SeedPhrase.seed(SeedPhrase.parse(words), PASSPHRASE)));
+			Bytes.of(SeedPhrase.seed(SeedPhrase.parse(words), passphrase)));
 	}
 
 	@Test
