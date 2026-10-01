@@ -24,6 +24,8 @@
  */
 package io.github.astrapi69.lethenon;
 
+import static io.github.astrapi69.lethenon.TestChains.chainWith;
+import static io.github.astrapi69.lethenon.TestChains.minersFor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -158,35 +160,5 @@ class WalletScanTest
 	{
 		return TransactionSigner.sign(new TransactionBody(Chain.IDENTIFIER, nonce, senderKey,
 			recipient, amount, Amount.ZERO, memo), SignatureSuite.ED25519, sender.getPrivate());
-	}
-
-	private List<BlockBody> chainWith(final SignedTransaction... transfers)
-	{
-		BlockBody genesis = Blocks
-			.mine(new BlockBody(Chain.IDENTIFIER, 0L, Bytes.of(new byte[32]), new ArrayList<>(),
-				1_759_000_000_000L, 8, "in the beginning was the pun"), 1_000_000L)
-			.orElseThrow();
-		List<BlockBody> chain = new ArrayList<>(List.of(genesis));
-		for (SignedTransaction transfer : transfers)
-		{
-			BlockBody previous = chain.getLast();
-			chain.add(Blocks
-				.mine(new BlockBody(Chain.IDENTIFIER, previous.height() + 1L,
-					Blocks.hashOf(previous), List.of(transfer),
-					1_759_000_000_000L + 60_000L * chain.size(), 8, "block " + chain.size()),
-					1_000_000L)
-				.orElseThrow());
-		}
-		return chain;
-	}
-
-	private List<Bytes> minersFor(final List<BlockBody> chain)
-	{
-		List<Bytes> miners = new ArrayList<>();
-		for (int height = 0; height < chain.size(); height++)
-		{
-			miners.add(Bytes.of(new byte[] { 5 }));
-		}
-		return miners;
 	}
 }
