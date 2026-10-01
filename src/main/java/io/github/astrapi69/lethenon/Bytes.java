@@ -70,15 +70,9 @@ public final class Bytes
 	 */
 	public static Bytes ofHex(final String hexadecimal)
 	{
-		try
-		{
-			return new Bytes(HexExtensions.decodeHex(hexadecimal.toCharArray()));
-		}
-		catch (org.apache.commons.codec.DecoderException notHexadecimal)
-		{
-			throw new IllegalArgumentException("'" + hexadecimal + "' is not hexadecimal",
-				notHexadecimal);
-		}
+		// crypt-data 13.0 refuses input that is not hexadecimal with an IllegalArgumentException
+		// of its own, naming the reason, so there is nothing to translate here any more (#51)
+		return new Bytes(HexExtensions.decodeHex(hexadecimal.toCharArray()));
 	}
 
 	/**
