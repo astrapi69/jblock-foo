@@ -78,6 +78,30 @@ class RecoveryAcceptanceTest
 
 	@ParameterizedTest(name = "{0}")
 	@EnumSource(SignatureSuite.class)
+	void aWalletRestoredFromItsTwentyFourWordsAlone_signsATransferTheReplayAccepts(
+		final SignatureSuite suite)
+	{
+		Wallet original = Wallet.create();
+		Bytes holder = original.spendKey(suite);
+		String writtenDown = original.phrase();
+		original = null;
+
+		Wallet restored = Wallet.fromPhrase(writtenDown);
+		Bytes recipient = Bytes.of("whoever was paid".getBytes());
+		SignedTransaction transfer = restored.sign(new TransactionBody(Chain.IDENTIFIER, 0L, holder,
+			Destination.direct(recipient), Amount.ofLeth(42L), Amount.ZERO,
+			"restored from twenty-four words"), suite);
+		List<BlockBody> chain = chainWith(transfer);
+
+		Replay replay = Replay.verify(chain, minersFor(chain), holder);
+
+		assertEquals(1L, replay.signatures(), replay.describe());
+		assertEquals(Amount.ofLeth(42L), replay.finalState().balanceOf(recipient),
+			replay.describe());
+	}
+
+	@ParameterizedTest(name = "{0}")
+	@EnumSource(SignatureSuite.class)
 	void aWalletFromDifferentShares_isADifferentWallet_andTheReplayRefusesItsTransfer(
 		final SignatureSuite suite)
 	{
