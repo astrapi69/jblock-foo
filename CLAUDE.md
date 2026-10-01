@@ -1,7 +1,8 @@
 # Lethenon
 
 A protest chain against the politics of surveillance: a joke currency whose point is a working
-demonstration. Java 25, Gradle, JUnit 6. Nothing is published yet.
+demonstration. Java 25, Gradle, JUnit 6. The library goes to Maven Central (#30), the chain does not:
+no pool, no listing, nothing tradeable.
 
 ## The first rule
 
