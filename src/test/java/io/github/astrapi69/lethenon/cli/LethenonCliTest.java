@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -42,7 +43,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import io.github.astrapi69.lethenon.BlockBody;
+import io.github.astrapi69.lethenon.Blocks;
 import io.github.astrapi69.lethenon.CanonicalEncoding;
+import io.github.astrapi69.lethenon.Chain;
+import io.github.astrapi69.lethenon.DifficultyRule;
 import io.github.astrapi69.lethenon.Replay;
 
 /**
@@ -131,6 +135,28 @@ class LethenonCliTest extends AbstractCliTest
 		assertEquals(List.of(holderAccount, minerAccount),
 			blocks.stream().map(block -> block.beneficiary().toString()).toList());
 		assertTrue(out.contains("mined block 1"), out);
+	}
+
+	@Test
+	void mine_asksTheRuleHowHard_andAfterThirtyFastBlocksMinesTwoBitsHarder() throws Exception
+	{
+		List<BlockBody> fast = new ArrayList<>(
+			CanonicalEncoding.readChain(Files.readAllBytes(chain)));
+		while (fast.size() < DifficultyRule.INTERVAL)
+		{
+			BlockBody last = fast.getLast();
+			fast.add(Blocks.mine(new BlockBody(Chain.IDENTIFIER, last.height() + 1L,
+				Blocks.hashOf(last), last.beneficiary(), List.of(), last.timestamp() + 1_000L,
+				DifficultyRule.requiredFor(fast), "fast"), 1_000_000L).orElseThrow());
+		}
+		Files.write(chain, CanonicalEncoding.encodeChain(fast));
+
+		assertEquals(0, run(holderPassword, "mine", "--chain", chain.toString(), "--wallet",
+			holderWallet), err);
+
+		List<BlockBody> blocks = CanonicalEncoding.readChain(Files.readAllBytes(chain));
+		assertEquals(DifficultyRule.MINIMUM + 2, blocks.getLast().difficulty());
+		assertEquals(31L, Replay.verify(blocks).blocks());
 	}
 
 	@Test

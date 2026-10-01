@@ -18,8 +18,7 @@ encoding, Ed25519 and ML-DSA-65 signatures, proof of pun, a replay that verifies
 bytes alone, one-time destinations and a balance computed from the chain - and milestone 4, a
 wallet that can be recovered, comes with a command line (below). Known gaps are open issues, among
 them that funds at one-time destinations cannot be spent yet
-([#21](https://github.com/astrapi69/lethenon/issues/21)) and that the difficulty has no rule yet
-([#24](https://github.com/astrapi69/lethenon/issues/24)). The plan and the decisions behind it are
+([#21](https://github.com/astrapi69/lethenon/issues/21)). The plan and the decisions behind it are
 in the issues: [#1](https://github.com/astrapi69/lethenon/issues/1) is the brainstorm with the
 reasoning, [#2](https://github.com/astrapi69/lethenon/issues/2) the cut into five milestones.
 
@@ -111,7 +110,7 @@ Decided in [#1](https://github.com/astrapi69/lethenon/issues/1), with the reason
 | Decision | Choice |
 |---|---|
 | Model | accounts with a nonce, not UTXO - one signature per transaction instead of one per input, which is what makes post-quantum signatures affordable |
-| Consensus | **proof of pun**: a block is valid when its memo hash carries the required prefix, longest chain wins, difficulty adjusted every N blocks (planned, not yet a rule: [#24](https://github.com/astrapi69/lethenon/issues/24)). Mining with wordplay instead of nonces, CPU-friendly on purpose - Monero gives the same reasoning for RandomX, "designed to make the use of mining-specific hardware unfeasible", and a protest whose mining needs bought hardware is a poor protest |
+| Consensus | **proof of pun**: a block is valid when its memo hash carries the required prefix, the difficulty starts at 8 bits and steps by at most 2 bits every 30 blocks towards two-minute blocks, timestamps later than the median of the 11 before ([#24](https://github.com/astrapi69/lethenon/issues/24), after Bitcoin's rules). Fork choice by most work comes with a network. Mining with wordplay instead of nonces, CPU-friendly on purpose - Monero gives the same reasoning for RandomX, "designed to make the use of mining-specific hardware unfeasible", and a protest whose mining needs bought hardware is a poor protest |
 | Signatures | Ed25519 by default, ML-DSA-65 selectable per transaction, the suite identifier inside the signed bytes |
 | Encoding | one canonical encoder, a round-trip property test, a format version in every persisted structure |
 | Arithmetic | integers only, `Math.addExact` and `Math.subtractExact`, and the supply invariant checked after every block |
