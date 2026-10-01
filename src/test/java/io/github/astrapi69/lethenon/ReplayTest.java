@@ -69,22 +69,32 @@ class ReplayTest
 		return TransactionSigner.sign(body, SignatureSuite.ED25519, holder.getPrivate());
 	}
 
-	/** A genesis block and one mined block carrying one transfer */
+	/**
+	 * A genesis block paying the holder, one mined block carrying the transfers and paying the
+	 * miner, and a third, empty one on top, so that a change to the second block is caught by the
+	 * link to the third even in the one case in 256 where the changed block still happens to look
+	 * mined
+	 */
 	private List<BlockBody> aChain(final List<SignedTransaction> transactions)
 	{
 		BlockBody genesis = Blocks
-			.mine(new BlockBody(Chain.IDENTIFIER, 0L, Bytes.of(new byte[32]), new ArrayList<>(),
-				1_759_000_000_000L, DIFFICULTY, "in the beginning was the pun"), 1_000_000L)
+			.mine(new BlockBody(Chain.IDENTIFIER, 0L, Bytes.of(new byte[32]), holderKey(),
+				new ArrayList<>(), 1_759_000_000_000L, DIFFICULTY, "in the beginning was the pun"),
+				1_000_000L)
 			.orElseThrow();
 		BlockBody second = Blocks.mine(new BlockBody(Chain.IDENTIFIER, 1L, Blocks.hashOf(genesis),
-			transactions, 1_759_000_060_000L, DIFFICULTY, "surveillance is not security"), 1_000_000L)
-			.orElseThrow();
-		return List.of(genesis, second);
+			minerKey(), transactions, 1_759_000_060_000L, DIFFICULTY,
+			"surveillance is not security"), 1_000_000L).orElseThrow();
+		BlockBody third = Blocks.mine(new BlockBody(Chain.IDENTIFIER, 2L, Blocks.hashOf(second),
+			minerKey(), new ArrayList<>(), 1_759_000_120_000L, DIFFICULTY, "and nothing to hide"),
+			1_000_000L).orElseThrow();
+		return List.of(genesis, second, third);
 	}
 
-	private List<Bytes> miners()
+	private static BlockBody paying(final BlockBody block, final Bytes beneficiary)
 	{
-		return List.of(minerKey(), minerKey());
+		return new BlockBody(block.chainIdentifier(), block.height(), block.previousHash(),
+			beneficiary, block.transactions(), block.timestamp(), block.difficulty(), block.pun());
 	}
 
 	@Test
@@ -97,26 +107,62 @@ class ReplayTest
 		byte[] file = CanonicalEncoding.encodeChain(chain);
 		List<BlockBody> readBack = CanonicalEncoding.readChain(file);
 
-		Replay replay = Replay.verify(readBack, miners(), holderKey());
+		Replay replay = Replay.verify(readBack);
 
-		assertEquals(2L, replay.blocks());
+		assertEquals(3L, replay.blocks());
 		assertEquals(1L, replay.transactions());
 		assertEquals(1L, replay.signatures());
 		assertEquals(Emission.TOTAL_SUPPLY, replay.finalState().total(),
 			"the sum of every balance is the supply, at every height - nothing is ever minted");
-		assertTrue(replay.describe().contains("replayed 2 blocks"), replay.describe());
+		assertTrue(replay.describe().contains("replayed 3 blocks"), replay.describe());
 	}
 
 	@Test
 	@DisplayName("the miner is paid out of the pool, and the pool is shorter by exactly that")
 	void theReward_comesOutOfThePool()
 	{
-		Replay replay = Replay.verify(aChain(new ArrayList<>()), miners(), holderKey());
+		Replay replay = Replay.verify(aChain(new ArrayList<>()));
 
-		assertEquals(Emission.BLOCK_REWARD, replay.finalState().balanceOf(minerKey()),
-			"one block after genesis, so one reward");
-		assertEquals(Emission.MINING_POOL.minus(Emission.BLOCK_REWARD),
+		assertEquals(Emission.BLOCK_REWARD.plus(Emission.BLOCK_REWARD),
+			replay.finalState().balanceOf(minerKey()), "two blocks after genesis, two rewards");
+		assertEquals(Emission.MINING_POOL.minus(Emission.BLOCK_REWARD).minus(Emission.BLOCK_REWARD),
 			replay.finalState().balanceOf(ChainState.POOL));
+	}
+
+	@Test
+	@DisplayName("the genesis block names who holds the half of the supply outside the pool")
+	void theGenesisBlock_namesItsHolder()
+	{
+		Replay replay = Replay.verify(aChain(new ArrayList<>()));
+
+		assertEquals(Emission.TOTAL_SUPPLY.minus(Emission.MINING_POOL),
+			replay.finalState().balanceOf(holderKey()));
+	}
+
+	@Test
+	@DisplayName("a block that pays somebody else is not the block that was mined")
+	void aBlockPayingSomebodyElse_isRefused()
+	{
+		List<BlockBody> chain = new ArrayList<>(aChain(new ArrayList<>()));
+		chain.set(1, paying(chain.get(1), Bytes.of("somebody else".getBytes())));
+
+		ChainRejected refused = assertThrows(ChainRejected.class, () -> Replay.verify(chain));
+
+		assertTrue(refused.getMessage().matches("block 1 is not mined.*|block 2 names .*"),
+			refused.getMessage());
+	}
+
+	@Test
+	@DisplayName("a genesis block that allocates to somebody else is not the genesis of this chain")
+	void aGenesisAllocatingToSomebodyElse_isRefused()
+	{
+		List<BlockBody> chain = new ArrayList<>(aChain(new ArrayList<>()));
+		chain.set(0, paying(chain.get(0), minerKey()));
+
+		ChainRejected refused = assertThrows(ChainRejected.class, () -> Replay.verify(chain));
+
+		assertTrue(refused.getMessage().matches("block 0 is not mined.*|block 1 names .*"),
+			refused.getMessage());
 	}
 
 	@Test
@@ -131,7 +177,7 @@ class ReplayTest
 			List.of(new SignedTransaction(tampered, honest.suite(), honest.signature())));
 
 		ChainRejected refused = assertThrows(ChainRejected.class,
-			() -> Replay.verify(chain, miners(), holderKey()));
+			() -> Replay.verify(chain));
 
 		assertTrue(refused.getMessage().contains("signature"), refused.getMessage());
 	}
@@ -141,10 +187,10 @@ class ReplayTest
 	void anUnminedBlock_isRefused()
 	{
 		BlockBody genesis = new BlockBody(Chain.IDENTIFIER, 0L, Bytes.of(new byte[32]),
-			new ArrayList<>(), 1_759_000_000_000L, 24, "nobody looked for this one");
+			holderKey(), new ArrayList<>(), 1_759_000_000_000L, 24, "nobody looked for this one");
 
 		ChainRejected refused = assertThrows(ChainRejected.class,
-			() -> Replay.verify(List.of(genesis), List.of(minerKey()), holderKey()));
+			() -> Replay.verify(List.of(genesis)));
 
 		assertTrue(refused.getMessage().contains("not mined"), refused.getMessage());
 		assertTrue(refused.getMessage().contains("24"), refused.getMessage());
@@ -158,12 +204,12 @@ class ReplayTest
 		BlockBody second = chain.get(1);
 		BlockBody detached = Blocks
 			.mine(new BlockBody(second.chainIdentifier(), 1L, Bytes.of(new byte[32]),
-				second.transactions(), second.timestamp(), second.difficulty(), "a loose block"),
-				1_000_000L)
+				second.beneficiary(), second.transactions(), second.timestamp(),
+				second.difficulty(), "a loose block"), 1_000_000L)
 			.orElseThrow();
 
 		ChainRejected refused = assertThrows(ChainRejected.class,
-			() -> Replay.verify(List.of(chain.get(0), detached), miners(), holderKey()));
+			() -> Replay.verify(List.of(chain.get(0), detached)));
 
 		assertTrue(refused.getMessage().contains("previous hash"), refused.getMessage());
 	}
@@ -176,7 +222,7 @@ class ReplayTest
 		List<BlockBody> chain = aChain(List.of(once, once));
 
 		ChainRejected refused = assertThrows(ChainRejected.class,
-			() -> Replay.verify(chain, miners(), holderKey()));
+			() -> Replay.verify(chain));
 
 		assertTrue(refused.getMessage().contains("nonce"), refused.getMessage());
 	}
@@ -188,7 +234,7 @@ class ReplayTest
 		List<BlockBody> chain = aChain(List.of(aTransferOf(0L, Emission.TOTAL_SUPPLY)));
 
 		ChainRejected refused = assertThrows(ChainRejected.class,
-			() -> Replay.verify(chain, miners(), holderKey()));
+			() -> Replay.verify(chain));
 
 		assertTrue(refused.getMessage().contains("holding"), refused.getMessage());
 	}

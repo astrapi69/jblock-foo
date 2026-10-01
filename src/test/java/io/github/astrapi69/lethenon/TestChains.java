@@ -34,22 +34,29 @@ import java.util.List;
 final class TestChains
 {
 
+	/** The account every block after the genesis block pays its reward to */
+	static final Bytes MINER = Bytes.of(new byte[] { 5 });
+
 	private TestChains()
 	{
 	}
 
 	/**
-	 * A genesis block and one mined block per transfer
+	 * A genesis block allocating to the holder, and one mined block per transfer, each paying
+	 * {@link #MINER}
 	 *
+	 * @param holder
+	 *            the account the genesis block allocates the non-pool half of the supply to
 	 * @param transfers
 	 *            the transfers, in chain order
 	 * @return the blocks, genesis first
 	 */
-	static List<BlockBody> chainWith(final SignedTransaction... transfers)
+	static List<BlockBody> chainWith(final Bytes holder, final SignedTransaction... transfers)
 	{
 		BlockBody genesis = Blocks
-			.mine(new BlockBody(Chain.IDENTIFIER, 0L, Bytes.of(new byte[32]), new ArrayList<>(),
-				1_759_000_000_000L, 8, "in the beginning was the pun"), 1_000_000L)
+			.mine(new BlockBody(Chain.IDENTIFIER, 0L, Bytes.of(new byte[32]), holder,
+				new ArrayList<>(), 1_759_000_000_000L, 8, "in the beginning was the pun"),
+				1_000_000L)
 			.orElseThrow();
 		List<BlockBody> chain = new ArrayList<>(List.of(genesis));
 		for (SignedTransaction transfer : transfers)
@@ -57,23 +64,11 @@ final class TestChains
 			BlockBody previous = chain.getLast();
 			chain.add(Blocks
 				.mine(new BlockBody(Chain.IDENTIFIER, previous.height() + 1L,
-					Blocks.hashOf(previous), List.of(transfer),
+					Blocks.hashOf(previous), MINER, List.of(transfer),
 					1_759_000_000_000L + 60_000L * chain.size(), 8, "block " + chain.size()),
 					1_000_000L)
 				.orElseThrow());
 		}
 		return chain;
-	}
-
-	/**
-	 * The same miner for every block
-	 *
-	 * @param chain
-	 *            the blocks
-	 * @return one miner per block
-	 */
-	static List<Bytes> minersFor(final List<BlockBody> chain)
-	{
-		return chain.stream().map(block -> Bytes.of(new byte[] { 5 })).toList();
 	}
 }

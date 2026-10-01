@@ -41,8 +41,19 @@ import java.util.List;
 public final class CanonicalEncoding
 {
 
-	/** The version of this encoding, the first byte of everything it writes */
-	public static final byte VERSION = 1;
+	/**
+	 * The version of the transaction encoding, the first byte of a transfer's bytes and so of
+	 * every signing payload. Unchanged by lethenon#23: nothing about a transaction changed, and no
+	 * signature should have to change with a block format
+	 */
+	public static final byte TRANSACTION_VERSION = 1;
+
+	/**
+	 * The version of the block and chain encoding, the first byte of a block header and of a chain
+	 * file. Version 2 added the beneficiary to the block header (lethenon#23); a version 1 chain
+	 * cannot be replayed without being told who was paid, so it is refused rather than guessed
+	 */
+	public static final byte BLOCK_VERSION = 2;
 
 	private CanonicalEncoding()
 	{
@@ -58,7 +69,7 @@ public final class CanonicalEncoding
 	public static byte[] encode(final TransactionBody body)
 	{
 		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-		bytes.write(VERSION);
+		bytes.write(TRANSACTION_VERSION);
 		writeText(bytes, body.chainIdentifier());
 		writeLong(bytes, body.nonce());
 		writeBytes(bytes, body.sender());
@@ -83,10 +94,11 @@ public final class CanonicalEncoding
 	public static byte[] encode(final BlockBody body, final Bytes merkleRoot)
 	{
 		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-		bytes.write(VERSION);
+		bytes.write(BLOCK_VERSION);
 		writeText(bytes, body.chainIdentifier());
 		writeLong(bytes, body.height());
 		writeBytes(bytes, body.previousHash());
+		writeBytes(bytes, body.beneficiary());
 		writeBytes(bytes, merkleRoot);
 		writeLong(bytes, body.timestamp());
 		writeLong(bytes, body.difficulty());
@@ -122,7 +134,7 @@ public final class CanonicalEncoding
 	public static byte[] encodeChain(final List<BlockBody> chain)
 	{
 		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-		bytes.write(VERSION);
+		bytes.write(BLOCK_VERSION);
 		writeLong(bytes, chain.size());
 		for (BlockBody block : chain)
 		{
@@ -181,6 +193,7 @@ public final class CanonicalEncoding
 		String chainIdentifier = readText(buffer);
 		long height = buffer.getLong();
 		Bytes previousHash = readBytes(buffer);
+		Bytes beneficiary = readBytes(buffer);
 		// the Merkle root is not read back: it is recomputed from the transactions, so a chain
 		// whose root does not match its transactions fails the hash check rather than being
 		// believed
@@ -188,16 +201,16 @@ public final class CanonicalEncoding
 		long timestamp = buffer.getLong();
 		int difficulty = (int)buffer.getLong();
 		String pun = readText(buffer);
-		return new BlockBody(chainIdentifier, height, previousHash, transactions, timestamp,
-			difficulty, pun);
+		return new BlockBody(chainIdentifier, height, previousHash, beneficiary, transactions,
+			timestamp, difficulty, pun);
 	}
 
 	private static void requireKnownVersion(final byte version)
 	{
-		if (version != VERSION)
+		if (version != BLOCK_VERSION)
 		{
-			throw new IllegalArgumentException("this build reads encoding version " + VERSION
-				+ " and the bytes carry version " + version);
+			throw new IllegalArgumentException("this build reads block encoding version "
+				+ BLOCK_VERSION + " and the bytes carry version " + version);
 		}
 	}
 
@@ -214,10 +227,10 @@ public final class CanonicalEncoding
 	{
 		ByteBuffer buffer = ByteBuffer.wrap(encoded);
 		byte version = buffer.get();
-		if (version != VERSION)
+		if (version != TRANSACTION_VERSION)
 		{
-			throw new IllegalArgumentException("this build reads encoding version " + VERSION
-				+ " and the bytes carry version " + version
+			throw new IllegalArgumentException("this build reads transaction encoding version "
+				+ TRANSACTION_VERSION + " and the bytes carry version " + version
 				+ "; what a newer version added cannot be guessed");
 		}
 		String chainIdentifier = readText(buffer);

@@ -25,7 +25,6 @@
 package io.github.astrapi69.lethenon;
 
 import static io.github.astrapi69.lethenon.TestChains.chainWith;
-import static io.github.astrapi69.lethenon.TestChains.minersFor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -69,11 +68,11 @@ class WalletScanTest
 			OneTimeAddresses.newEphemeralKeyPair());
 		Destination second = OneTimeAddresses.destinationFor(address,
 			OneTimeAddresses.newEphemeralKeyPair());
-		List<BlockBody> chain = chainWith(
+		List<BlockBody> chain = chainWith(senderKey,
 			transfer(0L, first, Amount.ofLeth(3L), "the first of two"),
 			transfer(1L, second, Amount.ofLeth(5L), "and the second"));
 
-		WalletScan scan = WalletScan.over(chain, minersFor(chain), senderKey, address,
+		WalletScan scan = WalletScan.over(chain, address,
 			viewPrivateKey);
 
 		assertEquals(2, scan.received().size(), scan.describe());
@@ -95,10 +94,11 @@ class WalletScanTest
 			OneTimeAddresses.newEphemeralKeyPair());
 		Destination theirs = OneTimeAddresses.destinationFor(somebodyElse,
 			OneTimeAddresses.newEphemeralKeyPair());
-		List<BlockBody> chain = chainWith(transfer(0L, theirs, Amount.ofLeth(11L), "not for us"),
+		List<BlockBody> chain = chainWith(senderKey,
+			transfer(0L, theirs, Amount.ofLeth(11L), "not for us"),
 			transfer(1L, ours, Amount.ofLeth(4L), "this one is"));
 
-		WalletScan scan = WalletScan.over(chain, minersFor(chain), senderKey, address,
+		WalletScan scan = WalletScan.over(chain, address,
 			viewPrivateKey);
 
 		assertEquals(1, scan.received().size(), scan.describe());
@@ -109,10 +109,10 @@ class WalletScanTest
 	@DisplayName("a direct transfer to the published key is not a one-time payment")
 	void scan_doesNotClaim_aDirectTransfer()
 	{
-		List<BlockBody> chain = chainWith(
+		List<BlockBody> chain = chainWith(senderKey,
 			transfer(0L, Destination.direct(address.spendKey()), Amount.ofLeth(7L), "in the open"));
 
-		WalletScan scan = WalletScan.over(chain, minersFor(chain), senderKey, address,
+		WalletScan scan = WalletScan.over(chain, address,
 			viewPrivateKey);
 
 		assertEquals(List.of(), scan.received());
@@ -125,15 +125,15 @@ class WalletScanTest
 	{
 		Destination ours = OneTimeAddresses.destinationFor(address,
 			OneTimeAddresses.newEphemeralKeyPair());
-		List<BlockBody> chain = chainWith(transfer(0L, ours, Amount.ofLeth(6L), "paid"));
+		List<BlockBody> chain = chainWith(senderKey, transfer(0L, ours, Amount.ofLeth(6L), "paid"));
 		List<BlockBody> tampered = new ArrayList<>(chain);
 		BlockBody last = tampered.getLast();
 		tampered.set(tampered.size() - 1, new BlockBody(last.chainIdentifier(), last.height(),
-			Bytes.of(new byte[32]), last.transactions(), last.timestamp(), last.difficulty(),
-			last.pun()));
+			Bytes.of(new byte[32]), last.beneficiary(), last.transactions(), last.timestamp(),
+			last.difficulty(), last.pun()));
 
-		ChainRejected refused = assertThrows(ChainRejected.class, () -> WalletScan.over(tampered,
-			minersFor(tampered), senderKey, address, viewPrivateKey));
+		ChainRejected refused = assertThrows(ChainRejected.class,
+			() -> WalletScan.over(tampered, address, viewPrivateKey));
 
 		assertTrue(refused.getMessage().contains("previous hash"), refused.getMessage());
 	}
@@ -142,11 +142,11 @@ class WalletScanTest
 	@DisplayName("the scan reports what it read, so an empty answer cannot pass for a zero balance")
 	void scan_reportsWhatItRead()
 	{
-		List<BlockBody> chain = chainWith(transfer(0L,
+		List<BlockBody> chain = chainWith(senderKey, transfer(0L,
 			OneTimeAddresses.destinationFor(address, OneTimeAddresses.newEphemeralKeyPair()),
 			Amount.ofLeth(2L), "one transfer"));
 
-		WalletScan scan = WalletScan.over(chain, minersFor(chain), senderKey, address,
+		WalletScan scan = WalletScan.over(chain, address,
 			viewPrivateKey);
 
 		assertEquals(chain.size(), scan.blocksRead());

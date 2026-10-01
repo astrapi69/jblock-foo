@@ -25,7 +25,6 @@
 package io.github.astrapi69.lethenon;
 
 import static io.github.astrapi69.lethenon.TestChains.chainWith;
-import static io.github.astrapi69.lethenon.TestChains.minersFor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -129,10 +128,10 @@ class WalletTest
 				OneTimeAddresses.newEphemeralKeyPair()),
 			Amount.ofLeth(9L), Amount.ZERO, "paid before the wallet was lost"),
 			SignatureSuite.ED25519);
-		List<BlockBody> chain = chainWith(payment);
+		List<BlockBody> chain = chainWith(senderKey, payment);
 		Wallet restored = Wallet.restore(List.of(shares.get(1), shares.get(2), shares.get(4)));
 
-		WalletScan scan = WalletScan.over(chain, minersFor(chain), senderKey, restored.address(),
+		WalletScan scan = WalletScan.over(chain, restored.address(),
 			restored.viewKeyPair().getPrivate());
 
 		assertEquals(Amount.ofLeth(9L), scan.balance(), scan.describe());

@@ -148,16 +148,16 @@ class OneTimeAddressesTest
 			SignatureSuite.ED25519, sender.getPrivate());
 
 		BlockBody genesis = Blocks
-			.mine(new BlockBody(Chain.IDENTIFIER, 0L, Bytes.of(new byte[32]), new ArrayList<>(),
-				1_759_000_000_000L, 8, "in the beginning was the pun"), 1_000_000L)
+			.mine(new BlockBody(Chain.IDENTIFIER, 0L, Bytes.of(new byte[32]), senderKey,
+				new ArrayList<>(), 1_759_000_000_000L, 8, "in the beginning was the pun"),
+				1_000_000L)
 			.orElseThrow();
 		BlockBody second = Blocks.mine(new BlockBody(Chain.IDENTIFIER, 1L, Blocks.hashOf(genesis),
-			List.of(transfer), 1_759_000_060_000L, 8, "nobody can tell who was paid"), 1_000_000L)
-			.orElseThrow();
+			Bytes.of(new byte[] { 5 }), List.of(transfer), 1_759_000_060_000L, 8,
+			"nobody can tell who was paid"), 1_000_000L).orElseThrow();
 
 		Replay replay = Replay.verify(
-			CanonicalEncoding.readChain(CanonicalEncoding.encodeChain(List.of(genesis, second))),
-			List.of(Bytes.of(new byte[] { 5 }), Bytes.of(new byte[] { 5 })), senderKey);
+			CanonicalEncoding.readChain(CanonicalEncoding.encodeChain(List.of(genesis, second))));
 
 		assertEquals(Amount.ofLeth(3L), replay.finalState().balanceOf(destination.key()),
 			"the money sits at the one-time destination, which only the recipient can connect to "

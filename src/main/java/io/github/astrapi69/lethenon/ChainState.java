@@ -25,7 +25,6 @@
 package io.github.astrapi69.lethenon;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -89,34 +88,33 @@ public final class ChainState
 
 	/**
 	 * Puts the genesis allocation in place: half the supply into the mining pool, half to the
-	 * holder the genesis block names
+	 * account the genesis block names as its beneficiary
 	 *
-	 * @param genesisHolder
-	 *            the account the other half goes to
+	 * @param genesis
+	 *            the genesis block
 	 */
-	void allocateGenesis(final Bytes genesisHolder)
+	void allocateGenesis(final BlockBody genesis)
 	{
 		balances.put(POOL, Emission.MINING_POOL);
-		balances.put(genesisHolder, Emission.TOTAL_SUPPLY.minus(Emission.MINING_POOL));
+		balances.put(genesis.beneficiary(), Emission.TOTAL_SUPPLY.minus(Emission.MINING_POOL));
 	}
 
 	/**
-	 * Applies a block: every transfer in order, then the reward to the miner out of the pool
+	 * Applies a block: every transfer in order, then the reward out of the pool to the miner the
+	 * block names as its beneficiary
 	 *
 	 * @param block
 	 *            the block
-	 * @param miner
-	 *            the account the reward goes to
 	 * @throws ChainRejected
 	 *             if any rule is broken; the state is then not to be used further
 	 */
-	void apply(final BlockBody block, final Bytes miner)
+	void apply(final BlockBody block)
 	{
 		for (SignedTransaction transaction : block.transactions())
 		{
 			applyTransfer(transaction);
 		}
-		payTheReward(miner);
+		payTheReward(block.beneficiary());
 		if (!Emission.TOTAL_SUPPLY.equals(total()))
 		{
 			throw new ChainRejected("the supply moved: " + total() + " instead of "
@@ -170,24 +168,5 @@ public final class ChainState
 		}
 		balances.put(POOL, balanceOf(POOL).minus(reward));
 		balances.put(miner, balanceOf(miner).plus(reward));
-	}
-
-	/**
-	 * Replays a whole chain into a fresh state
-	 *
-	 * @param chain
-	 *            the blocks, lowest height first
-	 * @param miners
-	 *            the account each block's reward goes to, in the same order
-	 * @return the state after the last block
-	 */
-	public static ChainState of(final List<BlockBody> chain, final List<Bytes> miners)
-	{
-		ChainState state = new ChainState();
-		for (int height = 0; height < chain.size(); height++)
-		{
-			state.apply(chain.get(height), miners.get(height));
-		}
-		return state;
 	}
 }
