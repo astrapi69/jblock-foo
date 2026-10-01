@@ -27,6 +27,7 @@ package io.github.astrapi69.lethenon;
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 /**
  * The one encoder, and the only one.
@@ -91,6 +92,113 @@ public final class CanonicalEncoding
 		writeLong(bytes, body.difficulty());
 		writeText(bytes, body.pun());
 		return bytes.toByteArray();
+	}
+
+	/**
+	 * The canonical bytes of a signed transfer: the transfer, the suite that signed it and the
+	 * signature
+	 *
+	 * @param transaction
+	 *            the signed transfer
+	 * @return its bytes
+	 */
+	public static byte[] encode(final SignedTransaction transaction)
+	{
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+		writeBytes(bytes, Bytes.of(encode(transaction.body())));
+		writeText(bytes, transaction.suite().identifier());
+		writeBytes(bytes, transaction.signature());
+		return bytes.toByteArray();
+	}
+
+	/**
+	 * The canonical bytes of a whole chain: every block with the transactions it carries, so that
+	 * another process can replay exactly what this one wrote
+	 *
+	 * @param chain
+	 *            the blocks, lowest height first
+	 * @return its bytes
+	 */
+	public static byte[] encodeChain(final List<BlockBody> chain)
+	{
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+		bytes.write(VERSION);
+		writeLong(bytes, chain.size());
+		for (BlockBody block : chain)
+		{
+			writeBytes(bytes, Bytes.of(encode(block, Blocks.merkleRoot(block))));
+			writeLong(bytes, block.transactions().size());
+			for (SignedTransaction transaction : block.transactions())
+			{
+				writeBytes(bytes, Bytes.of(encode(transaction)));
+			}
+		}
+		return bytes.toByteArray();
+	}
+
+	/**
+	 * Reads back what {@link #encodeChain(List)} wrote
+	 *
+	 * @param encoded
+	 *            the bytes
+	 * @return the blocks, lowest height first
+	 * @throws IllegalArgumentException
+	 *             if the bytes carry a version this build does not know
+	 */
+	public static List<BlockBody> readChain(final byte[] encoded)
+	{
+		ByteBuffer buffer = ByteBuffer.wrap(encoded);
+		requireKnownVersion(buffer.get());
+		int blocks = (int)buffer.getLong();
+		List<BlockBody> chain = new java.util.ArrayList<>();
+		for (int height = 0; height < blocks; height++)
+		{
+			byte[] header = readBytes(buffer).toByteArray();
+			int count = (int)buffer.getLong();
+			List<SignedTransaction> transactions = new java.util.ArrayList<>();
+			for (int index = 0; index < count; index++)
+			{
+				transactions.add(readSignedTransaction(readBytes(buffer).toByteArray()));
+			}
+			chain.add(readBlockHeader(header, transactions));
+		}
+		return chain;
+	}
+
+	private static SignedTransaction readSignedTransaction(final byte[] encoded)
+	{
+		ByteBuffer buffer = ByteBuffer.wrap(encoded);
+		TransactionBody body = readTransaction(readBytes(buffer).toByteArray());
+		SignatureSuite suite = SignatureSuite.withIdentifier(readText(buffer));
+		return new SignedTransaction(body, suite, readBytes(buffer));
+	}
+
+	private static BlockBody readBlockHeader(final byte[] encoded,
+		final List<SignedTransaction> transactions)
+	{
+		ByteBuffer buffer = ByteBuffer.wrap(encoded);
+		requireKnownVersion(buffer.get());
+		String chainIdentifier = readText(buffer);
+		long height = buffer.getLong();
+		Bytes previousHash = readBytes(buffer);
+		// the Merkle root is not read back: it is recomputed from the transactions, so a chain
+		// whose root does not match its transactions fails the hash check rather than being
+		// believed
+		readBytes(buffer);
+		long timestamp = buffer.getLong();
+		int difficulty = (int)buffer.getLong();
+		String pun = readText(buffer);
+		return new BlockBody(chainIdentifier, height, previousHash, transactions, timestamp,
+			difficulty, pun);
+	}
+
+	private static void requireKnownVersion(final byte version)
+	{
+		if (version != VERSION)
+		{
+			throw new IllegalArgumentException("this build reads encoding version " + VERSION
+				+ " and the bytes carry version " + version);
+		}
 	}
 
 	/**
