@@ -25,23 +25,18 @@
 package io.github.astrapi69.lethenon.cli;
 
 import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Callable;
 
 import io.github.astrapi69.lethenon.BlockBody;
 import io.github.astrapi69.lethenon.Bytes;
-import io.github.astrapi69.lethenon.CanonicalEncoding;
+import io.github.astrapi69.lethenon.ChainFile;
 import io.github.astrapi69.lethenon.ChainRejected;
 import io.github.astrapi69.lethenon.SignedTransaction;
 import io.github.astrapi69.lethenon.Wallet;
@@ -60,9 +55,6 @@ import picocli.CommandLine.Option;
  */
 abstract class ChainCommand implements Callable<Integer>
 {
-
-	/** The version of the pending file described above */
-	static final byte PENDING_VERSION = 1;
 
 	@Option(names = "--chain", required = true, description = "the chain file")
 	Path chain;
@@ -129,11 +121,7 @@ abstract class ChainCommand implements Callable<Integer>
 	 */
 	List<BlockBody> readChain() throws IOException
 	{
-		if (!Files.exists(chain))
-		{
-			return List.of();
-		}
-		return CanonicalEncoding.readChain(Files.readAllBytes(chain));
+		return chainFile().read();
 	}
 
 	/**
@@ -145,18 +133,11 @@ abstract class ChainCommand implements Callable<Integer>
 	 */
 	List<BlockBody> requireChain() throws IOException
 	{
-		List<BlockBody> blocks = readChain();
-		if (blocks.isEmpty())
-		{
-			throw new IllegalArgumentException(
-				"there is no chain at " + chain + " yet; mine its genesis block first");
-		}
-		return blocks;
+		return chainFile().require();
 	}
 
 	/**
-	 * Writes the chain through a file next to it and a move, so that a crash leaves the old chain
-	 * or the new one and never half of either
+	 * Writes the chain, atomically - see {@link ChainFile}
 	 *
 	 * @param blocks
 	 *            the whole chain
@@ -165,7 +146,7 @@ abstract class ChainCommand implements Callable<Integer>
 	 */
 	void writeChain(final List<BlockBody> blocks) throws IOException
 	{
-		writeReplacing(chain, CanonicalEncoding.encodeChain(blocks));
+		chainFile().write(blocks);
 	}
 
 	/**
@@ -177,27 +158,7 @@ abstract class ChainCommand implements Callable<Integer>
 	 */
 	List<SignedTransaction> readPending() throws IOException
 	{
-		Path file = pendingFile();
-		if (!Files.exists(file))
-		{
-			return List.of();
-		}
-		ByteBuffer buffer = ByteBuffer.wrap(Files.readAllBytes(file));
-		byte version = buffer.get();
-		if (version != PENDING_VERSION)
-		{
-			throw new IllegalArgumentException(file + " is pending-file version " + version
-				+ " and this build reads version " + PENDING_VERSION);
-		}
-		int count = buffer.getInt();
-		List<SignedTransaction> transfers = new ArrayList<>(count);
-		for (int index = 0; index < count; index++)
-		{
-			byte[] encoded = new byte[buffer.getInt()];
-			buffer.get(encoded);
-			transfers.add(CanonicalEncoding.readSignedTransaction(encoded));
-		}
-		return transfers;
+		return chainFile().readPending();
 	}
 
 	/**
@@ -210,21 +171,7 @@ abstract class ChainCommand implements Callable<Integer>
 	 */
 	void writePending(final List<SignedTransaction> transfers) throws IOException
 	{
-		if (transfers.isEmpty())
-		{
-			Files.deleteIfExists(pendingFile());
-			return;
-		}
-		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-		bytes.write(PENDING_VERSION);
-		bytes.writeBytes(ByteBuffer.allocate(Integer.BYTES).putInt(transfers.size()).array());
-		for (SignedTransaction transfer : transfers)
-		{
-			byte[] encoded = CanonicalEncoding.encode(transfer);
-			bytes.writeBytes(ByteBuffer.allocate(Integer.BYTES).putInt(encoded.length).array());
-			bytes.writeBytes(encoded);
-		}
-		writeReplacing(pendingFile(), bytes.toByteArray());
+		chainFile().writePending(transfers);
 	}
 
 	/**
@@ -278,16 +225,8 @@ abstract class ChainCommand implements Callable<Integer>
 		return nextLineOfStandardInput(standardInput(), "the wallet's password").toCharArray();
 	}
 
-	private Path pendingFile()
+	private ChainFile chainFile()
 	{
-		return chain.resolveSibling(chain.getFileName() + ".pending");
-	}
-
-	private static void writeReplacing(final Path target, final byte[] content) throws IOException
-	{
-		Path temporary = target.resolveSibling(target.getFileName() + ".writing");
-		Files.write(temporary, content);
-		Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING,
-			StandardCopyOption.ATOMIC_MOVE);
+		return new ChainFile(chain);
 	}
 }
