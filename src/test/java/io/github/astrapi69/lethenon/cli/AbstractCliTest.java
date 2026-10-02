@@ -24,11 +24,17 @@
  */
 package io.github.astrapi69.lethenon.cli;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+import java.util.Base64;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Drives the command line the way a shell does - through {@link LethenonCli#execute(String...)}
@@ -37,6 +43,14 @@ import java.nio.charset.StandardCharsets;
  */
 abstract class AbstractCliTest
 {
+
+	/** The account line every wallet command prints */
+	protected static final Pattern ACCOUNT = Pattern.compile("account \\(ed25519\\): ([0-9a-f]+)");
+
+	/** The published address line, which is what another command's --to-address takes (#37) */
+	protected static final Pattern ADDRESS = Pattern
+		.compile("address \\(publish this\\): ([0-9a-f]+:[0-9a-f]+)");
+
 
 	/** What the last command printed to standard output */
 	protected String out;
@@ -53,6 +67,20 @@ abstract class AbstractCliTest
 	 *            the command line
 	 * @return the exit code
 	 */
+	protected static String aPassword()
+	{
+		byte[] bytes = new byte[18];
+		new SecureRandom().nextBytes(bytes);
+		return Base64.getEncoder().encodeToString(bytes);
+	}
+
+	protected static String matchIn(final Pattern pattern, final String output)
+	{
+		Matcher matcher = pattern.matcher(output);
+		assertTrue(matcher.find(), output);
+		return matcher.group(1);
+	}
+
 	protected int run(final String stdin, final String... args)
 	{
 		InputStream originalIn = System.in;

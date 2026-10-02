@@ -36,10 +36,19 @@ lethenon wallet restore --wallet again.wallet           # stdin: the 24 words, t
 lethenon mine    --chain chain.lethenon --wallet holder.wallet   # first run: the genesis block
 lethenon faucet  --chain chain.lethenon --wallet holder.wallet --to <account>
 lethenon send    --chain chain.lethenon --wallet w.wallet --to <account> --amount 12.5 --memo "..."
+lethenon send    --chain chain.lethenon --wallet w.wallet --to-address <view:spend> --amount 12.5
+lethenon sweep   --chain chain.lethenon --wallet w.wallet       # one-time payments onto the account
 lethenon balance --chain chain.lethenon --wallet w.wallet       # replays the chain, asks nobody
 ```
 
-`send` and `faucet` sign a transfer that waits in `chain.lethenon.pending`; the next `mine` puts
+`--to` names an account and the chain shows who was paid; `--to-address` names the published
+address that `wallet create` and `balance` print, and the transfer then goes to a one-time
+destination derived from it, so two payments to the same address have nothing visibly in common.
+`sweep` is the other end of that: it moves what was paid to those destinations onto the account,
+one transfer per destination, and says out loud what that costs - the chain then shows those
+destinations and the account together. Receiving is unlinkable; spending is the moment that ends.
+
+`send`, `faucet` and `sweep` sign transfers that wait in `chain.lethenon.pending`; the next `mine` puts
 every waiting transfer into a block, replays the result and only then writes it. Exit codes: 0
 done, 1 refused with the reason on standard error, 2 a command line that was not understood.
 

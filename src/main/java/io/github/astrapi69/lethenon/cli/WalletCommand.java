@@ -104,6 +104,8 @@ class WalletCommand
 			System.out.println("wallet written to " + wallet);
 			System.out.println(
 				"account (ed25519): " + ChainCommand.hex(created.spendKey(SignatureSuite.ED25519)));
+			// what a payer needs in order to pay unlinkably, in the form --to-address takes (#37)
+			System.out.println("address (publish this): " + created.address().toText());
 		}
 	}
 
@@ -146,6 +148,7 @@ class WalletCommand
 				System.out.println("wallet restored to " + wallet);
 				System.out.println("account (ed25519): "
 					+ ChainCommand.hex(restored.spendKey(SignatureSuite.ED25519)));
+				System.out.println("address (publish this): " + restored.address().toText());
 				return 0;
 			}
 			catch (IllegalArgumentException | IOException refused)

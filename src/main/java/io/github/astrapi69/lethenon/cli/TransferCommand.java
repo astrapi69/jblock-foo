@@ -33,6 +33,8 @@ import io.github.astrapi69.lethenon.Amount;
 import io.github.astrapi69.lethenon.BlockBody;
 import io.github.astrapi69.lethenon.Bytes;
 import io.github.astrapi69.lethenon.Destination;
+import io.github.astrapi69.lethenon.OneTimeAddresses;
+import io.github.astrapi69.lethenon.PublishedAddress;
 import io.github.astrapi69.lethenon.SignatureSuite;
 import io.github.astrapi69.lethenon.SignedTransaction;
 import io.github.astrapi69.lethenon.Transfers;
@@ -51,9 +53,16 @@ import picocli.CommandLine.Option;
 abstract class TransferCommand extends ChainCommand
 {
 
-	@Option(names = "--to", required = true,
-		description = "the recipient's account key, in hex, as every command prints it")
+	@Option(names = "--to",
+		description = "the recipient's account key, in hex, as every command prints it; the "
+			+ "transparent case - the chain shows who was paid")
 	String recipient;
+
+	@Option(names = "--to-address",
+		description = "the recipient's published address, as 'wallet create' and 'balance' print "
+			+ "it (view:spend in hex). The transfer then goes to a one-time destination derived "
+			+ "from it, and two payments to the same address have nothing visibly in common")
+	String recipientAddress;
 
 	@Option(names = "--fee", defaultValue = "0",
 		description = "the fee in LETH, up to 8 decimals; default: 0")
@@ -92,12 +101,11 @@ abstract class TransferCommand extends ChainCommand
 	{
 		List<SignedTransaction> waiting = new ArrayList<>(readPending());
 		SignedTransaction signed = Transfers.prepare(sender, SignatureSuite.withIdentifier(suite),
-			blocks, waiting, Destination.direct(Bytes.ofHex(recipient)), amount, amountOf(fee),
-			memo);
+			blocks, waiting, destination(), amount, amountOf(fee), memo);
 		long nonce = signed.body().nonce();
 		waiting.add(signed);
 		writePending(waiting);
-		out.println("signed a transfer of " + amount + " LETH to " + recipient + " with nonce "
+		out.println("signed a transfer of " + amount + " LETH to " + whomItNames() + " with nonce "
 			+ nonce + "; it waits for the next block (" + waiting.size() + " waiting)");
 		return 0;
 	}
@@ -112,6 +120,40 @@ abstract class TransferCommand extends ChainCommand
 	 * @throws IllegalArgumentException
 	 *             for more than eight decimals, a negative amount, or no number at all
 	 */
+	/**
+	 * Where the money goes: a transparent account, or a one-time destination derived from a
+	 * published address. Exactly one of the two options says so - a transfer that names both
+	 * leaves which one wins to the reader, and one that names neither has no recipient at all.
+	 */
+	private Destination destination()
+	{
+		boolean hasKey = recipient != null && !recipient.isBlank();
+		boolean hasAddress = recipientAddress != null && !recipientAddress.isBlank();
+		if (hasKey == hasAddress)
+		{
+			throw new IllegalArgumentException("name the recipient once: --to for an account key, "
+				+ "or --to-address for a published address");
+		}
+		if (hasKey)
+		{
+			return Destination.direct(Bytes.ofHex(recipient));
+		}
+		return OneTimeAddresses.destinationFor(PublishedAddress.parse(recipientAddress),
+			OneTimeAddresses.newEphemeralKeyPair());
+	}
+
+	/**
+	 * What the line printed afterwards says the money went to. A published address is NOT printed
+	 * as the destination it produced: the point of a one-time destination is that nobody but the
+	 * recipient can connect the two, and a sender's own terminal is a place where that connection
+	 * would be written down.
+	 */
+	private String whomItNames()
+	{
+		return recipient != null && !recipient.isBlank() ? recipient
+			: "a one-time destination of " + recipientAddress;
+	}
+
 	static Amount amountOf(final String text)
 	{
 		return Amount.parseLeth(text);
