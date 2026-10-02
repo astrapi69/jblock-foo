@@ -25,7 +25,6 @@
 package io.github.astrapi69.lethenon.cli;
 
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,13 +32,10 @@ import java.util.List;
 import io.github.astrapi69.lethenon.Amount;
 import io.github.astrapi69.lethenon.BlockBody;
 import io.github.astrapi69.lethenon.Bytes;
-import io.github.astrapi69.lethenon.Chain;
-import io.github.astrapi69.lethenon.ChainState;
 import io.github.astrapi69.lethenon.Destination;
-import io.github.astrapi69.lethenon.Replay;
 import io.github.astrapi69.lethenon.SignatureSuite;
 import io.github.astrapi69.lethenon.SignedTransaction;
-import io.github.astrapi69.lethenon.TransactionBody;
+import io.github.astrapi69.lethenon.Transfers;
 import io.github.astrapi69.lethenon.Wallet;
 import picocli.CommandLine.Option;
 
@@ -94,23 +90,11 @@ abstract class TransferCommand extends ChainCommand
 	int transfer(final PrintStream out, final Wallet sender, final List<BlockBody> blocks,
 		final Amount amount, final String memo) throws IOException
 	{
-		SignatureSuite signatureSuite = SignatureSuite.withIdentifier(suite);
-		Bytes account = sender.spendKey(signatureSuite);
-		ChainState state = Replay.verify(blocks).finalState();
 		List<SignedTransaction> waiting = new ArrayList<>(readPending());
-		Amount transferFee = amountOf(fee);
-		Amount due = amount.plus(transferFee);
-		Amount available = availableTo(account, state, waiting);
-		if (available.compareTo(due) < 0)
-		{
-			throw new IllegalArgumentException("account " + hex(account) + " holds "
-				+ state.balanceOf(account) + " LETH, " + available
-				+ " after the transfers already waiting, and this transfer needs " + due);
-		}
-		long nonce = state.nextNonceOf(account) + countFrom(account, waiting);
-		SignedTransaction signed = sender.sign(new TransactionBody(Chain.IDENTIFIER, nonce, account,
-			Destination.direct(Bytes.ofHex(recipient)), amount, transferFee, memo),
-			signatureSuite);
+		SignedTransaction signed = Transfers.prepare(sender, SignatureSuite.withIdentifier(suite),
+			blocks, waiting, Destination.direct(Bytes.ofHex(recipient)), amount, amountOf(fee),
+			memo);
+		long nonce = signed.body().nonce();
 		waiting.add(signed);
 		writePending(waiting);
 		out.println("signed a transfer of " + amount + " LETH to " + recipient + " with nonce "
@@ -119,9 +103,8 @@ abstract class TransferCommand extends ChainCommand
 	}
 
 	/**
-	 * An amount as a person types it - "12.5", "1984", "0.00000001" - turned into lethe exactly.
-	 * {@link Amount#parse(String)} stays the strict form with all eight decimals; this is the
-	 * forgiving one for the command line, and it still never rounds
+	 * An amount as a person types it - "12.5", "1984", "0.00000001" - turned into lethe exactly;
+	 * {@link Amount#parseLeth(String)} since lethenon#32, where the desktop plugin reads it too
 	 *
 	 * @param text
 	 *            the amount in LETH
@@ -131,36 +114,6 @@ abstract class TransferCommand extends ChainCommand
 	 */
 	static Amount amountOf(final String text)
 	{
-		try
-		{
-			long lethe = new BigDecimal(text.strip()).movePointRight(Amount.DECIMALS)
-				.longValueExact();
-			return Amount.ofLethe(lethe);
-		}
-		catch (ArithmeticException | NumberFormatException unreadable)
-		{
-			throw new IllegalArgumentException("'" + text + "' is not an amount of LETH with at "
-				+ "most " + Amount.DECIMALS + " decimals", unreadable);
-		}
-	}
-
-	private static Amount availableTo(final Bytes account, final ChainState state,
-		final List<SignedTransaction> waiting)
-	{
-		Amount available = state.balanceOf(account);
-		for (SignedTransaction transfer : waiting)
-		{
-			if (transfer.body().sender().equals(account))
-			{
-				available = available.minus(transfer.body().amount().plus(transfer.body().fee()));
-			}
-		}
-		return available;
-	}
-
-	private static long countFrom(final Bytes account, final List<SignedTransaction> waiting)
-	{
-		return waiting.stream().filter(transfer -> transfer.body().sender().equals(account))
-			.count();
+		return Amount.parseLeth(text);
 	}
 }

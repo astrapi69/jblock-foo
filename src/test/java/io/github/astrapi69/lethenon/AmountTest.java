@@ -107,4 +107,20 @@ class AmountTest
 			"every sum over all accounts stays far below an overflow - measured headroom is what "
 				+ "made a 64 bit integer the right choice instead of BigInteger");
 	}
+
+	@org.junit.jupiter.params.ParameterizedTest(name = "\"{0}\" is {1} lethe")
+	@org.junit.jupiter.params.provider.CsvSource({ "12.5, 1250000000", "1984, 198400000000",
+			"0.00000001, 1", " 3 , 300000000" })
+	void parseLeth_readsWhatAPersonTypes_exactly(final String typed, final long lethe)
+	{
+		org.junit.jupiter.api.Assertions.assertEquals(Amount.ofLethe(lethe), Amount.parseLeth(typed));
+	}
+
+	@org.junit.jupiter.params.ParameterizedTest(name = "\"{0}\" is refused")
+	@org.junit.jupiter.params.provider.ValueSource(strings = { "0.000000001", "-1", "twelve", "" })
+	void parseLeth_refusesWhatIsNoAmountOrWouldHaveToBeRounded(final String typed)
+	{
+		org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+			() -> Amount.parseLeth(typed));
+	}
 }

@@ -32,8 +32,8 @@ import java.util.List;
 import io.github.astrapi69.lethenon.BlockBody;
 import io.github.astrapi69.lethenon.Blocks;
 import io.github.astrapi69.lethenon.Bytes;
-import io.github.astrapi69.lethenon.Chain;
 import io.github.astrapi69.lethenon.DifficultyRule;
+import io.github.astrapi69.lethenon.Mining;
 import io.github.astrapi69.lethenon.Replay;
 import io.github.astrapi69.lethenon.SignatureSuite;
 import io.github.astrapi69.lethenon.SignedTransaction;
@@ -83,7 +83,8 @@ class MineCommand extends ChainCommand
 		{
 			Replay.verify(blocks);
 		}
-		BlockBody mined = Blocks.mine(nextBlock(blocks, beneficiary, waiting), attempts)
+		BlockBody mined = Blocks.mine(
+			Mining.nextBlock(blocks, beneficiary, waiting, pun, System.currentTimeMillis()), attempts)
 			.orElseThrow(() -> new IllegalStateException("no pun of " + attempts
 				+ " attempts reached difficulty " + DifficultyRule.requiredFor(blocks)
 				+ "; try more attempts"));
@@ -96,22 +97,5 @@ class MineCommand extends ChainCommand
 			+ " transfer(s), paying " + hex(beneficiary) + ": \"" + mined.pun() + "\"");
 		out.println(replay.describe());
 		return 0;
-	}
-
-	private BlockBody nextBlock(final List<BlockBody> blocks, final Bytes beneficiary,
-		final List<SignedTransaction> waiting)
-	{
-		int difficulty = DifficultyRule.requiredFor(blocks);
-		long now = System.currentTimeMillis();
-		if (blocks.isEmpty())
-		{
-			return new BlockBody(Chain.IDENTIFIER, 0L, Bytes.of(new byte[32]), beneficiary,
-				List.of(), now, difficulty, pun);
-		}
-		// a clock behind the chain still has to produce a timestamp the rule accepts
-		long timestamp = Math.max(now, DifficultyRule.medianTimePast(blocks) + 1L);
-		BlockBody last = blocks.getLast();
-		return new BlockBody(Chain.IDENTIFIER, last.height() + 1L, Blocks.hashOf(last), beneficiary,
-			waiting, timestamp, difficulty, pun);
 	}
 }

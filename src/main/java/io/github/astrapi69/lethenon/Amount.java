@@ -106,6 +106,32 @@ public final class Amount implements Comparable<Amount>
 	}
 
 	/**
+	 * An amount as a person types it - "12.5", "1984", "0.00000001" - turned into lethe exactly.
+	 * {@link #parse(String)} stays the strict form with all eight decimals; this is the forgiving
+	 * one for people, and it still never rounds (lethenon#32)
+	 *
+	 * @param text
+	 *            the amount in LETH
+	 * @return the amount
+	 * @throws IllegalArgumentException
+	 *             for more than eight decimals, a negative amount, or no number at all
+	 */
+	public static Amount parseLeth(final String text)
+	{
+		try
+		{
+			long lethe = new java.math.BigDecimal(text.strip()).movePointRight(DECIMALS)
+				.longValueExact();
+			return ofLethe(lethe);
+		}
+		catch (ArithmeticException | NumberFormatException unreadable)
+		{
+			throw new IllegalArgumentException("'" + text + "' is not an amount of LETH with at "
+				+ "most " + DECIMALS + " decimals", unreadable);
+		}
+	}
+
+	/**
 	 * The count of base units
 	 *
 	 * @return the lethe
