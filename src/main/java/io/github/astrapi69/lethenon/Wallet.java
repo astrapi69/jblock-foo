@@ -29,6 +29,7 @@ import java.security.SecureRandom;
 import java.util.List;
 
 import io.github.astrapi69.crypt.api.algorithm.key.KeyPairGeneratorAlgorithm;
+import io.github.astrapi69.mystic.crypt.key.Ed25519ExpandedPrivateKey;
 import io.github.astrapi69.mystic.crypt.key.SeedDerivation;
 import io.github.astrapi69.mystic.crypt.key.SeedDerivation.Curve;
 import io.github.astrapi69.mystic.crypt.secret.SecretShare;
@@ -231,6 +232,27 @@ public final class Wallet
 				+ " account is " + own + ", and the transfer is from " + body.sender());
 		}
 		return TransactionSigner.sign(body, suite, keyPair.getPrivate());
+	}
+
+	/**
+	 * The key that spends a payment made to one of this wallet's one-time destinations.
+	 * <p>
+	 * Everything it needs is here: the view key recognises the payment, the Ed25519 spend key is
+	 * what the one-time key is blinded from. A caller holding only the chain and this wallet can
+	 * therefore move what was paid to it without ever learning which published address a
+	 * destination belongs to (#21).
+	 *
+	 * @param destination
+	 *            the destination a transfer in the chain paid to
+	 * @return the blinded key, which signs through
+	 *         {@link TransactionSigner#sign(TransactionBody, Ed25519ExpandedPrivateKey)}
+	 * @throws IllegalArgumentException
+	 *             when the payment was not made to this wallet
+	 */
+	public Ed25519ExpandedPrivateKey oneTimeKey(final Destination destination)
+	{
+		return OneTimeAddresses.oneTimeKey(destination, address(), viewKeyPair().getPrivate(),
+			spendKeyPair(SignatureSuite.ED25519).getPrivate());
 	}
 
 	private KeyPair spendKeyPair(final SignatureSuite suite)

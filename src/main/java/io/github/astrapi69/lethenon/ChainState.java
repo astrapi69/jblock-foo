@@ -131,6 +131,16 @@ public final class ChainState
 				"a transfer for chain '" + body.chainIdentifier() + "' in a " + Chain.IDENTIFIER
 					+ " block");
 		}
+		if (AddressScheme.STEALTH_V1.equals(body.recipient().scheme()))
+		{
+			// the first stealth destination's key was a hash, so nothing could ever sign for it:
+			// money paid there was lost by construction. Refusing it here means a chain cannot
+			// carry such a payment at all, rather than carrying one nobody notices until the
+			// recipient tries to spend (#21)
+			throw new ChainRejected("a transfer to a " + AddressScheme.STEALTH_V1.identifier()
+				+ " destination, whose key is a hash and therefore the private half of nothing; "
+				+ "those funds could never be moved again");
+		}
 		if (!TransactionSigner.verify(transaction))
 		{
 			throw new ChainRejected("a transfer whose signature does not match its sender");

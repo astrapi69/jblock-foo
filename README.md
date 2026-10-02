@@ -16,9 +16,11 @@ the only argument software can actually make - a working demonstration.
 Milestones 1 to 3 of [#2](https://github.com/astrapi69/lethenon/issues/2) are built - canonical
 encoding, Ed25519 and ML-DSA-65 signatures, proof of pun, a replay that verifies a chain from its
 bytes alone, one-time destinations and a balance computed from the chain - and milestone 4, a
-wallet that can be recovered, comes with a command line (below). Known gaps are open issues, among
-them that funds at one-time destinations cannot be spent yet
-([#21](https://github.com/astrapi69/lethenon/issues/21)). The plan and the decisions behind it are
+wallet that can be recovered, comes with a command line (below). Money paid to a one-time
+destination can now be spent again as well
+([#21](https://github.com/astrapi69/lethenon/issues/21)): the destination is the one-time public
+key `P = S + H(s)*B`, so a transfer out of it is verified by the same rule as any other, and only
+the holder of the spend key can sign it. Remaining gaps are open issues. The plan and the decisions behind it are
 in the issues: [#1](https://github.com/astrapi69/lethenon/issues/1) is the brainstorm with the
 reasoning, [#2](https://github.com/astrapi69/lethenon/issues/2) the cut into five milestones.
 
@@ -87,11 +89,13 @@ same address land on unrelated destinations; a wallet that never asks a server f
 address, because that query is how most light wallets expose their users; transport over Tor; and no
 account, no identity check, no telemetry.
 
-**Built of that so far:** the one-time destinations, and a balance that is computed instead of
-requested - `WalletScan` replays the chain and recognises its own payments with the view private
-key alone, and `NoBalanceQueryTest` keeps the whole chain package unable to name a networking type,
-so the property holds for every run rather than for one captured one. The Tor transport is still
-ahead.
+**Built of that so far:** the one-time destinations, spendable as well as receivable, and a balance
+that is computed instead of requested. `WalletScan` replays the chain and recognises its own
+payments with the view private key alone; `Wallet.oneTimeKey` blinds the spend key into the key
+that moves such a payment, which is the additive construction Monero uses, built in mystic-crypt
+rather than here (#21); and `NoBalanceQueryTest` keeps the whole chain package unable to name a
+networking type, so the property holds for every run rather than for one captured one. The Tor
+transport is still ahead.
 
 **Out, with the reason:** amount confidentiality (Pedersen commitments, Bulletproofs) and sender
 ambiguity (ring signatures). Both mean writing new cryptography, which this project does not do.

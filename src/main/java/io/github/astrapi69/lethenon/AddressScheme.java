@@ -47,7 +47,19 @@ public enum AddressScheme
 	 * sender's ephemeral key, which the transaction carries. The derivation comes to mystic-crypt
 	 * before milestone 3; milestone 1 fixes the shape
 	 */
-	STEALTH_V1("stealth-v1");
+	/**
+	 * The first stealth destination, whose key was a HASH and therefore the private half of
+	 * nothing: money paid to one of these could never be moved again (#21). It stays in this enum
+	 * so a file that carries one can still be READ and named, and nothing produces a new one.
+	 */
+	STEALTH_V1("stealth-v1"),
+
+	/**
+	 * The one-time destination: the key is the Ed25519 public key {@code P = S + H(s)*B}, so a
+	 * transfer out of it is verified by the same rule as any other, and the recipient signs with
+	 * the blinded scalar only it can compute (#21)
+	 */
+	STEALTH_V2("stealth-v2");
 
 	private final String identifier;
 

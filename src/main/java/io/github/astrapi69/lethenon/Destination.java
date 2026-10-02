@@ -72,7 +72,7 @@ public record Destination(AddressScheme scheme, Bytes key, Bytes ephemeralKey, i
 						+ " and view tag 0, not " + ephemeralKey.length() + " bytes and " + viewTag);
 				}
 			}
-			case STEALTH_V1 -> {
+			case STEALTH_V1, STEALTH_V2 -> {
 				if (ephemeralKey.length() == 0)
 				{
 					throw new IllegalArgumentException(
