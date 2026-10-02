@@ -29,7 +29,8 @@ import java.security.SecureRandom;
 import java.util.List;
 
 import io.github.astrapi69.crypt.api.algorithm.key.KeyPairGeneratorAlgorithm;
-import io.github.astrapi69.lethenon.HierarchicalDerivation.Curve;
+import io.github.astrapi69.mystic.crypt.key.SeedDerivation;
+import io.github.astrapi69.mystic.crypt.key.SeedDerivation.Curve;
 import io.github.astrapi69.mystic.crypt.secret.SecretShare;
 import io.github.astrapi69.mystic.crypt.secret.SecretSharing;
 
@@ -204,8 +205,8 @@ public final class Wallet
 	public KeyPair viewKeyPair()
 	{
 		return DeterministicKeys.from(KeyPairGeneratorAlgorithm.X25519.getAlgorithm(),
-			HierarchicalDerivation.derive(Curve.CURVE25519, seed, PURPOSE, ACCOUNT, 1)
-				.privateKey());
+			Bytes.of(SeedDerivation.derive(Curve.CURVE25519, seed, PURPOSE, ACCOUNT, 1)
+				.privateKey()));
 	}
 
 	/**
@@ -239,8 +240,8 @@ public final class Wallet
 			case ED25519 -> 0;
 			case ML_DSA_65 -> 2;
 		};
-		Bytes keySeed = HierarchicalDerivation.derive(Curve.ED25519, seed, PURPOSE, ACCOUNT, role)
-			.privateKey();
+		Bytes keySeed = Bytes.of(
+			SeedDerivation.derive(Curve.ED25519, seed, PURPOSE, ACCOUNT, role).privateKey());
 		return DeterministicKeys.from(suite.algorithm(), keySeed);
 	}
 }
