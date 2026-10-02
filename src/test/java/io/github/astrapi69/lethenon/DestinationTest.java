@@ -96,9 +96,12 @@ class DestinationTest
 	void aScheme_isFoundByItsIdentifier_andAnUnknownOneIsRefused()
 	{
 		assertEquals(AddressScheme.DIRECT, AddressScheme.withIdentifier("direct"));
-		assertEquals(AddressScheme.STEALTH_V1, AddressScheme.withIdentifier("stealth-v1"));
+		assertEquals(AddressScheme.STEALTH_V1, AddressScheme.withIdentifier("stealth-v1"),
+			"stealth-v1 is still READ - a file that carries one has to be nameable - and nothing "
+				+ "produces a new one (#21)");
+		assertEquals(AddressScheme.STEALTH_V2, AddressScheme.withIdentifier("stealth-v2"));
 		assertThrows(IllegalArgumentException.class,
-			() -> AddressScheme.withIdentifier("stealth-v2"),
+			() -> AddressScheme.withIdentifier("stealth-v3"),
 			"a build that does not know a scheme cannot tell whose the funds are");
 	}
 }

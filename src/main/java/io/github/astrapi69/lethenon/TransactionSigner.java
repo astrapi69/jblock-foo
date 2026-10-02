@@ -32,6 +32,7 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.spec.X509EncodedKeySpec;
 
+import io.github.astrapi69.mystic.crypt.key.Ed25519ExpandedPrivateKey;
 import io.github.astrapi69.mystic.crypt.key.Signatures;
 
 /**
@@ -125,6 +126,30 @@ public final class TransactionSigner
 	 *            the signed transaction
 	 * @return true when the signature matches, false for every way it does not
 	 */
+	/**
+	 * Signs a transfer out of a one-time destination.
+	 * <p>
+	 * A one-time key is a SCALAR, not an RFC 8032 seed, so it is not a {@link PrivateKey} and the
+	 * platform cannot sign with it; mystic-crypt's expanded key does, and the signature it produces
+	 * is checked by {@link #verify} like any other - the chain has no second spending path (#21).
+	 * The suite is always Ed25519: there is no stealth construction for the post-quantum one, and
+	 * its destinations stay {@link AddressScheme#DIRECT}.
+	 *
+	 * @param body
+	 *            the transfer, whose sender is the one-time destination's key
+	 * @param oneTimeKey
+	 *            the blinded key from
+	 *            {@link OneTimeAddresses#oneTimeKey(Destination, PublishedAddress, PrivateKey, PrivateKey)}
+	 * @return the signed transfer
+	 */
+	public static SignedTransaction sign(final TransactionBody body,
+		final Ed25519ExpandedPrivateKey oneTimeKey)
+	{
+		byte[] signature = oneTimeKey
+			.sign(SigningPayload.of(body, SignatureSuite.ED25519));
+		return new SignedTransaction(body, SignatureSuite.ED25519, Bytes.of(signature));
+	}
+
 	public static boolean verify(final SignedTransaction transaction)
 	{
 		try
