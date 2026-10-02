@@ -60,7 +60,6 @@ import io.github.astrapi69.lethenon.Replay;
 class LethenonCliTest extends AbstractCliTest
 {
 
-	private static final Pattern ACCOUNT = Pattern.compile("account \\(ed25519\\): ([0-9a-f]+)");
 
 	private static final Pattern PHRASE = Pattern.compile("^((?:[a-z]+ ){23}[a-z]+)$",
 		Pattern.MULTILINE);
@@ -94,7 +93,7 @@ class LethenonCliTest extends AbstractCliTest
 		String password = aPassword();
 		String wallet = directory.resolve("alice.wallet").toString();
 		assertEquals(0, run(password, "wallet", "create", "--wallet", wallet), err);
-		String alice = accountIn(out);
+		String alice = matchIn(ACCOUNT, out);
 		String phrase = phraseIn(out);
 		assertEquals(0, run(holderPassword, "faucet", "--chain", chain.toString(), "--wallet",
 			holderWallet, "--to", alice), err);
@@ -106,7 +105,7 @@ class LethenonCliTest extends AbstractCliTest
 		String restored = directory.resolve("alice-restored.wallet").toString();
 		assertEquals(0, run(phrase + "\n" + restoredPassword, "wallet", "restore", "--wallet",
 			restored), err);
-		assertEquals(alice, accountIn(out), "the phrase brings back the same account");
+		assertEquals(alice, matchIn(ACCOUNT, out), "the phrase brings back the same account");
 		assertEquals(0, run(restoredPassword, "send", "--chain", chain.toString(), "--wallet",
 			restored, "--to", holderAccount, "--amount", "12.5", "--memo", "back from the words"),
 			err);
@@ -284,14 +283,7 @@ class LethenonCliTest extends AbstractCliTest
 	private String createWallet(final String wallet, final String password)
 	{
 		assertEquals(0, run(password, "wallet", "create", "--wallet", wallet), err);
-		return accountIn(out);
-	}
-
-	private static String accountIn(final String output)
-	{
-		Matcher matcher = ACCOUNT.matcher(output);
-		assertTrue(matcher.find(), output);
-		return matcher.group(1);
+		return matchIn(ACCOUNT, out);
 	}
 
 	private static String phraseIn(final String output)
@@ -301,10 +293,4 @@ class LethenonCliTest extends AbstractCliTest
 		return matcher.group(1);
 	}
 
-	private static String aPassword()
-	{
-		byte[] bytes = new byte[18];
-		new SecureRandom().nextBytes(bytes);
-		return Base64.getEncoder().encodeToString(bytes);
-	}
 }

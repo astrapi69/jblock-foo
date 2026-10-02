@@ -66,13 +66,14 @@ public record WalletScan(List<Received> received, Amount balance, long blocksRea
 	 * @param height
 	 *            the block it arrived in
 	 * @param destination
-	 *            the one-time destination it was paid to
+	 *            the one-time destination it was paid to, whole rather than only its key: deriving
+	 *            the key that SPENDS it needs the ephemeral key the destination carries (#37)
 	 * @param amount
 	 *            what the transfer carried
 	 * @param memo
 	 *            the memo signed with it
 	 */
-	public record Received(long height, Bytes destination, Amount amount, String memo)
+	public record Received(long height, Destination destination, Amount amount, String memo)
 	{
 	}
 
@@ -108,7 +109,7 @@ public record WalletScan(List<Received> received, Amount balance, long blocksRea
 				TransactionBody body = transaction.body();
 				if (OneTimeAddresses.belongsTo(body.recipient(), address, viewPrivateKey))
 				{
-					received.add(new Received(block.height(), body.recipient().key(), body.amount(),
+					received.add(new Received(block.height(), body.recipient(), body.amount(),
 						body.memo()));
 				}
 			}
@@ -140,7 +141,7 @@ public record WalletScan(List<Received> received, Amount balance, long blocksRea
 		Set<Bytes> destinations = new LinkedHashSet<>();
 		for (Received payment : received)
 		{
-			destinations.add(payment.destination());
+			destinations.add(payment.destination().key());
 		}
 		Amount balance = Amount.ZERO;
 		for (Bytes destination : destinations)

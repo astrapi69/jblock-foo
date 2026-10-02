@@ -81,7 +81,7 @@ class WalletScanTest
 		assertEquals(List.of("the first of two", "and the second"),
 			scan.received().stream().map(WalletScan.Received::memo).toList());
 		assertEquals(List.of(first.key(), second.key()),
-			scan.received().stream().map(WalletScan.Received::destination).toList());
+			scan.received().stream().map(received -> received.destination().key()).toList());
 	}
 
 	@Test

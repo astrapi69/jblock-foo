@@ -68,6 +68,7 @@ class BalanceCommand extends ChainCommand
 			out.println("account (" + suite.identifier() + "): " + hex(account) + " holds "
 				+ replay.finalState().balanceOf(account) + " LETH");
 		}
+		out.println("address (publish this): " + owner.address().toText());
 		out.println("one-time payments: " + WalletScan
 			.over(blocks, owner.address(), owner.viewKeyPair().getPrivate()).describe());
 		return 0;

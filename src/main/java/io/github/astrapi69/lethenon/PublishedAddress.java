@@ -48,6 +48,47 @@ import java.security.PublicKey;
 public record PublishedAddress(Bytes viewKey, Bytes spendKey)
 {
 
+	/** What separates the two keys in the written form, which is what a sender is handed */
+	public static final String SEPARATOR = ":";
+
+	/**
+	 * The address as one line of text: the view key, a separator, the spend key, both in hex.
+	 * <p>
+	 * An address travels out of band, so it has to survive being written down, pasted into a
+	 * message and typed back in - and what one command prints has to be what another command takes
+	 * (#37).
+	 *
+	 * @return the address as text
+	 */
+	public String toText()
+	{
+		return viewKey + SEPARATOR + spendKey;
+	}
+
+	/**
+	 * Reads an address from its text form.
+	 * <p>
+	 * Only the SHAPE is checked here - two hexadecimal halves - not whether the halves are keys on
+	 * their curves. That answer comes from the one call that needs it, with the key in the message,
+	 * rather than from a constructor that would have to guess which curve was meant.
+	 *
+	 * @param text
+	 *            the address as {@link #toText()} wrote it
+	 * @return the address
+	 * @throws IllegalArgumentException
+	 *             when the text is not two hexadecimal halves separated by {@link #SEPARATOR}
+	 */
+	public static PublishedAddress parse(final String text)
+	{
+		String[] halves = text.split(SEPARATOR, -1);
+		if (halves.length != 2 || halves[0].isEmpty() || halves[1].isEmpty())
+		{
+			throw new IllegalArgumentException("an address is a view key and a spend key in hex, "
+				+ "separated by '" + SEPARATOR + "', unlike '" + text + "'");
+		}
+		return new PublishedAddress(Bytes.ofHex(halves[0]), Bytes.ofHex(halves[1]));
+	}
+
 	/**
 	 * The address belonging to a view key pair and a spend key pair
 	 *
