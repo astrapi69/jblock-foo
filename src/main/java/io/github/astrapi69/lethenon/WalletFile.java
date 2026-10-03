@@ -32,6 +32,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 
+import io.github.astrapi69.mystic.crypt.secret.SecretBuffers;
 import io.github.astrapi69.mystic.crypt.pw.PassphraseCryptor;
 
 /**
@@ -100,8 +101,8 @@ public final class WalletFile
 		}
 		finally
 		{
-			Arrays.fill(entropy, (byte)0);
-			Arrays.fill(content, (byte)0);
+			SecretBuffers.wipe(entropy);
+			SecretBuffers.wipe(content);
 		}
 	}
 
@@ -136,7 +137,7 @@ public final class WalletFile
 		}
 		finally
 		{
-			Arrays.fill(content, (byte)0);
+			SecretBuffers.wipe(content);
 		}
 	}
 

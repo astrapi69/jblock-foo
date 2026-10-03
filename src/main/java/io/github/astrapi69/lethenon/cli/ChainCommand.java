@@ -30,10 +30,10 @@ import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Callable;
 
+import io.github.astrapi69.mystic.crypt.secret.SecretBuffers;
 import io.github.astrapi69.lethenon.BlockBody;
 import io.github.astrapi69.lethenon.Bytes;
 import io.github.astrapi69.lethenon.ChainFile;
@@ -108,7 +108,7 @@ abstract class ChainCommand implements Callable<Integer>
 		}
 		finally
 		{
-			Arrays.fill(password, '\0');
+			SecretBuffers.wipe(password);
 		}
 	}
 

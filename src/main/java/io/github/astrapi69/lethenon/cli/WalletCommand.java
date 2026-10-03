@@ -27,9 +27,9 @@ package io.github.astrapi69.lethenon.cli;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.concurrent.Callable;
 
+import io.github.astrapi69.mystic.crypt.secret.SecretBuffers;
 import io.github.astrapi69.lethenon.SignatureSuite;
 import io.github.astrapi69.lethenon.Wallet;
 import io.github.astrapi69.lethenon.WalletFile;
@@ -99,7 +99,7 @@ class WalletCommand
 			}
 			finally
 			{
-				Arrays.fill(password, '\0');
+				SecretBuffers.wipe(password);
 			}
 			System.out.println("wallet written to " + wallet);
 			System.out.println(
@@ -143,7 +143,7 @@ class WalletCommand
 				}
 				finally
 				{
-					Arrays.fill(password, '\0');
+					SecretBuffers.wipe(password);
 				}
 				System.out.println("wallet restored to " + wallet);
 				System.out.println("account (ed25519): "
