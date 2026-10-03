@@ -31,10 +31,15 @@ java {
 }
 
 repositories {
-    // mavenLocal first, like the rest of the family: a library release is checked by building its
-    // consumers against the locally published artifact BEFORE it goes to Central, because a
-    // published version cannot be replaced
-    mavenLocal()
+    // The local repository only when asked for. Checking a consumer against a candidate before it
+    // is published is a real job - a published version cannot be replaced - but it is one job, and
+    // anything in ~/.m2 otherwise wins over Central silently: a snapshot published hours ago
+    // becomes what the build compiles against, on that machine and nowhere else. It cost a red
+    // develop that was not red (mystic-crypt-ui#475), so the job names itself on the command line:
+    //   ./gradlew build -PuseMavenLocal
+    if (providers.gradleProperty('useMavenLocal').isPresent()) {
+        mavenLocal()
+    }
     mavenCentral()
 }
 
