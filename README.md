@@ -24,6 +24,18 @@ the holder of the spend key can sign it. Remaining gaps are open issues. The pla
 in the issues: [#1](https://github.com/astrapi69/lethenon/issues/1) is the brainstorm with the
 reasoning, [#2](https://github.com/astrapi69/lethenon/issues/2) the cut into five milestones.
 
+The **library** is on Maven Central; the **chain** is not published and will not be - nobody can
+buy the coin, there is no pool and no listing, and a tradeable joke is a financial product with
+real losers.
+
+```groovy
+implementation "io.github.astrapi69:lethenon:0.1.0"
+```
+
+Milestone 5, the desktop plugin, lives in
+[mystic-crypt-ui#450](https://github.com/astrapi69/mystic-crypt-ui/issues/450) and consumes exactly
+this library.
+
 ### Command line
 
 `./gradlew installDist` builds `build/install/lethenon/bin/lethenon`. Two kinds of file: the chain
