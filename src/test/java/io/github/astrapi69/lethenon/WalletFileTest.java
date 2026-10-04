@@ -42,11 +42,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import io.github.astrapi69.mystic.crypt.pw.PassphraseCryptor;
+import io.github.astrapi69.mystic.crypt.pw.PassphraseEnvelope;
 
 /**
  * The wallet's own file: a separate file with a separate password, sealed with the same AEAD and
- * key derivation as the vault of mystic-crypt-ui - mystic-crypt's {@code PassphraseCryptor}, until
- * mystic-crypt#160 brings the vault's own envelope into the library.
+ * key derivation as the vault of mystic-crypt-ui - mystic-crypt's {@code PassphraseEnvelope} under
+ * lethenon's own marker since #45, and {@code PassphraseCryptor}'s {@code MCRYPT} layout for the
+ * wallets 0.1.0 wrote, which keep opening and are never rewritten.
  */
 class WalletFileTest
 {
@@ -54,6 +56,9 @@ class WalletFileTest
 	/** Made at test time, like every other piece of key material in this project's tests */
 	private final char[] password = Base64.getEncoder().encodeToString(randomBytes(18))
 		.toCharArray();
+
+	/** The password of the wallet 0.1.0 wrote; it protects synthetic entropy and nothing else */
+	private static final char[] PASSWORD_OF_THE_010_WALLET = "wallet written by 0.1.0".toCharArray();
 
 	@TempDir
 	Path directory;
@@ -87,8 +92,11 @@ class WalletFileTest
 		WalletFile.write(file, wallet, password.clone());
 		byte[] content = Files.readAllBytes(file);
 
-		assertTrue(PassphraseCryptor.isEncrypted(content));
-		assertEquals(600_000, PassphraseCryptor.iterationsOf(content));
+		assertTrue(PassphraseEnvelope.hasMagic(content, WalletFile.FILE_MAGIC),
+			"a wallet written today is sealed in the envelope under lethenon's own marker (#45)");
+		assertFalse(PassphraseCryptor.isEncrypted(content),
+			"and no longer in the MCRYPT layout 0.1.0 wrote");
+		assertEquals(600_000, PassphraseEnvelope.iterationsOf(WalletFile.FILE_MAGIC, content));
 		String hex = HexFormat.of().formatHex(content);
 		assertFalse(hex.contains(HexFormat.of().formatHex(wallet.entropy())),
 			"the entropy is in the file in the clear");
@@ -143,6 +151,72 @@ class WalletFileTest
 			() -> WalletFile.read(file, password.clone()));
 
 		assertTrue(refused.getMessage().contains("not a lethenon wallet"), refused.getMessage());
+	}
+
+	/**
+	 * A wallet 0.1.0 wrote is in the MCRYPT layout, and lethenon never writes a wallet file over
+	 * an existing one - so that wallet stays in that layout for good, and has to keep opening. The
+	 * file is the release's own output, see src/test/resources/wallet/README.md
+	 */
+	@Test
+	void aWalletWrittenBy010_opens_andTheFileIsLeftAsItWas(@TempDir Path copyDirectory)
+		throws Exception
+	{
+		Path file = copyOf010Wallet(copyDirectory);
+		byte[] onDiskBefore = Files.readAllBytes(file);
+
+		Wallet read = WalletFile.read(file, PASSWORD_OF_THE_010_WALLET.clone());
+
+		byte[] expected = new byte[Wallet.ENTROPY_LENGTH];
+		for (int i = 0; i < expected.length; i++)
+		{
+			expected[i] = (byte)(0x40 + i);
+		}
+		assertArrayEquals(expected, read.entropy(), "the wallet 0.1.0 sealed is the wallet read");
+		assertArrayEquals(onDiskBefore, Files.readAllBytes(file),
+			"opening a wallet reads it and nothing more - a migration is the user's action");
+	}
+
+	@Test
+	void aWrongPasswordOnAWalletWrittenBy010_isStillRefusedAsAWrongPassword(
+		@TempDir Path copyDirectory) throws Exception
+	{
+		Path file = copyOf010Wallet(copyDirectory);
+
+		SecurityException refused = assertThrows(SecurityException.class,
+			() -> WalletFile.read(file, "not the password".toCharArray()));
+
+		assertTrue(refused.getMessage().contains(file.toString()), refused.getMessage());
+	}
+
+	@Test
+	void somethingElseInTheEnvelopeUnderTheWalletMarker_isRefusedAsNotAWallet() throws Exception
+	{
+		Path file = directory.resolve("other.lethwf");
+		Files.write(file, PassphraseEnvelope.encrypt(WalletFile.FILE_MAGIC, new byte[37],
+			password.clone()));
+
+		IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+			() -> WalletFile.read(file, password.clone()));
+
+		assertTrue(refused.getMessage().contains("not a lethenon wallet"), refused.getMessage());
+	}
+
+	@Test
+	void theWalletMarker_isNotTheOneOfTheReleasedLayout()
+	{
+		assertFalse(java.util.Arrays.equals(PassphraseCryptor.MAGIC, WalletFile.FILE_MAGIC),
+			"MCRYPT means the old layout and nothing else, or the two could not be told apart");
+	}
+
+	private static Path copyOf010Wallet(final Path directory) throws Exception
+	{
+		Path copy = directory.resolve("written-by-0.1.0.lethw");
+		try (var source = WalletFileTest.class.getResourceAsStream("/wallet/written-by-0.1.0.lethw"))
+		{
+			Files.copy(source, copy);
+		}
+		return copy;
 	}
 
 	@Test
