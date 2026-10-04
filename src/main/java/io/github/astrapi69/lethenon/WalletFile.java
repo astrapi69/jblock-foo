@@ -34,17 +34,18 @@ import java.util.Arrays;
 
 import io.github.astrapi69.mystic.crypt.secret.SecretBuffers;
 import io.github.astrapi69.mystic.crypt.pw.PassphraseCryptor;
+import io.github.astrapi69.mystic.crypt.pw.PassphraseEnvelope;
 
 /**
  * The wallet's own file: separate from anything else, opened with its own password (lethenon#2,
  * milestone 4).
  * <p>
- * Sealed with mystic-crypt's {@code PassphraseCryptor}: key-committing AES-GCM under a key that
- * PBKDF2-HMAC-SHA256 derives from the password, over a fresh 16 byte salt, 600,000 rounds - the
- * same AEAD and the same key derivation as the vault of mystic-crypt-ui. The vault's own envelope
- * (marker, salt and iteration count as associated data) is application code today;
- * mystic-crypt#160 moves it into the library, and this file follows once it is released. Until
- * then the outer layout is the library's {@code MCRYPT} one.
+ * Sealed with mystic-crypt's {@code PassphraseEnvelope} under the marker {@code LETHWF}:
+ * key-committing AES-GCM under a key that PBKDF2-HMAC-SHA256 derives from the password, over a
+ * fresh 16 byte salt, 600,000 rounds, with marker, salt and iteration count as associated data -
+ * the envelope of mystic-crypt-ui's vault, byte for byte (#45, mystic-crypt#160). A wallet 0.1.0
+ * wrote is in {@code PassphraseCryptor}'s {@code MCRYPT} layout instead; it keeps opening, and
+ * since nothing here writes over an existing file, it stays in that layout for good.
  * <p>
  * What is sealed is the wallet's entropy and nothing else - every key is derived from it - behind
  * a marker and a format version of this file's own, so a different thing sealed with the same
@@ -63,6 +64,14 @@ public final class WalletFile
 
 	/** The marker the sealed content starts with */
 	static final byte[] MAGIC = "LETHW".getBytes(StandardCharsets.US_ASCII);
+
+	/**
+	 * The marker the file starts with since #45: mystic-crypt's {@code PassphraseEnvelope} under
+	 * lethenon's own name. A wallet 0.1.0 wrote starts with {@code PassphraseCryptor}'s
+	 * {@code MCRYPT} instead and keeps opening - nothing here writes over an existing wallet, so
+	 * it is never rewritten
+	 */
+	static final byte[] FILE_MAGIC = "LETHWF".getBytes(StandardCharsets.US_ASCII);
 
 	/** The version of the sealed content described above */
 	static final byte VERSION = 1;
@@ -95,8 +104,8 @@ public final class WalletFile
 			.array();
 		try
 		{
-			// PassphraseCryptor zeroes the array it is given, so it gets a copy of its own
-			byte[] sealed = PassphraseCryptor.encrypt(password.clone(), content);
+			// the envelope reads the password and leaves it alone; the array stays the caller's
+			byte[] sealed = envelope(() -> PassphraseEnvelope.encrypt(FILE_MAGIC, content, password));
 			Files.write(file, sealed, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
 		}
 		finally
@@ -124,11 +133,6 @@ public final class WalletFile
 	public static Wallet read(final Path file, final char[] password) throws IOException
 	{
 		byte[] sealed = Files.readAllBytes(file);
-		if (!PassphraseCryptor.isEncrypted(sealed))
-		{
-			throw new IllegalArgumentException(file + " is not a wallet file: it is not sealed "
-				+ "with a password the way a wallet file is");
-		}
 		byte[] content = open(file, sealed, password);
 		try
 		{
@@ -141,11 +145,26 @@ public final class WalletFile
 		}
 	}
 
+	/**
+	 * Opens either layout a wallet file comes in: the envelope it is written in since #45, or the
+	 * {@code MCRYPT} layout 0.1.0 wrote. Opening reads and nothing more - the old layout is not
+	 * rewritten, because a migration is an action of the user and not a side effect of reading
+	 * (mystic-crypt#160)
+	 */
 	private static byte[] open(final Path file, final byte[] sealed, final char[] password)
 	{
+		boolean writtenBy010 = PassphraseCryptor.isEncrypted(sealed);
+		if (!writtenBy010 && !PassphraseEnvelope.hasMagic(sealed, FILE_MAGIC))
+		{
+			throw new IllegalArgumentException(file + " is not a wallet file: it is not sealed "
+				+ "with a password the way a wallet file is");
+		}
 		try
 		{
-			return PassphraseCryptor.decrypt(password.clone(), sealed);
+			// PassphraseCryptor zeroes the array it is given, so it gets a copy of its own
+			return writtenBy010
+				? PassphraseCryptor.decrypt(password.clone(), sealed)
+				: envelope(() -> PassphraseEnvelope.decrypt(FILE_MAGIC, sealed, password));
 		}
 		catch (SecurityException refused)
 		{
@@ -164,5 +183,41 @@ public final class WalletFile
 			throw new IllegalArgumentException(file + " opens with this password, but what it "
 				+ "holds is not a lethenon wallet of version " + VERSION);
 		}
+	}
+
+	/**
+	 * Runs a call into {@code PassphraseEnvelope}, which declares {@code throws Exception}
+	 * although everything it throws for a reason a caller can act on is already a runtime
+	 * exception - {@code IllegalArgumentException} for "not this format", {@code SecurityException}
+	 * for "would not open" - and both pass through here untouched. What is left is the JCA failing
+	 * underneath, no PBKDF2 or AES-GCM provider: a broken installation, not a bad wallet.
+	 * Workaround until mystic-crypt#182 gives the envelope PassphraseCryptor's contract
+	 *
+	 * @param call
+	 *            the call
+	 * @return what it returned
+	 */
+	private static byte[] envelope(final EnvelopeCall call)
+	{
+		try
+		{
+			return call.run();
+		}
+		catch (RuntimeException asItWas)
+		{
+			throw asItWas;
+		}
+		catch (Exception brokenInstallation)
+		{
+			throw new IllegalStateException("the password envelope cannot run on this "
+				+ "installation: " + brokenInstallation.getMessage(), brokenInstallation);
+		}
+	}
+
+	/** A call into PassphraseEnvelope, see {@link #envelope(EnvelopeCall)} */
+	@FunctionalInterface
+	private interface EnvelopeCall
+	{
+		byte[] run() throws Exception;
 	}
 }

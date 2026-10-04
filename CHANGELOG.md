@@ -1,6 +1,25 @@
 ## Change log
 ----------------------
 
+Version 0.2.0 (unreleased)
+-------------
+
+FORMAT:
+
+- A wallet file written by 0.1.0 keeps opening and is never rewritten: lethenon writes a wallet file
+  only when one is created or restored, and never over an existing one. Wallets created or restored
+  with 0.2.0 are sealed in the new format, which 0.1.0 cannot open (#45)
+
+CHANGED:
+
+- the wallet file is sealed with mystic-crypt's PassphraseEnvelope under the marker LETHWF - the
+  envelope of mystic-crypt-ui's vault, byte for byte - instead of PassphraseCryptor's MCRYPT layout,
+  which is still read. A wallet file 0.1.0 wrote is a fixed test vector and opens, its bytes on disk
+  unchanged afterwards. mystic-crypt 13.3 to 13.4 (#45)
+- the commands that read a password - wallet create, wallet restore, and every command that opens a
+  wallet - overwrite it once the file is written or opened, on success and on failure, and that is
+  now asserted on the array's content rather than assumed (#45)
+
 Version 0.1.0
 -------------
 

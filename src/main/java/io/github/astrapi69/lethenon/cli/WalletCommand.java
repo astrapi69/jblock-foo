@@ -91,7 +91,18 @@ class WalletCommand
 			}
 		}
 
-		private void write(final Wallet created, final char[] password) throws IOException
+		/**
+		 * Writes the new wallet's file and overwrites the password afterwards, on success and on
+		 * failure. Package-visible so that the zeros can be asserted (#45)
+		 *
+		 * @param created
+		 *            the wallet
+		 * @param password
+		 *            the password, zero-filled when this returns
+		 * @throws IOException
+		 *             if the file cannot be written
+		 */
+		void write(final Wallet created, final char[] password) throws IOException
 		{
 			try
 			{
@@ -137,14 +148,7 @@ class WalletCommand
 					.fromPhrase(ChainCommand.nextLineOfStandardInput(input, "the 24 words"));
 				char[] password = ChainCommand
 					.nextLineOfStandardInput(input, "the new wallet's password").toCharArray();
-				try
-				{
-					WalletFile.write(wallet, restored, password);
-				}
-				finally
-				{
-					SecretBuffers.wipe(password);
-				}
+				write(restored, password);
 				System.out.println("wallet restored to " + wallet);
 				System.out.println("account (ed25519): "
 					+ ChainCommand.hex(restored.spendKey(SignatureSuite.ED25519)));
@@ -155,6 +159,29 @@ class WalletCommand
 			{
 				System.err.println(refused.getMessage());
 				return 1;
+			}
+		}
+
+		/**
+		 * Writes the restored wallet's file and overwrites the password afterwards, on success and
+		 * on failure. Package-visible so that the zeros can be asserted (#45)
+		 *
+		 * @param restored
+		 *            the wallet
+		 * @param password
+		 *            the password, zero-filled when this returns
+		 * @throws IOException
+		 *             if the file cannot be written
+		 */
+		void write(final Wallet restored, final char[] password) throws IOException
+		{
+			try
+			{
+				WalletFile.write(wallet, restored, password);
+			}
+			finally
+			{
+				SecretBuffers.wipe(password);
 			}
 		}
 	}
