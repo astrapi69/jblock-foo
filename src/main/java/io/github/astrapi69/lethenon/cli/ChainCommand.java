@@ -101,7 +101,23 @@ abstract class ChainCommand implements Callable<Integer>
 	 */
 	Wallet openWallet() throws IOException
 	{
-		char[] password = firstLineOfStandardInput();
+		return openWallet(firstLineOfStandardInput());
+	}
+
+	/**
+	 * Opens the wallet with the given password and overwrites it afterwards, on success and on
+	 * failure. The array is this command's own, read from standard input; WalletFile reads it
+	 * without touching it, in either layout (#45), so this is the one wipe there is. Package-visible
+	 * so that the zeros can be asserted rather than assumed
+	 *
+	 * @param password
+	 *            the password, zero-filled when this returns
+	 * @return the wallet
+	 * @throws IOException
+	 *             if the wallet file cannot be read
+	 */
+	Wallet openWallet(final char[] password) throws IOException
+	{
 		try
 		{
 			return WalletFile.read(wallet, password);
