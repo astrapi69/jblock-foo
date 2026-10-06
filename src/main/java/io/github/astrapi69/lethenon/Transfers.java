@@ -81,7 +81,7 @@ public final class Transfers
 				+ " after the transfers already waiting, and this transfer needs " + due);
 		}
 		long nonce = state.nextNonceOf(account) + countFrom(account, waiting);
-		return sender.sign(new TransactionBody(Chain.IDENTIFIER, nonce, account, recipient, amount,
+		return sender.sign(new TransactionBody(state.chainIdentifier(), nonce, account, recipient, amount,
 			fee, memo), suite);
 	}
 

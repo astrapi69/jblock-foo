@@ -67,8 +67,12 @@ public record Replay(long blocks, long transactions, long signatures, ChainState
 		{
 			throw new ChainRejected("an empty chain has no genesis block");
 		}
+		BlockBody genesis = chain.getFirst();
+		requireThat(Chain.isKnown(genesis.chainIdentifier()), "block 0 belongs to chain '"
+			+ genesis.chainIdentifier() + "', which is neither '" + Chain.IDENTIFIER + "' nor '"
+			+ Chain.TEST_IDENTIFIER + "'");
 		ChainState state = new ChainState();
-		state.allocateGenesis(chain.getFirst());
+		state.allocateGenesis(genesis);
 		long transactions = 0;
 		long signatures = 0;
 		Bytes previousHash = Bytes.of(new byte[32]);
@@ -77,8 +81,9 @@ public record Replay(long blocks, long transactions, long signatures, ChainState
 			BlockBody block = chain.get(height);
 			requireThat(block.height() == height,
 				"block " + height + " claims height " + block.height());
-			requireThat(Chain.IDENTIFIER.equals(block.chainIdentifier()),
-				"block " + height + " belongs to chain '" + block.chainIdentifier() + "'");
+			requireThat(genesis.chainIdentifier().equals(block.chainIdentifier()),
+				"block " + height + " belongs to chain '" + block.chainIdentifier()
+					+ "', and its genesis block to '" + genesis.chainIdentifier() + "'");
 			requireThat(previousHash.equals(block.previousHash()), "block " + height
 				+ " names " + block.previousHash() + " as the previous hash, and the block before "
 				+ "it hashes to " + previousHash);

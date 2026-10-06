@@ -46,6 +46,7 @@ never an argument; it is the first line of standard input.
 lethenon wallet create  --wallet holder.wallet          # prints the account and the 24 words
 lethenon wallet restore --wallet again.wallet           # stdin: the 24 words, then a new password
 lethenon mine    --chain chain.lethenon --wallet holder.wallet   # first run: the genesis block
+lethenon mine    --testnet --chain test.lethenon --wallet holder.wallet   # genesis of a test chain
 lethenon faucet  --chain chain.lethenon --wallet holder.wallet --to <account>
 lethenon send    --chain chain.lethenon --wallet w.wallet --to <account> --amount 12.5 --memo "..."
 lethenon send    --chain chain.lethenon --wallet w.wallet --to-address <view:spend> --amount 12.5
@@ -59,6 +60,12 @@ destination derived from it, so two payments to the same address have nothing vi
 `sweep` is the other end of that: it moves what was paid to those destinations onto the account,
 one transfer per destination, and says out loud what that costs - the chain then shows those
 destinations and the account together. Receiving is unlinkable; spending is the moment that ends.
+
+There are two chains, `lethenon-1` and the test chain `lethenon-test-1`, and the identifier is
+inside every signed transfer and every block, so nothing signed for one is accepted on the other.
+`--testnet` chooses the test chain when `mine` writes the genesis block; from then on the genesis
+block decides, every command follows it, and `--testnet` on a main chain is refused. A new
+cryptographic scheme runs on the test chain first ([ADR 0001](docs/adr/0001-new-cryptographic-constructions.md)).
 
 `send`, `faucet` and `sweep` sign transfers that wait in `chain.lethenon.pending`; the next `mine` puts
 every waiting transfer into a block, replays the result and only then writes it. Exit codes: 0

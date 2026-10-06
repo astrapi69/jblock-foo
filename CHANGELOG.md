@@ -10,6 +10,15 @@ FORMAT:
   only when one is created or restored, and never over an existing one. Wallets created or restored
   with 0.2.0 are sealed in the new format, which 0.1.0 cannot open (#45)
 
+ADDED:
+
+- a test chain, `lethenon-test-1`, beside the main chain `lethenon-1`: `mine --testnet` writes its
+  genesis block, and from then on the genesis block decides - every block, transfer and sweep
+  carries its identifier, the replay refuses a block or a transfer of the other chain and a genesis
+  block naming neither, and `--testnet` on a main chain is an error. `Mining.nextBlock` takes the
+  identifier for a new chain; without one it follows the genesis block. Chains written by 0.1.0 are
+  main chains and replay unchanged (#50)
+
 CHANGED:
 
 - the rule "this project does not write new cryptography" is replaced, not removed, by ADR 0001:

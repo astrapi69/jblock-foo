@@ -1,0 +1,122 @@
+/*
+ * The MIT License
+ *
+ * Copyright (C) 2015 Asterios Raptis
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+ * LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+ * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+package io.github.astrapi69.lethenon.cli;
+
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import io.github.astrapi69.lethenon.BlockBody;
+import io.github.astrapi69.lethenon.CanonicalEncoding;
+import io.github.astrapi69.lethenon.Chain;
+import io.github.astrapi69.lethenon.Replay;
+
+/**
+ * {@code mine --testnet} on the command line (lethenon#50): the flag chooses the test chain when the
+ * genesis block is mined, the genesis block decides from then on, and the flag on a main chain is
+ * an error rather than a switch.
+ */
+class TestnetOnTheCommandLineTest extends AbstractCliTest
+{
+
+	@TempDir
+	Path directory;
+
+	private Path chain;
+
+	private String password;
+
+	private String wallet;
+
+	private String account;
+
+	@BeforeEach
+	void aWallet()
+	{
+		chain = directory.resolve("chain.lethenon");
+		password = aPassword();
+		wallet = directory.resolve("holder.wallet").toString();
+		assertEquals(0, run(password, "wallet", "create", "--wallet", wallet), err);
+		account = matchIn(ACCOUNT, out);
+	}
+
+	@Test
+	@DisplayName("--testnet mines a test genesis, and later commands stay on the test chain")
+	void testnet_startsATestChain_andTheGenesisDecidesFromThenOn() throws Exception
+	{
+		assertEquals(0, run(password, "mine", "--testnet", "--chain", chain.toString(), "--wallet",
+			wallet), err);
+		assertTrue(out.contains("chain " + Chain.TEST_IDENTIFIER), out);
+		assertEquals(0, run(password, "send", "--chain", chain.toString(), "--wallet", wallet,
+			"--to", account, "--amount", "1"), err);
+		assertEquals(0, run(password, "mine", "--chain", chain.toString(), "--wallet", wallet),
+			err);
+
+		List<BlockBody> blocks = CanonicalEncoding.readChain(Files.readAllBytes(chain));
+		assertEquals(List.of(Chain.TEST_IDENTIFIER, Chain.TEST_IDENTIFIER),
+			blocks.stream().map(BlockBody::chainIdentifier).toList());
+		assertEquals(Chain.TEST_IDENTIFIER,
+			blocks.getLast().transactions().getFirst().body().chainIdentifier());
+		assertEquals(1L, Replay.verify(blocks).transactions());
+	}
+
+	@Test
+	@DisplayName("without --testnet a new chain is the main chain")
+	void withoutTheFlag_aNewChainIsTheMainChain() throws Exception
+	{
+		assertEquals(0, run(password, "mine", "--chain", chain.toString(), "--wallet", wallet),
+			err);
+
+		assertTrue(out.contains("chain " + Chain.IDENTIFIER), out);
+		assertEquals(Chain.IDENTIFIER, CanonicalEncoding.readChain(Files.readAllBytes(chain))
+			.getFirst().chainIdentifier());
+	}
+
+	@Test
+	@DisplayName("--testnet on a main chain is refused with a message, and the chain is unchanged")
+	void testnet_onAMainChain_isRefused() throws Exception
+	{
+		assertEquals(0, run(password, "mine", "--chain", chain.toString(), "--wallet", wallet),
+			err);
+		byte[] before = Files.readAllBytes(chain);
+
+		int exit = run(password, "mine", "--testnet", "--chain", chain.toString(), "--wallet",
+			wallet);
+
+		assertEquals(1, exit, out);
+		assertTrue(err.contains("'" + Chain.IDENTIFIER + "'"), err);
+		assertTrue(err.contains("'" + Chain.TEST_IDENTIFIER + "'"), err);
+		assertArrayEquals(before, Files.readAllBytes(chain));
+	}
+}
