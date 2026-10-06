@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-10-06
-- Decided by: the maintainer, Asterios Raptis (#49)
+- Decided by the maintainer on 2026-10-06 (#49)
 - Replaces: "Both mean writing new cryptography, which this project does not do" (README, privacy
   section) and "This project writes formats and rules, not primitives" (README, planned shape)
 
@@ -20,18 +20,7 @@ broken one be switched off without starting the chain again.
 
 ## Decision
 
-The maintainer's words, verbatim:
-
-> Neue kryptografische Konstruktionen nur nach einer begutachteten Veröffentlichung, mit Zitat,
-> Sicherheitsannahme und Beweis im Paper.
-> Umsetzung mit den Testvektoren der Autoren oder einer Referenzimplementierung; wo es keine gibt,
-> wird das ausdrücklich vermerkt.
-> Jedes Verfahren läuft zuerst nur auf dem Testnetz. Auf das Hauptnetz kommt es erst nach einer
-> externen kryptografischen Begutachtung, die Aster beauftragt.
-> Keine eigene Erfindung von Grundbausteinen. Kombinationen bekannter Bausteine sind erlaubt, wenn
-> ihre Sicherheit begründet und dokumentiert ist.
-
-As rules for this repository:
+The maintainer set four rules for any construction that is new to this project:
 
 1. **Published, peer reviewed, proven.** A new cryptographic construction is used only after a
    peer-reviewed publication. Its record here cites the paper (authors, title, venue, year), names
@@ -56,7 +45,7 @@ As rules for this repository:
   example) is stated only with the number or the property that supports it.
 - **Precondition for everything that follows:** the test chain identifier (#50) is built. Before
   it exists there is nowhere for rule 3 to put a scheme.
-- **Outside this repository:** mystic-crypt's `.claude/rules/library-first.md`, level 0, says
-  "Never implement cryptographic primitives yourself ... This level has no exceptions." A scheme
-  implemented in mystic-crypt would need the same exception there. That is the maintainer's
-  decision and is not changed by this record (#49).
+- **Outside this repository:** mystic-crypt's `.claude/rules/library-first.md`, level 0, keeps
+  saying "Never implement cryptographic primitives yourself ... This level has no exceptions." It
+  stays without exception. A new construction is built here, in lethenon, and moves into the
+  library only after its external review, recorded there as well (#49).
