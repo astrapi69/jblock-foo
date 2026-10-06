@@ -32,6 +32,7 @@ import java.util.List;
 import io.github.astrapi69.lethenon.BlockBody;
 import io.github.astrapi69.lethenon.Blocks;
 import io.github.astrapi69.lethenon.Bytes;
+import io.github.astrapi69.lethenon.Chain;
 import io.github.astrapi69.lethenon.DifficultyRule;
 import io.github.astrapi69.lethenon.Mining;
 import io.github.astrapi69.lethenon.Replay;
@@ -61,6 +62,11 @@ class MineCommand extends ChainCommand
 		description = "the words mining varies; default: ${DEFAULT-VALUE}")
 	String pun;
 
+	@Option(names = "--testnet", description = "mine the genesis block of a test chain, "
+		+ "lethenon-test-1; on an existing chain its genesis block decides, and the flag on a main "
+		+ "chain is an error")
+	boolean testnet;
+
 	@Option(names = "--attempts", defaultValue = "10000000",
 		description = "how many puns to try before giving up; default: ${DEFAULT-VALUE}")
 	long attempts;
@@ -83,8 +89,11 @@ class MineCommand extends ChainCommand
 		{
 			Replay.verify(blocks);
 		}
-		BlockBody mined = Blocks.mine(
-			Mining.nextBlock(blocks, beneficiary, waiting, pun, System.currentTimeMillis()), attempts)
+		long now = System.currentTimeMillis();
+		BlockBody next = testnet
+			? Mining.nextBlock(Chain.TEST_IDENTIFIER, blocks, beneficiary, waiting, pun, now)
+			: Mining.nextBlock(blocks, beneficiary, waiting, pun, now);
+		BlockBody mined = Blocks.mine(next, attempts)
 			.orElseThrow(() -> new IllegalStateException("no pun of " + attempts
 				+ " attempts reached difficulty " + DifficultyRule.requiredFor(blocks)
 				+ "; try more attempts"));
@@ -95,6 +104,7 @@ class MineCommand extends ChainCommand
 		writePending(List.of());
 		out.println("mined block " + mined.height() + " with " + waiting.size()
 			+ " transfer(s), paying " + hex(beneficiary) + ": \"" + mined.pun() + "\"");
+		out.println("chain " + mined.chainIdentifier());
 		out.println(replay.describe());
 		return 0;
 	}

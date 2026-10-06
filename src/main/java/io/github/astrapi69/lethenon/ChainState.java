@@ -47,6 +47,8 @@ public final class ChainState
 
 	private final Map<Bytes, Long> nonces = new HashMap<>();
 
+	private String chainIdentifier = Chain.IDENTIFIER;
+
 	/**
 	 * The balance of an account, zero when it has never been paid
 	 *
@@ -54,6 +56,16 @@ public final class ChainState
 	 *            the account key
 	 * @return its balance
 	 */
+	/**
+	 * The chain this state belongs to, as its genesis block named it
+	 *
+	 * @return the chain identifier, or {@link Chain#IDENTIFIER} before a genesis block was applied
+	 */
+	public String chainIdentifier()
+	{
+		return chainIdentifier;
+	}
+
 	public Amount balanceOf(final Bytes account)
 	{
 		return balances.getOrDefault(account, Amount.ZERO);
@@ -95,6 +107,7 @@ public final class ChainState
 	 */
 	void allocateGenesis(final BlockBody genesis)
 	{
+		chainIdentifier = genesis.chainIdentifier();
 		balances.put(POOL, Emission.MINING_POOL);
 		balances.put(genesis.beneficiary(), Emission.TOTAL_SUPPLY.minus(Emission.MINING_POOL));
 	}
@@ -125,10 +138,10 @@ public final class ChainState
 	private void applyTransfer(final SignedTransaction transaction)
 	{
 		TransactionBody body = transaction.body();
-		if (!Chain.IDENTIFIER.equals(body.chainIdentifier()))
+		if (!chainIdentifier.equals(body.chainIdentifier()))
 		{
 			throw new ChainRejected(
-				"a transfer for chain '" + body.chainIdentifier() + "' in a " + Chain.IDENTIFIER
+				"a transfer for chain '" + body.chainIdentifier() + "' in a " + chainIdentifier
 					+ " block");
 		}
 		if (AddressScheme.STEALTH_V1.equals(body.recipient().scheme()))

@@ -92,7 +92,7 @@ public final class Sweeps
 				continue;
 			}
 			sweep.add(TransactionSigner.sign(
-				new TransactionBody(Chain.IDENTIFIER, state.nextNonceOf(destination.key()),
+				new TransactionBody(state.chainIdentifier(), state.nextNonceOf(destination.key()),
 					destination.key(), Destination.direct(account), held.minus(fee), fee, memo),
 				wallet.oneTimeKey(destination)));
 		}
