@@ -12,6 +12,12 @@ FORMAT:
 
 CHANGED:
 
+- the rule "this project does not write new cryptography" is replaced, not removed, by ADR 0001:
+  a new cryptographic construction only after a peer-reviewed publication with its proof, checked
+  against the authors' test vectors or a reference implementation, on the test chain first and on
+  the main chain only after an external cryptographic review, and no invented primitives. Sender
+  ambiguity and amount confidentiality are described as not built rather than ruled out. Nothing
+  in the code changes (#49)
 - the wallet file is sealed with mystic-crypt's PassphraseEnvelope under the marker LETHWF - the
   envelope of mystic-crypt-ui's vault, byte for byte - instead of PassphraseCryptor's MCRYPT layout,
   which is still read. A wallet file 0.1.0 wrote is a fixed test vector and opens, its bytes on disk

@@ -118,8 +118,11 @@ rather than here (#21); and `NoBalanceQueryTest` keeps the whole chain package u
 networking type, so the property holds for every run rather than for one captured one. The Tor
 transport is still ahead.
 
-**Out, with the reason:** amount confidentiality (Pedersen commitments, Bulletproofs) and sender
-ambiguity (ring signatures). Both mean writing new cryptography, which this project does not do.
+**Not built:** amount confidentiality and sender ambiguity. The sender is a public key in the clear
+and the amount a plain number in every transaction. Both need cryptographic constructions this
+project does not have yet, and those come in only under [ADR 0001](docs/adr/0001-new-cryptographic-constructions.md):
+a peer-reviewed publication with its proof, the authors' test vectors, the test chain first, and
+the main chain only after an external cryptographic review.
 
 **The label, because somebody would otherwise have to find it out:** Monero's privacy rests entirely
 on Ed25519 mathematics - ring signatures, stealth addresses and RingCT are all discrete-logarithm
@@ -142,7 +145,8 @@ Decided in [#1](https://github.com/astrapi69/lethenon/issues/1), with the reason
 | Proof it works | a replay verifier: a fresh process checks a chain from genesis and prints what it verified, and a deliberately corrupted fixture it must reject |
 
 Built on the libraries this family already publishes - [mystic-crypt](https://github.com/astrapi69/mystic-crypt),
-crypt-data and crypt-api over Bouncy Castle. This project writes formats and rules, not primitives.
+crypt-data and crypt-api over Bouncy Castle. This project writes formats and rules, and invents no
+primitives; when it uses a new construction, [ADR 0001](docs/adr/0001-new-cryptographic-constructions.md) says on what terms.
 
 ## Milestones
 
