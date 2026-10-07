@@ -74,6 +74,8 @@ final class Peer implements Closeable
 
 	private final Consumer<String> report;
 
+	private final boolean dialledHere;
+
 	private final Optional<PeerAddress> listening;
 
 	private boolean peersExpected;
@@ -97,6 +99,18 @@ final class Peer implements Closeable
 		final Hello hello, final int answerMillis, final Consumer<String> report,
 		final Optional<PeerAddress> listening)
 	{
+		this(socket, in, out, hello, answerMillis, report, listening, false);
+	}
+
+	/**
+	 * @param dialledHere
+	 *            whether this node opened the connection, rather than accepted it
+	 */
+	Peer(final Socket socket, final DataInputStream in, final DataOutputStream out,
+		final Hello hello, final int answerMillis, final Consumer<String> report,
+		final Optional<PeerAddress> listening, final boolean dialledHere)
+	{
+		this.dialledHere = dialledHere;
 		this.listening = listening;
 		this.socket = socket;
 		this.in = in;
@@ -122,6 +136,15 @@ final class Peer implements Closeable
 	Optional<PeerAddress> listening()
 	{
 		return listening;
+	}
+
+	/**
+	 * Whether this node opened the connection; fixed for its whole life, so that a decision about
+	 * it does not depend on bookkeeping that changes while it closes (#117)
+	 */
+	boolean dialledHere()
+	{
+		return dialledHere;
 	}
 
 	synchronized void expectPeers()
