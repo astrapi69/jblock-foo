@@ -214,4 +214,42 @@ class TransactionPoolTest
 		assertEquals(List.of(), dropped);
 		assertEquals(List.of(first, second), afterFirst.waiting());
 	}
+
+	@Test
+	void aPoolAtItsLimit_refusesTheNext_andAdmitsAgainAfterABlock()
+	{
+		TransactionPool small = new TransactionPool(Replay.verify(chain), 2);
+		SignedTransaction first = transfer(0L, Amount.ofLeth(1L), "first");
+		small.offer(first);
+		small.offer(transfer(1L, Amount.ofLeth(1L), "second"));
+		SignedTransaction third = transfer(2L, Amount.ofLeth(1L), "third");
+
+		Admission full = small.offer(third);
+
+		assertEquals(Outcome.REFUSED, full.outcome());
+		assertTrue(full.reason().contains("2 transfers, its limit"), full.reason());
+		small.advanceTo(Replay.verify(TestChains.chainWith(account, first)));
+		assertEquals(Outcome.ADMITTED, small.offer(third).outcome());
+	}
+
+	@Test
+	void fillingThePoolFromOneSender_checksEachSignatureOnce()
+	{
+		List<SignedTransaction> transfers = new java.util.ArrayList<>();
+		for (long nonce = 0; nonce <= TransactionPool.LIMIT; nonce++)
+		{
+			transfers.add(transfer(nonce, Amount.ofLethe(1L), ""));
+		}
+
+		org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(java.time.Duration.ofSeconds(60),
+			() -> {
+				for (SignedTransaction each : transfers.subList(0, TransactionPool.LIMIT))
+				{
+					assertEquals(Outcome.ADMITTED, pool.offer(each).outcome());
+				}
+			}, "admission re-checks the sender's waiting transfers");
+
+		assertEquals(TransactionPool.LIMIT, pool.waiting().size());
+		assertEquals(Outcome.REFUSED, pool.offer(transfers.getLast()).outcome());
+	}
 }

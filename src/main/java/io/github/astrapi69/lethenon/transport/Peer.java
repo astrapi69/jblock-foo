@@ -29,6 +29,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -67,13 +68,16 @@ final class Peer implements Closeable
 
 	private boolean askAgain;
 
+	private final int answerMillis;
+
 	Peer(final Socket socket, final DataInputStream in, final DataOutputStream out,
-		final Hello hello)
+		final Hello hello, final int answerMillis)
 	{
 		this.socket = socket;
 		this.in = in;
 		this.out = out;
 		this.hello = hello;
+		this.answerMillis = answerMillis;
 	}
 
 	/**
@@ -123,6 +127,7 @@ final class Peer implements Closeable
 			return false;
 		}
 		synchronising = true;
+		awaitAnswersFor(answerMillis);
 		return true;
 	}
 
@@ -146,7 +151,25 @@ final class Peer implements Closeable
 			return true;
 		}
 		synchronising = false;
+		awaitAnswersFor(0);
 		return false;
+	}
+
+	/**
+	 * While a request is in flight the peer's next frame has to come within the answer time,
+	 * otherwise the read fails and the node disconnects; with nothing asked, a peer may stay quiet
+	 * (ADR 0003, limits)
+	 */
+	private void awaitAnswersFor(final int millis)
+	{
+		try
+		{
+			socket.setSoTimeout(millis);
+		}
+		catch (SocketException broken)
+		{
+			closeQuietly();
+		}
 	}
 
 	/**

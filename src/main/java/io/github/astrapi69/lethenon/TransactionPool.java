@@ -25,7 +25,11 @@
 package io.github.astrapi69.lethenon;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * The transfers waiting for a block, admitted only if the next block could carry them (ADR 0003)
@@ -66,7 +70,29 @@ public final class TransactionPool
 	{
 	}
 
+	/** The most transfers a pool holds (ADR 0003, limits) */
+	public static final int LIMIT = 5_000;
+
 	private final List<SignedTransaction> waiting = new ArrayList<>();
+
+	private final Set<SignedTransaction> known = new HashSet<>();
+
+	private final Map<Bytes, Sender> senders = new HashMap<>();
+
+	private final int limit;
+
+	/**
+	 * What a sender's waiting transfers already take: how many there are and what they spend.
+	 * Admission checks a new transfer against this instead of applying the sender's waiting ones
+	 * again, so each signature is checked once (#92).
+	 */
+	private record Sender(long count, Amount spent)
+	{
+		Sender with(final TransactionBody body)
+		{
+			return new Sender(count + 1, spent.plus(body.amount().plus(body.fee())));
+		}
+	}
 
 	private ChainState tip;
 
@@ -80,8 +106,18 @@ public final class TransactionPool
 	 */
 	public TransactionPool(final Replay replay)
 	{
+		this(replay, LIMIT);
+	}
+
+	/**
+	 * An empty pool with another limit, so that the limit can be shown to hold without thousands
+	 * of transfers
+	 */
+	TransactionPool(final Replay replay, final int limit)
+	{
 		this.tip = replay.finalState();
 		this.nextHeight = replay.blocks();
+		this.limit = limit;
 	}
 
 	/**
@@ -93,31 +129,28 @@ public final class TransactionPool
 	 */
 	public synchronized Admission offer(final SignedTransaction transfer)
 	{
-		if (waiting.contains(transfer))
+		if (known.contains(transfer))
 		{
 			return new Admission(Outcome.KNOWN, "");
 		}
 		TransactionBody body = transfer.body();
-		for (SignedTransaction other : waiting)
+		Sender sender = senders.getOrDefault(body.sender(), new Sender(0L, Amount.ZERO));
+		long first = tip.nextNonceOf(body.sender());
+		if (body.nonce() >= first && body.nonce() < first + sender.count())
 		{
-			if (other.body().sender().equals(body.sender())
-				&& other.body().nonce() == body.nonce())
-			{
-				return new Admission(Outcome.REFUSED, "a double spend: account " + body.sender()
-					+ " already has a transfer with nonce " + body.nonce()
-					+ " waiting, and the first one seen stays");
-			}
+			return new Admission(Outcome.REFUSED, "a double spend: account " + body.sender()
+				+ " already has a transfer with nonce " + body.nonce()
+				+ " waiting, and the first one seen stays");
+		}
+		if (waiting.size() >= limit)
+		{
+			return new Admission(Outcome.REFUSED,
+				"the pool holds " + waiting.size() + " transfers, its limit");
 		}
 		ChainState trial = tip.copy();
 		try
 		{
-			for (SignedTransaction other : waiting)
-			{
-				if (other.body().sender().equals(body.sender()))
-				{
-					trial.applyTransfer(other, nextHeight);
-				}
-			}
+			trial.reserve(body.sender(), sender.spent(), sender.count());
 			trial.applyTransfer(transfer, nextHeight);
 		}
 		catch (ChainRejected refused)
@@ -125,6 +158,8 @@ public final class TransactionPool
 			return new Admission(Outcome.REFUSED, refused.getMessage());
 		}
 		waiting.add(transfer);
+		known.add(transfer);
+		senders.put(body.sender(), sender.with(body));
 		return new Admission(Outcome.ADMITTED, "");
 	}
 
@@ -169,6 +204,8 @@ public final class TransactionPool
 		List<SignedTransaction> before = new ArrayList<>(rolledBack);
 		before.addAll(waiting);
 		waiting.clear();
+		known.clear();
+		senders.clear();
 		tip = replay.finalState();
 		nextHeight = replay.blocks();
 		List<SignedTransaction> dropped = new ArrayList<>();

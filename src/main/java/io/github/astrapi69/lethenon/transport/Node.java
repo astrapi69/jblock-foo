@@ -32,12 +32,14 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import io.github.astrapi69.lethenon.BlockBody;
 import io.github.astrapi69.lethenon.Chain;
@@ -66,6 +68,21 @@ public final class Node implements AutoCloseable
 
 	/** How long a peer has to say HELLO: Monero's handshake timeout of 5000 ms (ADR 0003) */
 	public static final int HANDSHAKE_MILLIS = 5_000;
+
+	/** How long a request may wait for its answer: Monero's two-minute invoke timeout (ADR 0003) */
+	public static final int ANSWER_MILLIS = 120_000;
+
+	/** The most connections a node opens: Monero's default of 12 (ADR 0003) */
+	public static final int MAXIMUM_OUTGOING = 12;
+
+	/** The most connections a node accepts (ADR 0003) */
+	public static final int MAXIMUM_INCOMING = 16;
+
+	private final AtomicInteger outgoing = new AtomicInteger();
+
+	private final AtomicInteger incoming = new AtomicInteger();
+
+	private volatile int answerMillis = ANSWER_MILLIS;
 
 	private final List<Peer> peers = new CopyOnWriteArrayList<>();
 
@@ -175,13 +192,29 @@ public final class Node implements AutoCloseable
 	 * @param port
 	 *            the peer's port
 	 * @throws IOException
-	 *             when the peer cannot be reached within the handshake time
+	 *             when the peer cannot be reached within the handshake time, or this node has
+	 *             {@link #MAXIMUM_OUTGOING} outgoing connections already
 	 */
 	public void connect(final String host, final int port) throws IOException
 	{
+		if (outgoing.incrementAndGet() > MAXIMUM_OUTGOING)
+		{
+			outgoing.decrementAndGet();
+			throw new IOException("this node has " + MAXIMUM_OUTGOING
+				+ " outgoing connections, its limit (ADR 0003)");
+		}
 		Socket socket = new Socket();
-		socket.connect(new InetSocketAddress(host, port), HANDSHAKE_MILLIS);
-		threads.submit(() -> serve(socket));
+		try
+		{
+			socket.connect(new InetSocketAddress(host, port), HANDSHAKE_MILLIS);
+		}
+		catch (IOException unreachable)
+		{
+			outgoing.decrementAndGet();
+			closeQuietly(socket);
+			throw unreachable;
+		}
+		threads.submit(() -> serve(socket, outgoing));
 	}
 
 	/**
@@ -199,9 +232,9 @@ public final class Node implements AutoCloseable
 			{
 				connect(address.host(), address.port());
 			}
-			catch (IOException unreachable)
+			catch (IOException notConnected)
 			{
-				refusals.add(address + " could not be reached: " + unreachable.getMessage());
+				refusals.add(address + " was not connected: " + notConnected.getMessage());
 			}
 		}
 	}
@@ -249,7 +282,15 @@ public final class Node implements AutoCloseable
 			try
 			{
 				Socket accepted = socket.accept();
-				threads.submit(() -> serve(accepted));
+				if (incoming.incrementAndGet() > MAXIMUM_INCOMING)
+				{
+					incoming.decrementAndGet();
+					refusals.add(accepted.getRemoteSocketAddress() + " was refused: this node has "
+						+ MAXIMUM_INCOMING + " incoming connections, its limit (ADR 0003)");
+					closeQuietly(accepted);
+					continue;
+				}
+				threads.submit(() -> serve(accepted, incoming));
 			}
 			catch (IOException closed)
 			{
@@ -258,7 +299,10 @@ public final class Node implements AutoCloseable
 		}
 	}
 
-	private void serve(final Socket socket)
+	/**
+	 * Runs one connection to its end; the counter it was admitted under is released then
+	 */
+	private void serve(final Socket socket, final AtomicInteger counted)
 	{
 		open.add(socket);
 		Peer peer = null;
@@ -288,6 +332,11 @@ public final class Node implements AutoCloseable
 			{
 				refusals.add(peer.address() + " was disconnected: " + violation.getMessage());
 			}
+			else if (ended instanceof SocketTimeoutException)
+			{
+				refusals.add(peer.address() + " did not answer within " + answerMillis
+					+ " ms and was disconnected");
+			}
 		}
 		finally
 		{
@@ -298,6 +347,7 @@ public final class Node implements AutoCloseable
 			}
 			open.remove(socket);
 			closeQuietly(socket);
+			counted.decrementAndGet();
 		}
 	}
 
@@ -323,7 +373,7 @@ public final class Node implements AutoCloseable
 			return null;
 		}
 		socket.setSoTimeout(0);
-		return new Peer(socket, in, out, theirs);
+		return new Peer(socket, in, out, theirs, answerMillis);
 	}
 
 	private Optional<String> refusalOf(final Hello theirs)
@@ -381,6 +431,15 @@ public final class Node implements AutoCloseable
 	public List<SignedTransaction> pending()
 	{
 		return local.pool().waiting();
+	}
+
+	/**
+	 * Sets how long a request may wait for its answer, for connections made after this call;
+	 * tests use it so as not to wait two minutes
+	 */
+	void answerWithin(final int millis)
+	{
+		answerMillis = millis;
 	}
 
 	/**
