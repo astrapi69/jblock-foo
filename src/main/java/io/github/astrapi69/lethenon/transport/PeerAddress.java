@@ -24,16 +24,24 @@
  */
 package io.github.astrapi69.lethenon.transport;
 
+import java.util.Locale;
+import java.util.regex.Pattern;
+
 /**
  * A peer as the command line names it
  *
  * @param host
- *            the host name or address
+ *            the host name or address, or a v3 onion address, which only a proxy reaches
  * @param port
  *            the TCP port
  */
 public record PeerAddress(String host, int port)
 {
+
+	private static final String ONION_SUFFIX = ".onion";
+
+	/** A v3 onion address: 56 characters of base32 (RFC 4648, a-z and 2-7) and the suffix */
+	private static final Pattern V3_ONION = Pattern.compile("(?i)[a-z2-7]{56}\\.onion");
 
 	/**
 	 * Checks the address
@@ -50,6 +58,12 @@ public record PeerAddress(String host, int port)
 		if (port < 1 || port > 65_535)
 		{
 			throw new IllegalArgumentException("a port is 1 to 65535, not " + port);
+		}
+		if (endsInOnion(host) && !V3_ONION.matcher(host).matches())
+		{
+			throw new IllegalArgumentException("an onion address has 56 base32 characters before "
+				+ "'.onion' (Tor's version 3), and '" + host + "' has "
+				+ (host.length() - ONION_SUFFIX.length()));
 		}
 	}
 
@@ -78,6 +92,21 @@ public record PeerAddress(String host, int port)
 		{
 			throw new IllegalArgumentException("a peer is host:port, not '" + text + "'");
 		}
+	}
+
+	/**
+	 * Whether this is a Tor onion address, which only a proxy can reach
+	 *
+	 * @return true for a v3 onion address
+	 */
+	public boolean isOnion()
+	{
+		return endsInOnion(host);
+	}
+
+	private static boolean endsInOnion(final String host)
+	{
+		return host.toLowerCase(Locale.ROOT).endsWith(ONION_SUFFIX);
 	}
 
 	@Override

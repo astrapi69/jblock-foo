@@ -31,7 +31,6 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.net.Socket;
 
 /**
@@ -64,15 +63,14 @@ final class Client implements Closeable
 	}
 
 	/**
-	 * Connects to a node and reads its HELLO, both within {@link Node#HANDSHAKE_MILLIS}
+	 * Connects to a node over the given route and reads its HELLO, both within
+	 * {@link Node#HANDSHAKE_MILLIS}
 	 */
-	static Client open(final PeerAddress address) throws IOException
+	static Client open(final PeerAddress address, final Outbound outbound) throws IOException
 	{
-		Socket socket = new Socket();
+		Socket socket = outbound.open(address, Node.HANDSHAKE_MILLIS);
 		try
 		{
-			socket.connect(new InetSocketAddress(address.host(), address.port()),
-				Node.HANDSHAKE_MILLIS);
 			socket.setSoTimeout(Node.HANDSHAKE_MILLIS);
 			DataInputStream in = new DataInputStream(
 				new BufferedInputStream(socket.getInputStream()));

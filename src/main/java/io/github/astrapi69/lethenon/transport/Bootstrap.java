@@ -63,7 +63,25 @@ public final class Bootstrap
 	 */
 	public static List<BlockBody> genesisFrom(final PeerAddress address) throws IOException
 	{
-		try (Client peer = Client.open(address))
+		return genesisFrom(address, Outbound.DIRECT);
+	}
+
+	/**
+	 * Takes the genesis block from the node at the given address, over the given route
+	 *
+	 * @param address
+	 *            the peer; an onion address needs a proxy
+	 * @param outbound
+	 *            how the connection leaves this machine
+	 * @return a chain of the genesis block alone
+	 * @throws IOException
+	 *             when the peer cannot be reached, is not on the test chain, or sends a block that
+	 *             is not the genesis block it announced
+	 */
+	public static List<BlockBody> genesisFrom(final PeerAddress address, final Outbound outbound)
+		throws IOException
+	{
+		try (Client peer = Client.open(address, outbound))
 		{
 			Hello theirs = peer.theirs();
 			if (!Chain.TEST_IDENTIFIER.equals(theirs.chainIdentifier()))

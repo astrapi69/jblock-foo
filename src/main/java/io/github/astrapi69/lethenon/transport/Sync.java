@@ -107,9 +107,31 @@ public final class Sync
 	public static Synced once(final ChainFile file, final PeerAddress peer, final Duration within)
 		throws IOException
 	{
+		return once(file, peer, within, Outbound.DIRECT);
+	}
+
+	/**
+	 * {@link #once(ChainFile, PeerAddress, Duration)} over the given route: with a proxy, the
+	 * genesis block and every block after it come through it
+	 *
+	 * @param file
+	 *            the chain file, empty or on {@link Chain#TEST_IDENTIFIER}
+	 * @param peer
+	 *            the node to sync from; an onion address needs a proxy
+	 * @param within
+	 *            how long the whole sync may take
+	 * @param outbound
+	 *            how the connections leave this machine, for Tor through its SOCKS proxy
+	 * @return what it did
+	 * @throws IOException
+	 *             as {@link #once(ChainFile, PeerAddress, Duration)}
+	 */
+	public static Synced once(final ChainFile file, final PeerAddress peer, final Duration within,
+		final Outbound outbound) throws IOException
+	{
 		List<BlockBody> before = file.read();
-		List<BlockBody> start = before.isEmpty() ? genesisFrom(peer) : before;
-		try (Node node = Node.on(start).discoverPeers(false))
+		List<BlockBody> start = before.isEmpty() ? genesisFrom(peer, outbound) : before;
+		try (Node node = Node.on(start).discoverPeers(false).dialingThrough(outbound))
 		{
 			try
 			{
@@ -130,7 +152,8 @@ public final class Sync
 		}
 	}
 
-	private static List<BlockBody> genesisFrom(final PeerAddress peer) throws IOException
+	private static List<BlockBody> genesisFrom(final PeerAddress peer, final Outbound outbound)
+		throws IOException
 	{
 		Optional<BlockBody> anchored = ConsensusRules.LETHENON.anchorFor(Chain.TEST_IDENTIFIER);
 		if (anchored.isPresent())
@@ -139,7 +162,7 @@ public final class Sync
 		}
 		try
 		{
-			return Bootstrap.genesisFrom(peer);
+			return Bootstrap.genesisFrom(peer, outbound);
 		}
 		catch (IOException unanswered)
 		{
