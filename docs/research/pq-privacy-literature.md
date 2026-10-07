@@ -2,7 +2,8 @@
 
 First research: 2026-10-06. Revised: 2026-10-07 (second pass with more hosts reachable, then a third
 pass against the full texts of 14 ePrint papers uploaded by the maintainer, see 0.3; fourth pass:
-proof-model levels, see 14; fifth pass: the six general QROM results in full text, see 14.1). Scope:
+proof-model levels, see 14; fifth pass: the six general QROM results in full text, see 14.1;
+sixth pass: the phase C pre-check of a post-quantum hidden recipient, see 15). Scope:
 building blocks that could hide SENDER and AMOUNT on lethenon against a quantum adversary, checked
 against ADR 0001 rules (1) peer-reviewed publication with assumption and proof, (2) authors' test
 vectors or reference implementation, and (5) the proof model at one of three levels: L1 "QROM,
@@ -1203,3 +1204,47 @@ Downloaded from arXiv, only the abstract or one definition used: 2021/280 (arXiv
 - Open: whether a multi-key version of 2023/246 Thm. 2 / 2025/985 Thm. 1 exists; it is not in the
   six full texts. That is SPIRIT's main L2 gap.
 - Open: venues of 2022/270, 2019/699 and 2021/334 (ePrint says "Preprint").
+
+## 15. Phase C pre-check: a post-quantum hidden recipient (2026-10-07), postponed
+
+The maintainer asked for a hidden recipient for ML-DSA-65 accounts based on Maram and Xagawa, as a
+new recipient scheme on the test chain. The pre-check found that it cannot be built under ADR 0001
+from that paper, and the maintainer postponed the recipient building block (#72). The recipient
+stays as it is: `stealth-v2`, Ed25519 one-time keys found with an X25519 view key.
+
+What the pre-check established:
+
+- **What Maram and Xagawa prove.** The anonymity of the KEM in the QROM under MLWE: Theorem 2
+  (SPR-CCA, p. 23) and Corollary 1 (ANO-CCA of the KEM, p. 27) [F: ePrint 2022/1696 full text].
+  Lemma 6, which the anonymity rests on, has a proof sketch only (p. 15). The scheme analysed is
+  Kyber round 3 as in Fig. 5 (p. 14), reference [4] = round-3 submission v3.02 (p. 30); its
+  encapsulation hashes m first and derives the key with H(c). The paper does not mention ML-KEM.
+- **ML-KEM is not that Kyber.** FIPS 203, Appendix C.1 [N: https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.203.pdf]:
+  "ML-KEM.Encaps no longer includes a hash of the ciphertext in the derivation of the shared
+  secret", and the step m <- H(m) "is not performed in ML-KEM"; the shared key is fixed at 256 bits
+  and input checks are added. Whether the anonymity result carries over needs an argument nobody
+  has published in the sources read. The JDK 25.0.4.1 lists ML-KEM, ML-KEM-512, -768 and -1024;
+  "Kyber" in any spelling throws NoSuchAlgorithmException (measured with a probe on 2026-10-07).
+- **No spendable one-time key.** None of the sources read derives, from KEM anonymity, a one-time
+  ML-DSA key that only the recipient can spend. A KEM shared secret is known to both sides, so a
+  key derived from it alone is spendable by the sender too.
+- **SPIRIT, the published construction with that function, is excluded.** Fig. 8 (p. 19) [F: ePrint
+  2023/1148 full text]: the recipient decapsulates with the view key and shifts its Dilithium
+  master secret, osk = (s1 + s1', s2 + s2'). Its proof is in the classical ROM (Lemma 6.1,
+  Theorem 6.2, p. 21; the QROM case only "highly likely", p. 29), so rule 5 level L3; it doubles
+  Dilithium's beta, gamma1 and gamma2 (p. 20, p. 29), which rule 8 excludes; its KEM is Kyber with
+  a different Fujisaki-Okamoto variant (p. 12, p. 29); and its repository `sihangpu/SPIRIT` has no
+  licence file (section 13, f99f1e1), which rule 6 excludes even as a test reference.
+- **Licence of the Kyber reference code.** `pq-crystals/kyber`, commit 3edd5af on `main` (FIPS 203
+  structure) and 6449083 on branch `round3`: `LICENSE` reads "Public Domain
+  (https://creativecommons.org/share-your-work/public-domain/cc0/); or Apache 2.0 License" [G].
+  Code of Maram and Xagawa: none found (no link in the paper or on its ePrint page; one web search).
+- **Patents.** No patent office record could be opened (patents.google.com HTTP 503,
+  worldwide.espacenet.com HTTP 403, 2026-10-07). NIST's licence summary and the Kyber IP statements
+  are recorded in ADR 0001 rule 8, which now limits ML-KEM and ML-DSA to their standard parameters
+  and records Jintai Ding's 2022 statement on US 9,246,675 as a known, unresolved residual risk.
+
+Not verified: the round-3 specification v3.02 (blocked; v3.0 read, its Algorithms 8 and 9 on p. 10
+match Fig. 5); whether the uploaded PDF of 2022/1696 is the 2023-02-13 revision; the validity of
+EP 2537284; the exact text of the scanned IP statements; patents on ML-DSA; the JDK's conformance
+to FIPS 203 (no test vectors run).
