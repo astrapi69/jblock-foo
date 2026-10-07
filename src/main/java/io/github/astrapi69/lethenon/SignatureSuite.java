@@ -42,7 +42,7 @@ import io.github.astrapi69.crypt.api.algorithm.key.KeyPairGeneratorAlgorithm;
  * reinterpreted as another, because the identifier is part of the payload rather than a field
  * beside it.
  */
-public enum SignatureSuite
+public enum SignatureSuite implements Scheme
 {
 
 	/** Ed25519, 64 byte signatures, what every tool reads */
@@ -71,9 +71,16 @@ public enum SignatureSuite
 	 *
 	 * @return the identifier
 	 */
+	@Override
 	public String identifier()
 	{
 		return identifier;
+	}
+
+	@Override
+	public BuildingBlock block()
+	{
+		return BuildingBlock.AUTHORIZATION;
 	}
 
 	/**

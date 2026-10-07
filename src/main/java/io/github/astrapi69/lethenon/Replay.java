@@ -63,6 +63,24 @@ public record Replay(long blocks, long transactions, long signatures, ChainState
 	 */
 	public static Replay verify(final List<BlockBody> chain)
 	{
+		return verify(chain, ConsensusRules.LETHENON);
+	}
+
+	/**
+	 * Replays a chain under a given consensus rule; the public entry runs
+	 * {@link ConsensusRules#LETHENON}, and this one exists so that the rule can be shown to bite
+	 * with a table that admits less
+	 *
+	 * @param chain
+	 *            the blocks, genesis first
+	 * @param rules
+	 *            which schemes the chain admits at which height
+	 * @return what was verified
+	 * @throws ChainRejected
+	 *             with the reason, at the first thing that does not hold
+	 */
+	static Replay verify(final List<BlockBody> chain, final ConsensusRules rules)
+	{
 		if (chain.isEmpty())
 		{
 			throw new ChainRejected("an empty chain has no genesis block");
@@ -71,7 +89,7 @@ public record Replay(long blocks, long transactions, long signatures, ChainState
 		requireThat(Chain.isKnown(genesis.chainIdentifier()), "block 0 belongs to chain '"
 			+ genesis.chainIdentifier() + "', which is neither '" + Chain.IDENTIFIER + "' nor '"
 			+ Chain.TEST_IDENTIFIER + "'");
-		ChainState state = new ChainState();
+		ChainState state = new ChainState(rules);
 		state.allocateGenesis(genesis);
 		long transactions = 0;
 		long signatures = 0;

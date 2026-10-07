@@ -1,0 +1,152 @@
+/*
+ * The MIT License
+ *
+ * Copyright (C) 2015 Asterios Raptis
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+ * LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+ * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+package io.github.astrapi69.lethenon;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
+/**
+ * Which scheme of which building block each chain admits, and from which height: the consensus
+ * rule of the privacy block (phase B, ADR 0002).
+ * <p>
+ * The rule is code, and every verifier runs the same table, so changing it is a fork at the height
+ * the change names. {@link #LETHENON} admits exactly what both chains accepted before the rule
+ * existed, from the genesis block on; a scheme that is not in it is refused. ADR 0001 decides what
+ * may be added: a new scheme goes onto the test chain first and onto the main chain only after the
+ * external review its rules 3 and 5 require.
+ */
+public final class ConsensusRules
+{
+
+	/** The rule both chains run today */
+	public static final ConsensusRules LETHENON = new ConsensusRules(List.of(
+		SchemeActivation.from(Chain.IDENTIFIER, SignatureSuite.ED25519, 0L),
+		SchemeActivation.from(Chain.IDENTIFIER, SignatureSuite.ML_DSA_65, 0L),
+		SchemeActivation.from(Chain.IDENTIFIER, AddressScheme.DIRECT, 0L),
+		SchemeActivation.from(Chain.IDENTIFIER, AddressScheme.STEALTH_V2, 0L),
+		SchemeActivation.from(Chain.IDENTIFIER, AmountScheme.PLAIN, 0L),
+		SchemeActivation.from(Chain.TEST_IDENTIFIER, SignatureSuite.ED25519, 0L),
+		SchemeActivation.from(Chain.TEST_IDENTIFIER, SignatureSuite.ML_DSA_65, 0L),
+		SchemeActivation.from(Chain.TEST_IDENTIFIER, AddressScheme.DIRECT, 0L),
+		SchemeActivation.from(Chain.TEST_IDENTIFIER, AddressScheme.STEALTH_V2, 0L),
+		SchemeActivation.from(Chain.TEST_IDENTIFIER, AmountScheme.PLAIN, 0L)));
+
+	private final List<SchemeActivation> activations;
+
+	/**
+	 * A rule made of the given lines
+	 *
+	 * @param activations
+	 *            at most one line per chain and scheme
+	 * @throws IllegalArgumentException
+	 *             when a chain and scheme appear twice: which line would hold is then a matter of
+	 *             order, and a consensus rule must not depend on that
+	 */
+	public ConsensusRules(final List<SchemeActivation> activations)
+	{
+		Set<String> seen = new HashSet<>();
+		for (SchemeActivation activation : activations)
+		{
+			String key = activation.chainIdentifier() + "/" + activation.scheme().block() + "/"
+				+ activation.scheme().identifier();
+			if (!seen.add(key))
+			{
+				throw new IllegalArgumentException("scheme '" + activation.scheme().identifier()
+					+ "' appears twice for chain '" + activation.chainIdentifier() + "'");
+			}
+		}
+		this.activations = List.copyOf(activations);
+	}
+
+	/**
+	 * The lines of this rule
+	 *
+	 * @return the activations
+	 */
+	public List<SchemeActivation> activations()
+	{
+		return activations;
+	}
+
+	/**
+	 * Whether a chain admits a scheme at a height
+	 *
+	 * @param chainIdentifier
+	 *            the chain
+	 * @param scheme
+	 *            the scheme
+	 * @param height
+	 *            the block height
+	 * @return true when a line admits it
+	 */
+	public boolean admits(final String chainIdentifier, final Scheme scheme, final long height)
+	{
+		return lineFor(chainIdentifier, scheme).map(line -> line.admits(height)).orElse(false);
+	}
+
+	/**
+	 * Refuses a transfer that uses a scheme the chain does not admit at this height
+	 *
+	 * @param chainIdentifier
+	 *            the chain
+	 * @param scheme
+	 *            the scheme the transfer uses
+	 * @param height
+	 *            the height of the block that carries it
+	 * @throws ChainRejected
+	 *             naming the block, the scheme and the range the chain admits it in
+	 */
+	void requireAdmitted(final String chainIdentifier, final Scheme scheme, final long height)
+	{
+		Optional<SchemeActivation> line = lineFor(chainIdentifier, scheme);
+		if (line.isPresent() && line.get().admits(height))
+		{
+			return;
+		}
+		String transfer = "block " + height + " carries a transfer whose " + scheme.block().label()
+			+ " scheme '" + scheme.identifier() + "' chain '" + chainIdentifier + "' ";
+		if (line.isEmpty())
+		{
+			throw new ChainRejected(transfer + "does not admit");
+		}
+		if (height < line.get().fromHeight())
+		{
+			throw new ChainRejected(transfer + "admits from height " + line.get().fromHeight());
+		}
+		throw new ChainRejected(
+			transfer + "admitted until height " + line.get().untilHeight().getAsLong());
+	}
+
+	private Optional<SchemeActivation> lineFor(final String chainIdentifier, final Scheme scheme)
+	{
+		return activations.stream()
+			.filter(line -> line.chainIdentifier().equals(chainIdentifier)
+				&& line.scheme().block() == scheme.block()
+				&& line.scheme().identifier().equals(scheme.identifier()))
+			.findFirst();
+	}
+}
