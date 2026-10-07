@@ -80,13 +80,15 @@ length counts the type and the payload and is checked before anything is allocat
 
 | Message | Payload | Monero counterpart |
 |---|---|---|
-| `HELLO` | magic "LETHENON", protocol version, chain identifier, genesis hash, best height, best hash, cumulative work | handshake with `network_id` and core sync data |
+| `HELLO` | magic "LETHENON", protocol version, chain identifier, genesis hash, best height, best hash, cumulative work, listening port (0 for none), node identity | handshake with `network_id`, `my_port`, `peer_id` and core sync data |
 | `BLOCK` | one block, encoded as a chain of one | `NOTIFY_NEW_BLOCK` |
 | `TRANSFER` | one signed transfer | `NOTIFY_NEW_TRANSACTIONS` |
 | `GET_CHAIN` | a locator of block hashes, built as Monero's | `NOTIFY_REQUEST_CHAIN` |
 | `CHAIN` | the height of the first hash the peer shares, then the hashes after it | `NOTIFY_RESPONSE_CHAIN_ENTRY` |
 | `GET_BLOCKS` | first height, count | `NOTIFY_REQUEST_GET_OBJECTS` |
 | `BLOCKS` | the blocks, encoded as a chain | `NOTIFY_RESPONSE_GET_OBJECTS` |
+| `GET_PEERS` | nothing | the peer list in Monero's handshake answer |
+| `PEERS` | at most 250 addresses, host and port | `local_peerlist_new` |
 
 There is deliberately no message that asks for a balance, an account or an address. A node serves
 blocks and transfers; a wallet computes its balance from the chain, as before.
@@ -98,9 +100,43 @@ closed, with the reason logged, when any of these hold:
 - the magic is wrong;
 - the protocol version is not this build's;
 - the chain identifier is not `lethenon-test-1`;
-- the genesis hash differs.
+- the genesis hash differs;
+- the node identity is this node's own: the connection leads back to itself.
 
 A peer with more cumulative work is asked for its chain at once.
+
+### Peer exchange (#102)
+
+Protocol version 2 adds two fields to `HELLO`, as Monero's handshake carries them
+(`basic_node_data`, `src/p2p/p2p_protocol_defs.h:152-155`):
+- the port the node listens on, 0 for a caller that does not listen;
+- a random identity the node draws at start, so that a connection to itself is recognised.
+
+A version-1 peer is refused like any other version.
+
+How addresses travel:
+- After the handshake, a node asks a listening peer with `GET_PEERS`. The answer `PEERS` carries at
+  most 250 addresses (`P2P_DEFAULT_PEERS_IN_HANDSHAKE 250`, `src/cryptonote_config.h:144`). A
+  `PEERS` that was not asked for disconnects.
+- A node keeps Monero's two lists: addresses it has itself been connected to, at most 1,000
+  (`P2P_LOCAL_WHITE_PEERLIST_LIMIT`, `:138`), and addresses only heard of, at most 5,000
+  (`P2P_LOCAL_GRAY_PEERLIST_LIMIT`, `:139`).
+- Only the first list is passed on, the newest 250. An address heard of becomes confirmed when a
+  connection to it succeeds, and is forgotten when one fails. An address that leads back to the
+  node itself is never dialled again.
+- While a node has room for outgoing connections, at most 12, it dials addresses from the lists.
+  `--no-discovery` (`Node.discoverPeers(false)`) keeps it with the peers it was given, and it
+  still answers `GET_PEERS`.
+
+What is never passed on:
+- A caller that does not listen announces port 0 and is never named to anybody: `send --node`,
+  a node taking its genesis block. A node does not ask such a caller for addresses either.
+- An accepted peer is passed on as its host and the port it announced, never as the ephemeral
+  port of the connection.
+
+This makes a listening node's address known to every node it meets, which is what a network
+needs and what a protest chain should say plainly: running a node that listens publishes its
+address. Tor is the later step that changes that.
 
 ### Relaying and missing blocks
 
@@ -245,7 +281,5 @@ block that does not verify is disconnected.
 - **A reorganisation is at most one `CHAIN` answer deep.** A heavier fork whose advantage only
   shows after more than 500 blocks is not followed, and two nodes on such forks stay apart. On a
   test chain that is a choice; it is not one for a chain with value (#88).
-- **No peer exchange.** Peers come from the command line; Monero shares up to 250 peers in its
-  handshake (`P2P_DEFAULT_PEERS_IN_HANDSHAKE 250`, `src/cryptonote_config.h:144`), and lethenon
-  does not, for now.
-- **No Tor.** Tor comes later as a transport.
+- **Peer exchange without Tor.** Addresses travel in the clear and name the hosts of listening
+  nodes (#102). Tor comes later as a transport.

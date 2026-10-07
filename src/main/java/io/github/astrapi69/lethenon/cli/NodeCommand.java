@@ -67,6 +67,10 @@ class NodeCommand implements Callable<Integer>
 	@Option(names = "--peer", description = "host:port of a peer; repeat for more, at most 12")
 	List<String> peers = new ArrayList<>();
 
+	@Option(names = "--no-discovery", description = "stay with the peers given by --peer and do "
+		+ "not connect to addresses learnt from them; the node still passes on what it knows")
+	boolean noDiscovery;
+
 	@Option(names = "--mine", description = "mine on the node's pool and pay the wallet")
 	boolean mine;
 
@@ -118,7 +122,7 @@ class NodeCommand implements Callable<Integer>
 		{
 			file.write(start(addresses, beneficiary, out));
 		}
-		try (Node node = Node.serving(file))
+		try (Node node = Node.serving(file).discoverPeers(!noDiscovery))
 		{
 			int port = node.listen(listen);
 			node.connectAll(addresses);
@@ -127,7 +131,8 @@ class NodeCommand implements Callable<Integer>
 				+ (mine ? ", mining for " + ChainCommand.hex(beneficiary) : ""));
 			long minedBlocks = runUntilStopped(node, beneficiary);
 			out.println("stopped at height " + (node.chain().size() - 1) + ", mined " + minedBlocks
-				+ " block(s), " + node.pending().size() + " transfer(s) waiting");
+				+ " block(s), " + node.pending().size() + " transfer(s) waiting, "
+				+ node.peers().size() + " peer(s) connected");
 			node.refusals().forEach(System.err::println);
 		}
 		return 0;

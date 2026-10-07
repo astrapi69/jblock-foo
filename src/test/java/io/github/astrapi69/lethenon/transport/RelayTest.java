@@ -87,9 +87,9 @@ class RelayTest
 	 */
 	private static List<Node> line(final List<BlockBody> chain) throws IOException
 	{
-		Node a = Node.on(chain);
-		Node b = Node.on(chain);
-		Node c = Node.on(chain);
+		Node a = Node.on(chain).discoverPeers(false);
+		Node b = Node.on(chain).discoverPeers(false);
+		Node c = Node.on(chain).discoverPeers(false);
 		int portOfA = a.listen(0);
 		int portOfB = b.listen(0);
 		b.connect("127.0.0.1", portOfA);

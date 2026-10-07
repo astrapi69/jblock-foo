@@ -33,6 +33,7 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -98,10 +99,44 @@ public final class Node implements AutoCloseable
 
 	private ServerSocket server;
 
+	private final long nodeId = drawNodeId();
+
+	private final Discovery discovery;
+
+	private volatile int listenPort;
+
 	private Node(final List<BlockBody> chain, final Replay replay, final ChainFile file)
 	{
 		this.local = new LocalChain(chain, replay);
-		this.gossip = new Gossip(local, file, peers, refusals);
+		this.discovery = new Discovery(peers, refusals, new Discovery.Dialer()
+		{
+			@Override
+			public int outgoing()
+			{
+				return outgoing.get();
+			}
+
+			@Override
+			public void dial(final PeerAddress address) throws IOException
+			{
+				connect(address.host(), address.port());
+			}
+		}, threads);
+		this.gossip = new Gossip(local, file, peers, refusals, discovery);
+	}
+
+	/**
+	 * A random, non-zero identity for this run of the node, so that a connection to itself is
+	 * recognised (Monero's {@code peer_id})
+	 */
+	private static long drawNodeId()
+	{
+		long drawn = 0L;
+		while (drawn == 0L)
+		{
+			drawn = new SecureRandom().nextLong();
+		}
+		return drawn;
 	}
 
 	/**
@@ -180,8 +215,9 @@ public final class Node implements AutoCloseable
 		ServerSocket socket = new ServerSocket();
 		socket.bind(new InetSocketAddress(port));
 		server = socket;
+		listenPort = socket.getLocalPort();
 		threads.submit(this::accept);
-		return socket.getLocalPort();
+		return listenPort;
 	}
 
 	/**
@@ -214,7 +250,8 @@ public final class Node implements AutoCloseable
 			closeQuietly(socket);
 			throw unreachable;
 		}
-		threads.submit(() -> serve(socket, outgoing));
+		PeerAddress dialed = new PeerAddress(host, port);
+		threads.submit(() -> serve(socket, outgoing, Optional.of(dialed)));
 	}
 
 	/**
@@ -290,7 +327,7 @@ public final class Node implements AutoCloseable
 					closeQuietly(accepted);
 					continue;
 				}
-				threads.submit(() -> serve(accepted, incoming));
+				threads.submit(() -> serve(accepted, incoming, Optional.empty()));
 			}
 			catch (IOException closed)
 			{
@@ -301,20 +338,25 @@ public final class Node implements AutoCloseable
 
 	/**
 	 * Runs one connection to its end; the counter it was admitted under is released then
+	 *
+	 * @param dialed
+	 *            the address this node dialled, empty for a connection it accepted
 	 */
-	private void serve(final Socket socket, final AtomicInteger counted)
+	private void serve(final Socket socket, final AtomicInteger counted,
+		final Optional<PeerAddress> dialed)
 	{
 		open.add(socket);
 		Peer peer = null;
 		try
 		{
-			peer = shakeHands(socket);
+			peer = shakeHands(socket, dialed);
 			if (peer == null)
 			{
 				return;
 			}
 			peer.startWriting(threads);
 			peers.add(peer);
+			discovery.connected(peer);
 			gossip.askIfAhead(peer);
 			while (!socket.isClosed())
 			{
@@ -351,13 +393,15 @@ public final class Node implements AutoCloseable
 		}
 	}
 
-	private Peer shakeHands(final Socket socket) throws IOException
+	private Peer shakeHands(final Socket socket, final Optional<PeerAddress> dialed)
+		throws IOException
 	{
 		socket.setSoTimeout(HANDSHAKE_MILLIS);
 		DataInputStream in = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
 		DataOutputStream out = new DataOutputStream(
 			new BufferedOutputStream(socket.getOutputStream()));
-		Frames.write(out, new Frame(MessageType.HELLO, Hello.of(chain()).encode()));
+		Frames.write(out,
+			new Frame(MessageType.HELLO, Hello.of(chain(), listenPort, nodeId).encode()));
 		Frame first = Frames.read(in, Frames.MAXIMUM_FRAME);
 		if (first.type() != MessageType.HELLO)
 		{
@@ -366,6 +410,12 @@ public final class Node implements AutoCloseable
 			return null;
 		}
 		Hello theirs = Hello.decode(first.payload());
+		if (theirs.nodeId() == nodeId)
+		{
+			refusals.add(socket.getRemoteSocketAddress() + " is this node itself");
+			dialed.ifPresent(discovery::isItself);
+			return null;
+		}
 		Optional<String> refusal = refusalOf(theirs);
 		if (refusal.isPresent())
 		{
@@ -373,7 +423,52 @@ public final class Node implements AutoCloseable
 			return null;
 		}
 		socket.setSoTimeout(0);
-		return new Peer(socket, in, out, theirs, answerMillis, refusals::add);
+		return new Peer(socket, in, out, theirs, answerMillis, refusals::add,
+			listeningAddress(socket, theirs, dialed));
+	}
+
+	/**
+	 * Where a peer can be reached: the address this node dialled, or for a connection it
+	 * accepted, the peer's host with the port the peer announced; empty for a peer that does
+	 * not listen, which is then never passed on
+	 */
+	private static Optional<PeerAddress> listeningAddress(final Socket socket, final Hello theirs,
+		final Optional<PeerAddress> dialed)
+	{
+		if (dialed.isPresent())
+		{
+			return dialed;
+		}
+		if (theirs.listenPort() == 0)
+		{
+			return Optional.empty();
+		}
+		return Optional.of(
+			new PeerAddress(socket.getInetAddress().getHostAddress(), theirs.listenPort()));
+	}
+
+	/**
+	 * Whether this node connects to addresses it learns from its peers; on by default. Off, it
+	 * stays with the peers it was given and still passes on the addresses it knows.
+	 *
+	 * @param enabled
+	 *            whether to dial learnt addresses
+	 * @return this node
+	 */
+	public Node discoverPeers(final boolean enabled)
+	{
+		discovery.dialling(enabled);
+		return this;
+	}
+
+	/**
+	 * Addresses this node has heard of from its peers and not yet been connected to
+	 *
+	 * @return a snapshot
+	 */
+	public List<PeerAddress> heardOf()
+	{
+		return discovery.heardOf();
 	}
 
 	private Optional<String> refusalOf(final Hello theirs)

@@ -57,6 +57,8 @@ final class Gossip
 
 	private final Object writing = new Object();
 
+	private final Discovery discovery;
+
 	/**
 	 * @param local
 	 *            the node's chain and pool
@@ -66,10 +68,13 @@ final class Gossip
 	 *            the node's peers after the handshake, read for relaying
 	 * @param refusals
 	 *            where reasons are recorded
+	 * @param discovery
+	 *            peer exchange
 	 */
 	Gossip(final LocalChain local, final ChainFile file, final List<Peer> peers,
-		final List<String> refusals)
+		final List<String> refusals, final Discovery discovery)
 	{
+		this.discovery = discovery;
 		this.local = local;
 		this.file = file;
 		this.peers = peers;
@@ -122,6 +127,8 @@ final class Gossip
 			case GET_BLOCKS -> peer.send(new Frame(MessageType.BLOCKS,
 				CanonicalEncoding.encodeChain(local.blocksFor(BlockRequest.decode(frame.payload())))));
 			case BLOCKS -> onBlocks(peer, decodeBlocks(frame.payload()));
+			case GET_PEERS -> discovery.answer(peer);
+			case PEERS -> discovery.learn(peer, PeerList.decode(frame.payload()));
 		}
 	}
 
