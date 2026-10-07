@@ -29,6 +29,15 @@ CHANGED:
   also checked against the full texts of six general results on Fiat-Shamir in the quantum random
   oracle model. No candidate's proof-model level changes: none of them reaches a quantum random
   oracle proof through a general result (#54, #70)
+- ADR 0001 rule 8: ML-KEM and ML-DSA only with the parameters of their standard, from the JDK or
+  Bouncy Castle, on the basis of NIST's licence summary; modified parameters and predecessor
+  versions such as Kyber round 3 are excluded, and Jintai Ding's 2022 statement on US 9,246,675 is
+  recorded as a known, unresolved residual risk (#72)
+- a post-quantum hidden recipient is postponed: the one-time destinations stay Ed25519 with an
+  X25519 view key. Maram and Xagawa's QROM anonymity result is for Kyber round 3, not ML-KEM, and
+  gives no one-time ML-DSA key only the recipient can spend; SPIRIT, which does, is proven in the
+  classical random oracle model only, changes Dilithium's parameters and has code without a
+  licence. Recorded in the README and in section 15 of the literature (#72)
 
 Version 0.2.0
 -------------

@@ -131,6 +131,17 @@ project does not have yet, and those come in only under [ADR 0001](docs/adr/0001
 a peer-reviewed publication with its proof, the authors' test vectors, the test chain first, and
 the main chain only after an external cryptographic review.
 
+**A post-quantum hidden recipient: looked at, and postponed.** The one-time destinations stay as
+they are: Ed25519 one-time keys found with an X25519 view key, which is pre-quantum. The phase C
+pre-check (#72) found no construction that replaces them under the project's rules. Maram and
+Xagawa (PKC 2023) prove in the quantum random oracle model that a Kyber ciphertext does not reveal
+its recipient, but for Kyber round 3, whose encapsulation FIPS 203 changed in exactly the steps the
+proof models (FIPS 203, Appendix C.1), and the JDK offers only ML-KEM; nor does that result give a
+one-time ML-DSA key that only the recipient can spend. The one published construction that does,
+SPIRIT (CCS 2023), is proven in the classical random oracle model only, changes Dilithium's
+parameters, and ships code without a licence, so ADR 0001 excludes it (rules 5, 6 and 8). The
+details are in `docs/research/pq-privacy-literature.md`, section 15.
+
 **The label, because somebody would otherwise have to find it out:** Monero's privacy rests entirely
 on Ed25519 mathematics - ring signatures, stealth addresses and RingCT are all discrete-logarithm
 constructions. ML-DSA gives none of that; it is a signature scheme, not a toolkit for rings or

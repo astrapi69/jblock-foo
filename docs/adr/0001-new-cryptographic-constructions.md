@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-10-06
-- Decided by the maintainer on 2026-10-06 (#49); rule 5 added by the maintainer on 2026-10-07 (#55); rules 6 and 7 added by the maintainer on 2026-10-07 (#58), rule 6 extended for Apache-2.0 (#65)
+- Decided by the maintainer on 2026-10-06 (#49); rule 5 added by the maintainer on 2026-10-07 (#55); rules 6 and 7 added by the maintainer on 2026-10-07 (#58), rule 6 extended for Apache-2.0 (#65); rule 8 added by the maintainer on 2026-10-07 (#72)
 - Replaces: "Both mean writing new cryptography, which this project does not do" (README, privacy
   section) and "This project writes formats and rules, not primitives" (README, planned shape)
 
@@ -20,7 +20,7 @@ broken one be switched off without starting the chain again.
 
 ## Decision
 
-The maintainer set seven rules for any construction that is new to this project:
+The maintainer set eight rules for any construction that is new to this project:
 
 1. **Published, peer reviewed, proven.** A new cryptographic construction is used only after a
    peer-reviewed publication. Its record here cites the paper (authors, title, venue, year), names
@@ -60,6 +60,27 @@ The maintainer set seven rules for any construction that is new to this project:
    maintainer has clarified it. A scheme whose patent position is unclear is excluded, in any
    repository, until it is clarified. The record of a scheme states what is known about patents on
    it and where that was read.
+8. **ML-KEM and ML-DSA only as standardised.** ML-KEM (FIPS 203) and ML-DSA (FIPS 204) are used
+   only with the parameters of their standard, from the JDK or from Bouncy Castle. Modified
+   parameters and predecessor versions, such as Kyber round 3 or a Dilithium with changed
+   parameters, are excluded. The basis is NIST's summary of the licences it obtained for its
+   post-quantum standards, "nist-pqc-license-summary-and-excerpts.pdf"
+   (https://csrc.nist.gov/csrc/media/Projects/post-quantum-cryptography/documents/selected-algos-2022/nist-pqc-license-summary-and-excerpts.pdf,
+   linked from https://csrc.nist.gov/Projects/post-quantum-cryptography/ipr-license-summary): it
+   names the portfolios "U.S. Pat. No. 9,246,675 and all related patents and applications" and
+   "EP App. No. 11712927; EP Pat. No. 2537284; French Pat. App. No. 1051190" with related
+   rights, ties the licence to a field of use, and says in clause 2.9 (US portfolio only) that
+   "any modification, extension, or derivation of the parameters of the PQC ALGORITHM, is not an
+   implementation or use of the PQC algorithm". Whether that summary covers ML-DSA as well as
+   ML-KEM is not established here. **Known, unresolved residual risk:** in NIST's collection of
+   IP statements for CRYSTALS-Kyber
+   (https://csrc.nist.gov/csrc/media/Projects/post-quantum-cryptography/documents/selected-algos-2022/final-ip-statements/CRYSTALS-Kyber-Statements-final.pdf,
+   a scanned document, read from page images on 2026-10-07), a 2022 statement by Jintai Ding names
+   US9246675 and pending applications in China, Korea, the EU and Taiwan (p. 24), and commits to
+   "a non-exclusive license for the purpose of implementing the standard" with the box "under
+   reasonable terms and conditions that are demonstrably free of any unfair discrimination"
+   ticked, not "without compensation" (p. 26). How that statement relates to the US portfolio NIST
+   licensed under the same number, neither document says. The statement is recorded, not resolved.
 
 ## Consequences
 
