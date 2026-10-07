@@ -51,9 +51,15 @@ import io.github.astrapi69.crypt.data.hash.HashExtensions;
 class BlocksTest
 {
 
+	/**
+	 * A transfer signed with a key pair from a fixed seed. Ed25519 signs deterministically, so the
+	 * transfer, and every block that carries it, is the same in every run. A fresh random key made
+	 * the block hash a random value, and one run in 256 the "unmined" block was already mined (#68)
+	 */
 	private static SignedTransaction aTransfer(final long nonce)
 	{
-		KeyPair signer = TransactionSigner.newKeyPair(SignatureSuite.ED25519);
+		KeyPair signer = DeterministicKeys.from(SignatureSuite.ED25519.algorithm(),
+			Bytes.of(new byte[DeterministicKeys.SEED_LENGTH]));
 		TransactionBody body = new TransactionBody(Chain.IDENTIFIER, nonce,
 			TransactionSigner.asBytes(signer.getPublic()),
 			new Destination(AddressScheme.DIRECT, Bytes.of(new byte[] { 3 }), Bytes.of(new byte[0]),
@@ -146,6 +152,18 @@ class BlocksTest
 		BlockBody two = aBlock(0, "same pun", List.of(aTransfer(2L)));
 
 		assertNotEquals(Blocks.hashOf(one), Blocks.hashOf(two));
+	}
+
+	@Test
+	@DisplayName("the block the mining test starts from is the same in every run, so its precondition is no coin toss (#68)")
+	void theTestBlock_isTheSameInEveryRun()
+	{
+		BlockBody first = aBlock(8, "the panopticon is a poor joke", List.of(aTransfer(1L)));
+		BlockBody second = aBlock(8, "the panopticon is a poor joke", List.of(aTransfer(1L)));
+
+		assertArrayEquals(Blocks.hashOf(first).toByteArray(), Blocks.hashOf(second).toByteArray(),
+			"a transfer signed with a fresh random key makes the block a different random value in "
+				+ "every run, and one run in 256 it is mined before the test mines it");
 	}
 
 	@Test
