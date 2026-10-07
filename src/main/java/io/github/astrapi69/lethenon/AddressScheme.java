@@ -33,7 +33,7 @@ package io.github.astrapi69.lethenon;
  * know is refused, never read as some other one - funds sent under it could not be attributed to
  * anybody.
  */
-public enum AddressScheme
+public enum AddressScheme implements Scheme
 {
 	/**
 	 * The key as the recipient gave it: no ephemeral key, view tag zero. For recipients whose
@@ -73,9 +73,16 @@ public enum AddressScheme
 	 *
 	 * @return the identifier
 	 */
+	@Override
 	public String identifier()
 	{
 		return identifier;
+	}
+
+	@Override
+	public BuildingBlock block()
+	{
+		return BuildingBlock.RECIPIENT;
 	}
 
 	/**

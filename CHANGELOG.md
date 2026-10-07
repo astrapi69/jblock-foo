@@ -12,6 +12,13 @@ FORMAT:
 
 ADDED:
 
+- the privacy block's architecture (phase B, ADR 0002): a transfer has three building blocks a
+  scheme can replace - authorization, recipient, amount - and every scheme carries a permanent,
+  versioned identifier. A consensus rule admits each scheme per chain from a block height on, and
+  optionally until a later one, so a broken scheme can be switched off without a new chain. Today's
+  rule admits exactly what both chains accepted before: ed25519, ml-dsa-65, direct, stealth-v2 and
+  plain amounts from height 0; no behaviour changes. No scheme that hides sender or amount exists
+  yet (#60)
 - a test chain, `lethenon-test-1`, beside the main chain `lethenon-1`: `mine --testnet` writes its
   genesis block, and from then on the genesis block decides - every block, transfer and sweep
   carries its identifier, the replay refuses a block or a transfer of the other chain and a genesis

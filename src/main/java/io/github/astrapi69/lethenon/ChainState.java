@@ -49,6 +49,27 @@ public final class ChainState
 
 	private String chainIdentifier = Chain.IDENTIFIER;
 
+	private final ConsensusRules rules;
+
+	/**
+	 * An empty state under the rule both chains run, {@link ConsensusRules#LETHENON}
+	 */
+	public ChainState()
+	{
+		this(ConsensusRules.LETHENON);
+	}
+
+	/**
+	 * An empty state under the given rule
+	 *
+	 * @param rules
+	 *            which schemes the chain admits at which height
+	 */
+	ChainState(final ConsensusRules rules)
+	{
+		this.rules = rules;
+	}
+
 	/**
 	 * The balance of an account, zero when it has never been paid
 	 *
@@ -125,7 +146,7 @@ public final class ChainState
 	{
 		for (SignedTransaction transaction : block.transactions())
 		{
-			applyTransfer(transaction);
+			applyTransfer(transaction, block.height());
 		}
 		payTheReward(block.beneficiary());
 		if (!Emission.TOTAL_SUPPLY.equals(total()))
@@ -135,7 +156,7 @@ public final class ChainState
 		}
 	}
 
-	private void applyTransfer(final SignedTransaction transaction)
+	private void applyTransfer(final SignedTransaction transaction, final long height)
 	{
 		TransactionBody body = transaction.body();
 		if (!chainIdentifier.equals(body.chainIdentifier()))
@@ -154,6 +175,9 @@ public final class ChainState
 				+ " destination, whose key is a hash and therefore the private half of nothing; "
 				+ "those funds could never be moved again");
 		}
+		rules.requireAdmitted(chainIdentifier, transaction.suite(), height);
+		rules.requireAdmitted(chainIdentifier, body.recipient().scheme(), height);
+		rules.requireAdmitted(chainIdentifier, body.amountScheme(), height);
 		if (!TransactionSigner.verify(transaction))
 		{
 			throw new ChainRejected("a transfer whose signature does not match its sender");

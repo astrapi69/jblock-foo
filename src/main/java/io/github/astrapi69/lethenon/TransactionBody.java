@@ -59,6 +59,17 @@ public record TransactionBody(String chainIdentifier, long nonce, Bytes sender, 
 	 */
 	public static final int MEMO_LIMIT = 280;
 
+	/**
+	 * How this transfer carries its amount: in the clear, which is what version 1 of the
+	 * transaction encoding means, so the wire does not name it
+	 *
+	 * @return {@link AmountScheme#PLAIN}
+	 */
+	public AmountScheme amountScheme()
+	{
+		return AmountScheme.PLAIN;
+	}
+
 	public TransactionBody
 	{
 		if (nonce < 0L)
