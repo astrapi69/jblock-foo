@@ -38,6 +38,11 @@ CHANGED:
   gives no one-time ML-DSA key only the recipient can spend; SPIRIT, which does, is proven in the
   classical random oracle model only, changes Dilithium's parameters and has code without a
   licence. Recorded in the README and in section 15 of the literature (#72)
+- hidden amounts are postponed and the account model stays: no published amount scheme meets ADR 0001
+  and fits an account model, and a combination of our own over LNP22/LaZer is not built without a
+  cryptographer's security argument. README, ADR 0002 and section 16 of the literature now say what
+  lethenon is: post-quantum in its authenticity, classical in its hidden recipient, open about
+  sender and amount (#74)
 
 Version 0.2.0
 -------------

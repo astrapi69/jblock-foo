@@ -3,7 +3,8 @@
 First research: 2026-10-06. Revised: 2026-10-07 (second pass with more hosts reachable, then a third
 pass against the full texts of 14 ePrint papers uploaded by the maintainer, see 0.3; fourth pass:
 proof-model levels, see 14; fifth pass: the six general QROM results in full text, see 14.1;
-sixth pass: the phase C pre-check of a post-quantum hidden recipient, see 15). Scope:
+sixth pass: the phase C pre-check of a post-quantum hidden recipient, see 15; seventh pass: the
+phase C pre-check of hidden amounts, see 16). Scope:
 building blocks that could hide SENDER and AMOUNT on lethenon against a quantum adversary, checked
 against ADR 0001 rules (1) peer-reviewed publication with assumption and proof, (2) authors' test
 vectors or reference implementation, and (5) the proof model at one of three levels: L1 "QROM,
@@ -1248,3 +1249,40 @@ Not verified: the round-3 specification v3.02 (blocked; v3.0 read, its Algorithm
 match Fig. 5); whether the uploaded PDF of 2022/1696 is the 2023-02-13 revision; the validity of
 EP 2537284; the exact text of the scanned IP statements; patents on ML-DSA; the JDK's conformance
 to FIPS 203 (no test vectors run).
+
+## 16. Phase C pre-check: hidden amounts (2026-10-07), postponed
+
+The maintainer asked for hidden amounts as the next building block, with a candidate that meets
+rules 1 and 2. The pre-check found none, and the maintainer postponed the block (#74). The account
+model stays; sender and amount stay visible.
+
+What the pre-check established:
+
+- **Account model.** No paper read describes an account balance kept as a commitment and updated in
+  place. MatRiCT+ (p. 8), SMILE (p. 10) and Gao et al. (pp. 1-3) spend one-time "accounts" (a key
+  and a coin) once under a serial number, the RingCT shape [F]; LACT+ keeps unspent coin outputs
+  (section 1.7). How a recipient learns the opening of what it received is outside the schemes:
+  MatRiCT+ p. 8, fn. 6, says the openings are "delivered to the recipient(s) privately" [F].
+- **Range.** The supply, 1,984,000,000 LETH in eight decimals, is 1.984e17 base units, log2 57.46,
+  so it needs 58 bits (`Emission.java:39`, computed); the papers that state a range use 64 bits
+  (SMILE p. 10, MatRiCT+ p. 4, Gao et al. p. 1) [F].
+- **Candidates against ADR 0001:**
+  - LNP22 through LaZer (MIT; bundled HEXL Apache-2.0, needs a NOTICE file): the proof system meets
+    rule 1 (CRYPTO 2022, Thm. B.7 p. 77) [F], but there is no published amount scheme on it, the
+    LaZer repository (HEAD 3330e48) has no range-proof or transaction demo [G], the proof-model
+    level is L3 at best and 2023/246 (p. 4) lists LNP22 for re-examination [F]. Usable only as a
+    combination of our own under rule 4: not built without a cryptographer's security argument.
+  - LaBRADOR: not zero-knowledge as published (p. 3) [F]; hides nothing on its own.
+  - LACT+: GPL-3.0 code (rule 6), venue not verifiable (mdpi.com unreachable).
+  - MatRiCT+ amount part: excluded by rule 7 until its patent position is clarified.
+  - Gao et al.: no licence (rule 6); no theorem for the composed scheme.
+  - SMILE: no proof for the transaction part, no code.
+  - STARK, Aurora, Ligero: no payment scheme in the sources read.
+- **Open, not blocking:** Couteau, Klooss, Lin, Reichle, ePrint 2021/540 (EUROCRYPT 2021, range
+  proofs) and Esgin, Steinfeld, Liu, Liu, ePrint 2019/445 (CRYPTO 2019, lattice range proof, which
+  2021/927 p. 41 claims without proof to fit a QROM route) are known from their abstracts only.
+
+Not verified: LACT+'s venue, proof and sizes; every patent register (patents.google.com HTTP 503,
+worldwide.espacenet.com HTTP 403); the licence of cpu_features at the commit HEXL pins; whether
+LaZer builds without its LaBRADOR submodule; any printed size or timing for a standalone range or
+balance proof.
