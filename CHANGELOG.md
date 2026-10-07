@@ -6,6 +6,13 @@ Version 0.3.0 (unreleased)
 
 ADDED:
 
+- a network for the test chain, first building block (#76, #78, ADR 0003): the package
+  `lethenon.transport` speaks TCP in frames of a 4-byte length, a type byte and a payload, at most
+  4 MiB, checked before anything is allocated. Nodes connect to a fixed list of peers and shake
+  hands with HELLO (magic, protocol version, chain identifier, genesis hash, tip, cumulative work),
+  and refuse within 5 seconds anything that is not this protocol version on `lethenon-test-1` with
+  the same genesis block. A node does not run on the main chain. `ChainWork` sums 2^difficulty
+  over a chain
 - the privacy block's architecture (phase B, ADR 0002): a transfer has three building blocks a
   scheme can replace - authorization, recipient, amount - and every scheme carries a permanent,
   versioned identifier. A consensus rule admits each scheme per chain from a block height on, and
