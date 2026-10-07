@@ -25,6 +25,7 @@
 package io.github.astrapi69.lethenon;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * The block a miner looks for a pun for (lethenon#32).
@@ -37,6 +38,12 @@ import java.util.List;
  */
 public final class Mining
 {
+
+	/**
+	 * The most bytes mining adds to a pun: {@link Blocks#mine} appends " #" and the attempt, at
+	 * most 19 digits
+	 */
+	static final int MINING_SUFFIX_BYTES = 2 + 19;
 
 	private Mining()
 	{
@@ -51,7 +58,9 @@ public final class Mining
 	 * @param beneficiary
 	 *            whom the block pays: on an empty chain the genesis holder, otherwise the miner
 	 * @param waiting
-	 *            the transfers to carry; ignored for the genesis block, which carries the
+	 *            the transfers to carry, in the order they wait; the block carries the longest
+	 *            prefix that fits the chain's size limit. Ignored for the genesis block, which
+	 *            carries the
 	 *            allocation instead
 	 * @param pun
 	 *            the words mining starts from
@@ -79,7 +88,9 @@ public final class Mining
 	 * @param beneficiary
 	 *            whom the block pays: on an empty chain the genesis holder, otherwise the miner
 	 * @param waiting
-	 *            the transfers to carry; ignored for the genesis block, which carries the
+	 *            the transfers to carry, in the order they wait; the block carries the longest
+	 *            prefix that fits the chain's size limit. Ignored for the genesis block, which
+	 *            carries the
 	 *            allocation instead
 	 * @param pun
 	 *            the words mining starts from
@@ -112,7 +123,49 @@ public final class Mining
 		}
 		long timestamp = Math.max(now, DifficultyRule.medianTimePast(chain) + 1L);
 		BlockBody last = chain.getLast();
-		return new BlockBody(chainIdentifier, last.height() + 1L, Blocks.hashOf(last), beneficiary,
-			waiting, timestamp, difficulty, pun);
+		BlockBody empty = new BlockBody(chainIdentifier, last.height() + 1L, Blocks.hashOf(last),
+			beneficiary, List.of(), timestamp, difficulty, pun);
+		return new BlockBody(chainIdentifier, empty.height(), empty.previousHash(), beneficiary,
+			fitting(empty, waiting), timestamp, difficulty, pun);
+	}
+
+	/**
+	 * The longest prefix of the waiting transfers that keeps the block within its chain's size
+	 * limit (#99), with room for what {@link Blocks#mine} adds to the pun. A prefix, because a
+	 * sender's transfers wait in nonce order: one left out would make every later one of that
+	 * sender invalid.
+	 */
+	private static List<SignedTransaction> fitting(final BlockBody empty,
+		final List<SignedTransaction> waiting)
+	{
+		Optional<BlockLimits> limits = ConsensusRules.LETHENON
+			.limitsFor(empty.chainIdentifier());
+		if (limits.isEmpty())
+		{
+			return waiting;
+		}
+		return fitting(empty, waiting, limits.get().maximumBytes());
+	}
+
+	/**
+	 * The longest prefix of the waiting transfers that keeps the block within the given size,
+	 * with room for what mining adds to the pun
+	 */
+	static List<SignedTransaction> fitting(final BlockBody empty,
+		final List<SignedTransaction> waiting, final int maximumBytes)
+	{
+		long room = (long)maximumBytes - CanonicalEncoding.blockSize(empty)
+			- MINING_SUFFIX_BYTES;
+		int carried = 0;
+		for (SignedTransaction transfer : waiting)
+		{
+			room -= CanonicalEncoding.sizeInBlock(transfer);
+			if (room < 0)
+			{
+				break;
+			}
+			carried++;
+		}
+		return List.copyOf(waiting.subList(0, carried));
 	}
 }

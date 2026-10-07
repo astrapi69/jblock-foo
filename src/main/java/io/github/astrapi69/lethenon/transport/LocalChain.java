@@ -31,6 +31,7 @@ import java.util.Map;
 
 import io.github.astrapi69.lethenon.BlockBody;
 import io.github.astrapi69.lethenon.Blocks;
+import io.github.astrapi69.lethenon.CanonicalEncoding;
 import io.github.astrapi69.lethenon.Bytes;
 import io.github.astrapi69.lethenon.ChainRejected;
 import io.github.astrapi69.lethenon.ChainWork;
@@ -85,6 +86,9 @@ final class LocalChain
 		{
 		}
 	}
+
+	/** The type byte of a frame and the version and count of a chain encoding */
+	private static final int FRAME_OVERHEAD = 1 + 1 + Long.BYTES;
 
 	private List<BlockBody> chain;
 
@@ -210,13 +214,25 @@ final class LocalChain
 	}
 
 	/**
-	 * The blocks a request asks for, as far as this chain has them
+	 * The blocks a request asks for, as far as this chain has them and as many as fit in one
+	 * frame; the asker takes fewer and asks for the rest (#98)
 	 */
 	synchronized List<BlockBody> blocksFor(final BlockRequest request)
 	{
 		int first = (int)Math.min(request.first(), chain.size());
 		int end = (int)Math.min(chain.size(), request.first() + request.count());
-		return List.copyOf(chain.subList(first, end));
+		long room = Frames.MAXIMUM_FRAME - FRAME_OVERHEAD;
+		int fitting = first;
+		while (fitting < end)
+		{
+			room -= CanonicalEncoding.blockSize(chain.get(fitting));
+			if (room < 0 && fitting > first)
+			{
+				break;
+			}
+			fitting++;
+		}
+		return List.copyOf(chain.subList(first, fitting));
 	}
 
 	/**

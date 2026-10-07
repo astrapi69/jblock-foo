@@ -101,9 +101,11 @@ class MineCommand extends ChainCommand
 		extended.add(mined);
 		Replay replay = Replay.verify(extended);
 		writeChain(extended);
-		writePending(List.of());
-		out.println("mined block " + mined.height() + " with " + waiting.size()
-			+ " transfer(s), paying " + hex(beneficiary) + ": \"" + mined.pun() + "\"");
+		List<SignedTransaction> left = waiting.subList(mined.transactions().size(), waiting.size());
+		writePending(left);
+		out.println("mined block " + mined.height() + " with " + mined.transactions().size()
+			+ " transfer(s), paying " + hex(beneficiary) + ": \"" + mined.pun() + "\""
+			+ (left.isEmpty() ? "" : "; " + left.size() + " did not fit and wait for the next"));
 		out.println("chain " + mined.chainIdentifier());
 		out.println(replay.describe());
 		return 0;

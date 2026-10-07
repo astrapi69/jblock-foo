@@ -6,6 +6,10 @@ Version 0.3.0 (unreleased)
 
 FIXED:
 
+- a block the node's own miner built could be too large to fetch: the miner capped blocks at 500
+  transfers by count, and 500 ML-DSA-65 transfers make 2,692,122 bytes, so two such blocks did not
+  fit in a 4 MiB BLOCKS frame and a node behind never caught up. Blocks are now bounded in bytes,
+  and a node answers GET_BLOCKS with as many blocks as fit in one frame (#98)
 - admitting a transfer to the pool re-applied every waiting transfer of the same sender, signature
   check included, so filling the pool with 5,000 transfers from one sender did not finish within
   60 s. Admission now keeps per sender what is waiting and checks each signature once (#92)
@@ -21,6 +25,11 @@ FIXED:
 
 ADDED:
 
+- a consensus limit on block size, the second prerequisite for a main chain (#99): on
+  `lethenon-test-1` a block larger than 300,000 bytes does not verify, Monero's full reward zone
+  taken as a hard limit; `CanonicalEncoding.blockSize` counts it. Mining carries the longest
+  prefix of the waiting transfers that fits, and `mine` keeps the rest waiting instead of dropping
+  it. The main chain has no limit until the decision that starts it
 - a consensus bound on timestamps in the future, the first prerequisite for a main chain (#96):
   on `lethenon-test-1` a block whose timestamp lies more than two hours after the verifying
   node's clock does not verify, Monero's `CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT`. The limit sits in
