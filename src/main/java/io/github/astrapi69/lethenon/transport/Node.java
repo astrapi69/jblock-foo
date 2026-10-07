@@ -44,6 +44,7 @@ import io.github.astrapi69.lethenon.Blocks;
 import io.github.astrapi69.lethenon.CanonicalEncoding;
 import io.github.astrapi69.lethenon.Chain;
 import io.github.astrapi69.lethenon.ChainRejected;
+import io.github.astrapi69.lethenon.ChainWork;
 import io.github.astrapi69.lethenon.Replay;
 import io.github.astrapi69.lethenon.SignedTransaction;
 import io.github.astrapi69.lethenon.TransactionPool.Admission;
@@ -234,6 +235,7 @@ public final class Node implements AutoCloseable
 			}
 			peer.startWriting(threads);
 			peers.add(peer);
+			askIfAhead(peer);
 			while (!socket.isClosed())
 			{
 				handle(peer, Frames.read(peer.in(), Frames.MAXIMUM_FRAME));
@@ -260,6 +262,18 @@ public final class Node implements AutoCloseable
 			}
 			open.remove(socket);
 			closeQuietly(socket);
+		}
+	}
+
+	/**
+	 * Asks a peer that announced more cumulative work for its chain at once, instead of waiting
+	 * for its next block (ADR 0003, handshake); what it then sends is verified like any fetch
+	 */
+	private void askIfAhead(final Peer peer)
+	{
+		if (peer.hello().work().compareTo(ChainWork.of(local.blocks())) > 0)
+		{
+			synchroniseWith(peer);
 		}
 	}
 
