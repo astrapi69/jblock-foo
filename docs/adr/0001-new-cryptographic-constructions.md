@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-10-06
-- Decided by the maintainer on 2026-10-06 (#49); rule 5 added by the maintainer on 2026-10-07 (#55)
+- Decided by the maintainer on 2026-10-06 (#49); rule 5 added by the maintainer on 2026-10-07 (#55); rules 6 and 7 added by the maintainer on 2026-10-07 (#58)
 - Replaces: "Both mean writing new cryptography, which this project does not do" (README, privacy
   section) and "This project writes formats and rules, not primitives" (README, planned shape)
 
@@ -20,7 +20,7 @@ broken one be switched off without starting the chain again.
 
 ## Decision
 
-The maintainer set five rules for any construction that is new to this project:
+The maintainer set seven rules for any construction that is new to this project:
 
 1. **Published, peer reviewed, proven.** A new cryptographic construction is used only after a
    peer-reviewed publication. Its record here cites the paper (authors, title, venue, year), names
@@ -47,14 +47,25 @@ The maintainer set five rules for any construction that is new to this project:
    classical proof". On the main chain, a scheme needs, in addition to the review of rule 3, a
    QROM proof at one of the first two levels, or an explicit verdict of that external review on
    exactly this question.
+6. **Licences.** Code taken into lethenon - a library, a plugin, copied source, anything that runs
+   in the same process - is under a licence compatible with MIT, lethenon's own licence.
+   Copyleft code, such as GPL, is never taken into lethenon: it is allowed only as a separate
+   program, in a repository of its own under that licence, which lethenon calls across a process
+   boundary, and never as a library or a plugin in the same process. Code without a licence is
+   not used at all, in any repository. The record of a scheme names the licence of every piece of
+   code it uses, with the file it was read from.
+7. **Patents.** A scheme with a known patent that is valid in the EU is not used before the
+   maintainer has clarified it. A scheme whose patent position is unclear is excluded, in any
+   repository, until it is clarified. The record of a scheme states what is known about patents on
+   it and where that was read.
 
 ## Consequences
 
 - The README no longer says that sender ambiguity and amount confidentiality are out. It says they
   are not built, and under which rule they may be.
 - Every scheme gets a record of its own under `docs/adr/` before its code: the citation, the
-  assumption, the proof model at its level (rule 5), the test vectors or their absence, and the
-  review status.
+  assumption, the proof model at its level (rule 5), the test vectors or their absence, the
+  licence of the code it uses (rule 6), the patent position (rule 7), and the review status.
 - README and CHANGELOG promise only what is measured. A comparison with another system (Monero, for
   example) is stated only with the number or the property that supports it.
 - **Precondition for everything that follows:** the test chain identifier (#50) is built. Before
