@@ -302,6 +302,9 @@ class RelayTest
 				test -> new Frame(MessageType.BLOCK,
 					CanonicalEncoding.encodeChain(List.of(test.unfundedBlock()))),
 				"does not verify"),
+			new Misbehaviour("CHAIN nobody asked for",
+				test -> new Frame(MessageType.CHAIN, new ChainEntry(0L, List.of()).encode()),
+				"CHAIN answer nobody asked for"),
 			new Misbehaviour("BLOCKS nobody asked for",
 				test -> new Frame(MessageType.BLOCKS, CanonicalEncoding.encodeChain(test.genesis)),
 				"not asked for"),
@@ -421,6 +424,78 @@ class RelayTest
 			await("the reason", () -> node.refusals().stream()
 				.anyMatch(reason -> reason.contains("for a request of " + BlockRequest.LIMIT)));
 			assertEquals(genesis, node.chain());
+		}
+	}
+
+	@Test
+	@DisplayName("two blocks with an unknown parent in a row start one synchronisation, not two")
+	void twoUnknownParentsInARow_startOneSynchronisation() throws IOException
+	{
+		List<BlockBody> ahead = chainOf(5);
+		List<Bytes> hashes = new ArrayList<>();
+		ahead.forEach(block -> hashes.add(Blocks.hashOf(block)));
+		Frame tip = new Frame(MessageType.BLOCK,
+			CanonicalEncoding.encodeChain(List.of(ahead.getLast())));
+		try (Node node = Node.on(genesis))
+		{
+			int port = node.listen(0);
+			try (Socket socket = new Socket("127.0.0.1", port))
+			{
+				socket.setSoTimeout(10_000);
+				DataInputStream in = new DataInputStream(socket.getInputStream());
+				DataOutputStream out = new DataOutputStream(socket.getOutputStream());
+				Frames.write(out, new Frame(MessageType.HELLO, Hello.of(genesis).encode()));
+				Frames.read(in, Frames.MAXIMUM_FRAME);
+				Frames.write(out, tip);
+				Frames.write(out, tip);
+				assertEquals(MessageType.GET_CHAIN, Frames.read(in, Frames.MAXIMUM_FRAME).type());
+
+				Frames.write(out, new Frame(MessageType.CHAIN,
+					new ChainEntry(0L, hashes.subList(1, hashes.size())).encode()));
+
+				assertEquals(MessageType.GET_BLOCKS, Frames.read(in, Frames.MAXIMUM_FRAME).type(),
+					"the second unknown parent waits for the synchronisation in flight");
+				Frames.write(out, new Frame(MessageType.BLOCKS,
+					CanonicalEncoding.encodeChain(ahead.subList(1, ahead.size()))));
+				await("the chain", () -> node.chain().equals(ahead));
+			}
+		}
+	}
+
+	@Test
+	@DisplayName("a block with an unknown parent during a fetch asks once more when the fetch ends")
+	void anUnknownParentDuringAFetch_asksOnceMoreAfterIt() throws IOException
+	{
+		List<BlockBody> ahead = chainOf(5);
+		List<BlockBody> further = extended(ahead, MINER, List.of());
+		List<Bytes> hashes = new ArrayList<>();
+		ahead.forEach(block -> hashes.add(Blocks.hashOf(block)));
+		try (Node node = Node.on(genesis))
+		{
+			int port = node.listen(0);
+			try (Socket socket = new Socket("127.0.0.1", port))
+			{
+				socket.setSoTimeout(10_000);
+				DataInputStream in = new DataInputStream(socket.getInputStream());
+				DataOutputStream out = new DataOutputStream(socket.getOutputStream());
+				Frames.write(out, new Frame(MessageType.HELLO, Hello.of(genesis).encode()));
+				Frames.read(in, Frames.MAXIMUM_FRAME);
+				Frames.write(out, new Frame(MessageType.BLOCK,
+					CanonicalEncoding.encodeChain(List.of(ahead.getLast()))));
+				Frames.read(in, Frames.MAXIMUM_FRAME);
+				Frames.write(out, new Frame(MessageType.CHAIN,
+					new ChainEntry(0L, hashes.subList(1, hashes.size())).encode()));
+				Frames.read(in, Frames.MAXIMUM_FRAME);
+				Frames.write(out, new Frame(MessageType.BLOCK,
+					CanonicalEncoding.encodeChain(List.of(further.getLast()))));
+
+				Frames.write(out, new Frame(MessageType.BLOCKS,
+					CanonicalEncoding.encodeChain(ahead.subList(1, ahead.size()))));
+
+				assertEquals(MessageType.GET_CHAIN, Frames.read(in, Frames.MAXIMUM_FRAME).type(),
+					"the block that arrived during the fetch is asked for after it");
+				await("the fetched chain", () -> node.chain().equals(ahead));
+			}
 		}
 	}
 }
