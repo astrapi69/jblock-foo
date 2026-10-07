@@ -449,14 +449,6 @@ public final class Node implements AutoCloseable
 	}
 
 	/**
-	 * Whether this node connects to addresses it learns from its peers; on by default. Off, it
-	 * stays with the peers it was given and still passes on the addresses it knows.
-	 *
-	 * @param enabled
-	 *            whether to dial learnt addresses
-	 * @return this node
-	 */
-	/**
 	 * How this node's outgoing connections leave the machine, given peers and learnt ones alike;
 	 * {@link Outbound#DIRECT} by default. Through a proxy, {@link #listen(int)} binds loopback only.
 	 *
@@ -508,6 +500,14 @@ public final class Node implements AutoCloseable
 		return server.getInetAddress();
 	}
 
+	/**
+	 * Whether this node connects to addresses it learns from its peers; on by default. Off, it
+	 * stays with the peers it was given and still passes on the addresses it knows.
+	 *
+	 * @param enabled
+	 *            whether to dial learnt addresses
+	 * @return this node
+	 */
 	public Node discoverPeers(final boolean enabled)
 	{
 		discovery.dialling(enabled);
