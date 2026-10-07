@@ -1,14 +1,22 @@
 ## Change log
 ----------------------
 
-Version 0.2.0 (unreleased)
+Version 0.2.0
 -------------
 
 FORMAT:
 
-- A wallet file written by 0.1.0 keeps opening and is never rewritten: lethenon writes a wallet file
-  only when one is created or restored, and never over an existing one. Wallets created or restored
-  with 0.2.0 are sealed in the new format, which 0.1.0 cannot open (#45)
+- Wallets: a wallet file created or restored with 0.2.0 is sealed in the envelope `LETHWF`, and 0.1.0
+  cannot open it - it refuses the file as "not a wallet file: it is not sealed with a password the
+  way a wallet file is". A wallet file written by 0.1.0 keeps opening and is never rewritten:
+  lethenon writes a wallet file only when one is created or restored, and never over an existing
+  one (#45)
+- Chains: a chain started with `mine --testnet` carries the identifier `lethenon-test-1`, which 0.1.0
+  does not know. 0.1.0 refuses such a chain at its genesis block - `balance` and `mine` end with
+  "block 0 belongs to chain 'lethenon-test-1'" and exit 1 - and leaves the chain file as it was.
+  Main chains (`lethenon-1`) are unchanged in both directions: 0.1.0 replays a main chain 0.2.0
+  wrote and mines on it, 0.2.0 replays the result, and a chain written by 0.1.0 is a main chain
+  (#50)
 
 ADDED:
 
@@ -26,11 +34,12 @@ CHANGED:
   against the authors' test vectors or a reference implementation, on the test chain first and on
   the main chain only after an external cryptographic review, and no invented primitives. Sender
   ambiguity and amount confidentiality are described as not built rather than ruled out. Nothing
-  in the code changes (#49)
+  in the code changes (#49). A fifth rule: every scheme names the model its proof holds in (#55)
 - the wallet file is sealed with mystic-crypt's PassphraseEnvelope under the marker LETHWF - the
   envelope of mystic-crypt-ui's vault, byte for byte - instead of PassphraseCryptor's MCRYPT layout,
   which is still read. A wallet file 0.1.0 wrote is a fixed test vector and opens, its bytes on disk
-  unchanged afterwards. mystic-crypt 13.3 to 13.4 (#45)
+  unchanged afterwards. mystic-crypt 13.3 to 13.5: 13.5's envelope declares
+  GeneralSecurityException, so the calls into it are plain calls again (#45, #47)
 - the commands that read a password - wallet create, wallet restore, and every command that opens a
   wallet - overwrite it once the file is written or opened, on success and on failure, and that is
   now asserted on the array's content rather than assumed (#45)
