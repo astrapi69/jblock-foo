@@ -206,11 +206,21 @@ block that does not verify is disconnected.
 
 ### The node command
 
-`lethenon node --chain <file> --listen <port> [--peer host:port ...] [--mine --wallet <file>]`
-- It serves the chain and relays.
-- With `--mine` it mines on its pool and pays the wallet, and if the chain file is empty it starts a
-  test chain, which is the same as `mine --testnet`.
-- Without `--mine`, a node with no chain synchronises from its peers.
+`lethenon node --chain <file> --listen <port> [--peer host:port ...] [--mine --wallet <file>] [--for <seconds>]`
+- It serves the chain file and relays.
+- With `--mine` it mines on its pool and pays the wallet. If the chain file is empty, it starts a
+  test chain, which is the same as `mine --testnet`. A block carries at most 500 waiting
+  transfers. Mining runs in rounds of 100,000 attempts; between rounds the node looks at its tip,
+  so a block from a peer stops work on a tip that is no longer the tip (#94).
+- Without `--mine`, a node with an empty chain file takes the genesis block from the first
+  configured peer that answers, then synchronises.
+  - It reads the peer's HELLO, shakes hands on the genesis hash announced there, asks for block 0,
+    and checks that the block hashes to that announcement, is a test-chain genesis block, and
+    verifies.
+  - This is trust on first use. The peers are a fixed list the operator chose, and it is a test
+    chain. Everything after the genesis block is verified as on any node. A node that should not
+    trust its peers for the genesis block starts from a chain file that has it (#94).
+- `--for` stops it after that many seconds; without it, it runs until interrupted.
 
 ## Consequences
 

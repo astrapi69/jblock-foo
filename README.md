@@ -71,6 +71,26 @@ cryptographic scheme runs on the test chain first ([ADR 0001](docs/adr/0001-new-
 every waiting transfer into a block, replays the result and only then writes it. Exit codes: 0
 done, 1 refused with the reason on standard error, 2 a command line that was not understood.
 
+### A test network
+
+The test chain has a network ([ADR 0003](docs/adr/0003-test-network.md)): TCP, a fixed list of
+peers, no peer discovery, no Tor yet. A node runs only on `lethenon-test-1` and refuses a main
+chain. There is no message that asks a node for a balance; a wallet still computes its own from
+a chain file.
+
+```
+lethenon node --chain a.lethenon --listen 18431 --mine --wallet miner.wallet   # starts a test chain and mines
+lethenon node --chain b.lethenon --listen 18432 --peer 127.0.0.1:18431         # takes the chain from a
+lethenon send --chain a.lethenon --wallet w.wallet --to <account> --amount 7 --node 127.0.0.1:18431
+lethenon balance --chain b.lethenon --wallet friend.wallet                      # from b's own copy
+```
+
+A node keeps its chain file and `<chain>.pending` up to date and owns them while it runs.
+`send --node` hands the transfer to the node that serves the file named by `--chain`. A node
+with an empty file takes the genesis block from the first peer that answers; everything after
+it is verified block by block. The longer chain by cumulative work wins, and a fork is followed
+up to 500 blocks deep.
+
 The chain is called Lethenon, from
 [Lethe](https://en.wikipedia.org/wiki/Lethe), the river of forgetting - the opposite of a permanent
 record about people. The name was checked against GitHub, Maven Central, npm, PyPI, crates.io and
@@ -166,7 +186,7 @@ Decided in [#1](https://github.com/astrapi69/lethenon/issues/1), with the reason
 | Decision | Choice |
 |---|---|
 | Model | accounts with a nonce, not UTXO - one signature per transaction instead of one per input, which is what makes post-quantum signatures affordable |
-| Consensus | **proof of pun**: a block is valid when its memo hash carries the required prefix, the difficulty starts at 8 bits and steps by at most 2 bits every 30 blocks towards two-minute blocks, timestamps later than the median of the 11 before ([#24](https://github.com/astrapi69/lethenon/issues/24), after Bitcoin's rules). Fork choice by most work comes with a network. Mining with wordplay instead of nonces, CPU-friendly on purpose - Monero gives the same reasoning for RandomX, "designed to make the use of mining-specific hardware unfeasible", and a protest whose mining needs bought hardware is a poor protest |
+| Consensus | **proof of pun**: a block is valid when its memo hash carries the required prefix, the difficulty starts at 8 bits and steps by at most 2 bits every 30 blocks towards two-minute blocks, timestamps later than the median of the 11 before ([#24](https://github.com/astrapi69/lethenon/issues/24), after Bitcoin's rules). Fork choice by most cumulative work on the test network ([ADR 0003](docs/adr/0003-test-network.md)). Mining with wordplay instead of nonces, CPU-friendly on purpose - Monero gives the same reasoning for RandomX, "designed to make the use of mining-specific hardware unfeasible", and a protest whose mining needs bought hardware is a poor protest |
 | Signatures | Ed25519 by default, ML-DSA-65 selectable per transaction, the suite identifier inside the signed bytes |
 | Encoding | one canonical encoder, a round-trip property test, a format version in every persisted structure |
 | Arithmetic | integers only, `Math.addExact` and `Math.subtractExact`, and the supply invariant checked after every block |

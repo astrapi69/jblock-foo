@@ -21,6 +21,13 @@ FIXED:
 
 ADDED:
 
+- a network for the test chain, seventh building block (#76, #94, ADR 0003): `lethenon node
+  --chain <file> --listen <port> [--peer host:port ...] [--mine --wallet <file>] [--for <seconds>]`.
+  It serves the chain file, relays and synchronises; with `--mine` it mines on its pool, at most
+  500 transfers per block, and starts a test chain on an empty file; without it, an empty file
+  takes the genesis block from the first peer that answers, checked against that peer's HELLO, and
+  then synchronises block by block. The README shows two nodes, a send through one and a balance
+  from the other's copy
 - a network for the test chain, sixth building block (#76, #92, ADR 0003): limits. A node opens at
   most 12 connections and accepts at most 16, refusing above that with the reason recorded; a peer
   that does not answer a GET_CHAIN or GET_BLOCKS within 120 s is disconnected, while one with
