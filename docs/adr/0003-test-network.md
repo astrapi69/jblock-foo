@@ -285,13 +285,17 @@ decisions, not on code:
 
 | Prerequisite | State on `lethenon-test-1` | What the main chain needs |
 |---|---|---|
-| bound on future timestamps | two hours, from height 0 (#96) | a `BlockLimits` line for `lethenon-1` |
-| block size limit | 300,000 bytes, from height 0 (#99) | the same line |
+| bound on future timestamps | two hours, from height 0 (#96) | done: two hours on `lethenon-1` too, from height 0 (#109) |
+| block size limit | 300,000 bytes, from height 0 (#99) | done: 300,000 bytes on `lethenon-1` too, from height 0 (#109) |
 | peer exchange | protocol version 2 (#102) | nothing chain-specific; a node still runs only on the test chain |
 | genesis block in the code | the mechanism, no anchor (#104) | the block: its content and above all its allocation, decided by the maintainer, then filed as a `GenesisAnchor` |
 
-Applying the limits to `lethenon-1` from height 0 changes nothing for chains mined so far, as long
-as none carries a block larger than 300,000 bytes or one more than two hours ahead of the clock.
+The limits apply to `lethenon-1` from height 0 since #109. For main chains mined before, the
+timestamp bound changes nothing, because the clock only moves on. The size limit rejects a main
+chain that carries a block over 300,000 bytes: lethenon 0.2.0 mined without a byte cap, so that is
+a block with 56 or more ML-DSA-65 transfers, or 1,515 or more Ed25519 transfers, paying an Ed25519
+miner (5,375 and 198 bytes per transfer, 201 bytes for the block around them with the mining
+suffix, measured for #109).
 Whether existing main-chain files are kept at all depends on the anchor: once one is filed, a main
 chain that starts elsewhere does not verify. A node on the main chain is a further decision, and
 Tor comes before it.
@@ -305,16 +309,16 @@ Tor comes before it.
   block weight median and a reward penalty above its full reward zone of 300,000 bytes. lethenon
   pays its reward from a pre-minted pool and has no penalty for a dynamic scheme to act on, so
   Monero's baseline is taken as a hard limit. Mining carries the longest prefix of the waiting
-  transfers that fits, and `mine` keeps the rest waiting. The main chain has no limit in the
-  table yet.
+  transfers that fits, and `mine` keeps the rest waiting. The main chain has the same limit since
+  #109.
 - **Future timestamps are bounded on the test chain (#96).** A block whose timestamp lies more than
   two hours after the verifying node's clock does not verify. This is Monero's
   `CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT 60*60*2` (`src/cryptonote_config.h:47`), checked against the
   local clock as Monero does in `Blockchain::check_block_timestamp`
   (`src/cryptonote_core/blockchain.cpp:3813`), at the same two-minute target block time. The
   rule lives in `ConsensusRules` as the chain's `BlockLimits` and is checked by `Replay`. The
-  clock only moves on, so a chain that verified once keeps verifying. The main chain has no
-  limits in the table yet; they are switched on with the decision that starts it.
+  clock only moves on, so a chain that verified once keeps verifying. The main chain has the same
+  bound since #109.
 - **A reorganisation is at most one `CHAIN` answer deep.** A heavier fork whose advantage only
   shows after more than 500 blocks is not followed, and two nodes on such forks stay apart. On a
   test chain that is a choice; it is not one for a chain with value (#88).

@@ -56,8 +56,10 @@ public final class ConsensusRules
 		SchemeActivation.from(Chain.TEST_IDENTIFIER, AddressScheme.DIRECT, 0L),
 		SchemeActivation.from(Chain.TEST_IDENTIFIER, AddressScheme.STEALTH_V2, 0L),
 		SchemeActivation.from(Chain.TEST_IDENTIFIER, AmountScheme.PLAIN, 0L)),
-		List.of(new BlockLimits(Chain.TEST_IDENTIFIER, BlockLimits.TWO_HOURS,
-			BlockLimits.MAXIMUM_BLOCK_BYTES)));
+		List.of(new BlockLimits(Chain.IDENTIFIER, BlockLimits.TWO_HOURS,
+			BlockLimits.MAXIMUM_BLOCK_BYTES),
+			new BlockLimits(Chain.TEST_IDENTIFIER, BlockLimits.TWO_HOURS,
+				BlockLimits.MAXIMUM_BLOCK_BYTES)));
 
 	private final List<SchemeActivation> activations;
 
