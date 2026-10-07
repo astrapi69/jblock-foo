@@ -83,6 +83,7 @@ lethenon node --chain a.lethenon --listen 18431 --mine --wallet miner.wallet   #
 lethenon node --chain b.lethenon --listen 18432 --peer 127.0.0.1:18431         # takes the chain from a
 lethenon send --chain a.lethenon --wallet w.wallet --to <account> --amount 7 --node 127.0.0.1:18431
 lethenon balance --chain b.lethenon --wallet friend.wallet                      # from b's own copy
+lethenon genesis --testnet --wallet holder.wallet       # a candidate genesis block, its hash and bytes
 ```
 
 A node keeps its chain file and `<chain>.pending` up to date and owns them while it runs.

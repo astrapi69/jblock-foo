@@ -29,16 +29,17 @@ import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 
 import io.github.astrapi69.lethenon.BlockBody;
-import io.github.astrapi69.lethenon.Blocks;
 import io.github.astrapi69.lethenon.Bytes;
 import io.github.astrapi69.lethenon.Chain;
 import io.github.astrapi69.lethenon.ChainFile;
 import io.github.astrapi69.lethenon.ChainRejected;
-import io.github.astrapi69.lethenon.Mining;
+import io.github.astrapi69.lethenon.ConsensusRules;
+import io.github.astrapi69.lethenon.Genesis;
 import io.github.astrapi69.lethenon.SignatureSuite;
 import io.github.astrapi69.lethenon.transport.Bootstrap;
 import io.github.astrapi69.lethenon.transport.Miner;
@@ -145,11 +146,17 @@ class NodeCommand implements Callable<Integer>
 	private List<BlockBody> start(final List<PeerAddress> addresses, final Bytes beneficiary,
 		final PrintStream out) throws IOException
 	{
+		Optional<BlockBody> anchored = ConsensusRules.LETHENON.anchorFor(Chain.TEST_IDENTIFIER);
+		if (anchored.isPresent())
+		{
+			out.println("started from the genesis block fixed in the code for "
+				+ Chain.TEST_IDENTIFIER);
+			return List.of(anchored.get());
+		}
 		if (beneficiary != null)
 		{
-			BlockBody genesis = Blocks.mine(Mining.nextBlock(Chain.TEST_IDENTIFIER, List.of(),
-				beneficiary, List.of(), pun, System.currentTimeMillis()), 10_000_000L)
-				.orElseThrow(() -> new IllegalStateException("no pun reached the genesis difficulty"));
+			BlockBody genesis = Genesis.start(Chain.TEST_IDENTIFIER, beneficiary, pun,
+				System.currentTimeMillis());
 			out.println("mined the genesis block of " + Chain.TEST_IDENTIFIER);
 			return List.of(genesis);
 		}

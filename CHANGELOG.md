@@ -28,6 +28,13 @@ FIXED:
 
 ADDED:
 
+- a genesis block fixed in the code, the mechanism without the block, the fourth prerequisite for a
+  main chain (#104): `ConsensusRules` carries per chain at most one anchor, the block's canonical
+  bytes, checked when the table is built; `Replay` rejects a chain that starts elsewhere;
+  `Genesis.start` gives the anchor instead of mining one, and `mine` and `node` start chains
+  through it; `lethenon genesis` prints a candidate's hash and bytes and writes nothing. No chain
+  has an anchor yet: the main chain's block, and the allocation it carries, is the maintainer's
+  decision
 - peer exchange, the third prerequisite for a main chain (#102): HELLO carries the listening port
   and a random node identity (protocol version 2), after Monero's `my_port` and `peer_id`. A node
   asks listening peers with GET_PEERS, passes on at most 250 addresses of nodes it has itself been

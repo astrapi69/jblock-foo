@@ -34,6 +34,7 @@ import io.github.astrapi69.lethenon.Blocks;
 import io.github.astrapi69.lethenon.Bytes;
 import io.github.astrapi69.lethenon.Chain;
 import io.github.astrapi69.lethenon.DifficultyRule;
+import io.github.astrapi69.lethenon.Genesis;
 import io.github.astrapi69.lethenon.Mining;
 import io.github.astrapi69.lethenon.Replay;
 import io.github.astrapi69.lethenon.SignatureSuite;
@@ -90,13 +91,15 @@ class MineCommand extends ChainCommand
 			Replay.verify(blocks);
 		}
 		long now = System.currentTimeMillis();
-		BlockBody next = testnet
-			? Mining.nextBlock(Chain.TEST_IDENTIFIER, blocks, beneficiary, waiting, pun, now)
-			: Mining.nextBlock(blocks, beneficiary, waiting, pun, now);
-		BlockBody mined = Blocks.mine(next, attempts)
-			.orElseThrow(() -> new IllegalStateException("no pun of " + attempts
-				+ " attempts reached difficulty " + DifficultyRule.requiredFor(blocks)
-				+ "; try more attempts"));
+		BlockBody mined = blocks.isEmpty()
+			? Genesis.start(testnet ? Chain.TEST_IDENTIFIER : Chain.IDENTIFIER, beneficiary, pun,
+				now)
+			: Blocks.mine(testnet
+				? Mining.nextBlock(Chain.TEST_IDENTIFIER, blocks, beneficiary, waiting, pun, now)
+				: Mining.nextBlock(blocks, beneficiary, waiting, pun, now), attempts)
+				.orElseThrow(() -> new IllegalStateException("no pun of " + attempts
+					+ " attempts reached difficulty " + DifficultyRule.requiredFor(blocks)
+					+ "; try more attempts"));
 		List<BlockBody> extended = new ArrayList<>(blocks);
 		extended.add(mined);
 		Replay replay = Replay.verify(extended);

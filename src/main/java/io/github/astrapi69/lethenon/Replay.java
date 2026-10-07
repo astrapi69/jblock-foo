@@ -100,6 +100,14 @@ public record Replay(long blocks, long transactions, long signatures, ChainState
 		requireThat(Chain.isKnown(genesis.chainIdentifier()), "block 0 belongs to chain '"
 			+ genesis.chainIdentifier() + "', which is neither '" + Chain.IDENTIFIER + "' nor '"
 			+ Chain.TEST_IDENTIFIER + "'");
+		Optional<BlockBody> anchor = rules.anchorFor(genesis.chainIdentifier());
+		if (anchor.isPresent())
+		{
+			requireThat(Blocks.hashOf(anchor.get()).equals(Blocks.hashOf(genesis)), "chain '"
+				+ genesis.chainIdentifier() + "' starts with the genesis block fixed in the code, "
+				+ Blocks.hashOf(anchor.get()) + ", and this chain starts with "
+				+ Blocks.hashOf(genesis));
+		}
 		ChainState state = new ChainState(rules);
 		state.allocateGenesis(genesis);
 		long transactions = 0;
