@@ -4,6 +4,13 @@
 Version 0.3.0 (unreleased)
 -------------
 
+FIXED:
+
+- decoding a block, chain or transfer no longer trusts a length prefix: a negative length, or one
+  larger than the bytes left, is refused before anything is allocated, and bytes that end early are
+  refused as such instead of escaping as BufferUnderflowException. Before, one crafted field asked
+  for up to 2 GiB - which matters once the bytes come from a peer (#80)
+
 ADDED:
 
 - the privacy block's architecture (phase B, ADR 0002): a transfer has three building blocks a

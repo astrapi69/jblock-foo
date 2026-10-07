@@ -25,6 +25,7 @@
 package io.github.astrapi69.lethenon;
 
 import java.io.ByteArrayOutputStream;
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -159,22 +160,29 @@ public final class CanonicalEncoding
 	 */
 	public static List<BlockBody> readChain(final byte[] encoded)
 	{
-		ByteBuffer buffer = ByteBuffer.wrap(encoded);
-		requireKnownVersion(buffer.get());
-		int blocks = (int)buffer.getLong();
-		List<BlockBody> chain = new java.util.ArrayList<>();
-		for (int height = 0; height < blocks; height++)
+		try
 		{
-			byte[] header = readBytes(buffer).toByteArray();
-			int count = (int)buffer.getLong();
-			List<SignedTransaction> transactions = new java.util.ArrayList<>();
-			for (int index = 0; index < count; index++)
+			ByteBuffer buffer = ByteBuffer.wrap(encoded);
+			requireKnownVersion(buffer.get());
+			int blocks = (int)buffer.getLong();
+			List<BlockBody> chain = new java.util.ArrayList<>();
+			for (int height = 0; height < blocks; height++)
 			{
-				transactions.add(readSignedTransaction(readBytes(buffer).toByteArray()));
+				byte[] header = readBytes(buffer).toByteArray();
+				int count = (int)buffer.getLong();
+				List<SignedTransaction> transactions = new java.util.ArrayList<>();
+				for (int index = 0; index < count; index++)
+				{
+					transactions.add(readSignedTransaction(readBytes(buffer).toByteArray()));
+				}
+				chain.add(readBlockHeader(header, transactions));
 			}
-			chain.add(readBlockHeader(header, transactions));
+			return chain;
 		}
-		return chain;
+		catch (BufferUnderflowException ended)
+		{
+			throw endedEarly(ended);
+		}
 	}
 
 	/**
@@ -188,10 +196,17 @@ public final class CanonicalEncoding
 	 */
 	public static SignedTransaction readSignedTransaction(final byte[] encoded)
 	{
-		ByteBuffer buffer = ByteBuffer.wrap(encoded);
-		TransactionBody body = readTransaction(readBytes(buffer).toByteArray());
-		SignatureSuite suite = SignatureSuite.withIdentifier(readText(buffer));
-		return new SignedTransaction(body, suite, readBytes(buffer));
+		try
+		{
+			ByteBuffer buffer = ByteBuffer.wrap(encoded);
+			TransactionBody body = readTransaction(readBytes(buffer).toByteArray());
+			SignatureSuite suite = SignatureSuite.withIdentifier(readText(buffer));
+			return new SignedTransaction(body, suite, readBytes(buffer));
+		}
+		catch (BufferUnderflowException ended)
+		{
+			throw endedEarly(ended);
+		}
 	}
 
 	private static BlockBody readBlockHeader(final byte[] encoded,
@@ -234,22 +249,29 @@ public final class CanonicalEncoding
 	 */
 	public static TransactionBody readTransaction(final byte[] encoded)
 	{
-		ByteBuffer buffer = ByteBuffer.wrap(encoded);
-		byte version = buffer.get();
-		if (version != TRANSACTION_VERSION)
+		try
 		{
-			throw new IllegalArgumentException("this build reads transaction encoding version "
-				+ TRANSACTION_VERSION + " and the bytes carry version " + version
-				+ "; what a newer version added cannot be guessed");
+			ByteBuffer buffer = ByteBuffer.wrap(encoded);
+			byte version = buffer.get();
+			if (version != TRANSACTION_VERSION)
+			{
+				throw new IllegalArgumentException("this build reads transaction encoding version "
+					+ TRANSACTION_VERSION + " and the bytes carry version " + version
+					+ "; what a newer version added cannot be guessed");
+			}
+			String chainIdentifier = readText(buffer);
+			long nonce = buffer.getLong();
+			Bytes sender = readBytes(buffer);
+			Destination recipient = readDestination(buffer);
+			Amount amount = Amount.ofLethe(buffer.getLong());
+			Amount fee = Amount.ofLethe(buffer.getLong());
+			String memo = readText(buffer);
+			return new TransactionBody(chainIdentifier, nonce, sender, recipient, amount, fee, memo);
 		}
-		String chainIdentifier = readText(buffer);
-		long nonce = buffer.getLong();
-		Bytes sender = readBytes(buffer);
-		Destination recipient = readDestination(buffer);
-		Amount amount = Amount.ofLethe(buffer.getLong());
-		Amount fee = Amount.ofLethe(buffer.getLong());
-		String memo = readText(buffer);
-		return new TransactionBody(chainIdentifier, nonce, sender, recipient, amount, fee, memo);
+		catch (BufferUnderflowException ended)
+		{
+			throw endedEarly(ended);
+		}
 	}
 
 	private static void writeDestination(final ByteArrayOutputStream bytes,
@@ -289,9 +311,24 @@ public final class CanonicalEncoding
 
 	private static Bytes readBytes(final ByteBuffer buffer)
 	{
-		byte[] content = new byte[buffer.getInt()];
+		// the bytes may come from a peer (#80): the announced length is checked against what is
+		// left before anything is allocated, so a length prefix cannot decide how much memory the
+		// decoder reserves
+		int length = buffer.getInt();
+		if (length < 0 || length > buffer.remaining())
+		{
+			throw new IllegalArgumentException("a field announces " + length + " bytes and "
+				+ buffer.remaining() + " are left");
+		}
+		byte[] content = new byte[length];
 		buffer.get(content);
 		return Bytes.of(content);
+	}
+
+	private static IllegalArgumentException endedEarly(final BufferUnderflowException ended)
+	{
+		return new IllegalArgumentException("the bytes end before the structure they encode does",
+			ended);
 	}
 
 	private static String readText(final ByteBuffer buffer)
