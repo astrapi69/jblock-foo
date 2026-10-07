@@ -18,6 +18,11 @@ FIXED:
 
 ADDED:
 
+- a network for the test chain, third building block (#76, #84, ADR 0003): a node whose peer
+  announces more cumulative work in its HELLO asks for that peer's chain right after the handshake,
+  instead of waiting for the next block, and fetches it like any other, each extended chain checked
+  whole. A peer with equal or less work is not asked; one that claims more work than it has costs a
+  fetch and changes nothing
 - a network for the test chain, second building block (#76, #82, ADR 0003): `TransactionPool`
   admits a transfer only if the next block could carry it - chain and schemes admitted, signature,
   nonce exactly the sender's next counting its waiting transfers, balance after them - refuses a
