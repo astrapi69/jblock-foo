@@ -44,6 +44,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import io.github.astrapi69.lethenon.BlockBody;
@@ -118,6 +119,8 @@ public final class Node implements AutoCloseable
 	private volatile Outbound outbound = Outbound.DIRECT;
 
 	private volatile AnonymityZone zone;
+
+	private volatile boolean closed;
 
 	private Node(final List<BlockBody> chain, final Replay replay, final ChainFile file)
 	{
@@ -407,6 +410,35 @@ public final class Node implements AutoCloseable
 			open.remove(socket);
 			closeQuietly(socket);
 			counted.decrementAndGet();
+			if (peer == null)
+			{
+				// a dialled address that did not complete a handshake is not dialled again
+				dialed.ifPresent(discovery::unreachable);
+			}
+			if (counted == outgoing)
+			{
+				refill();
+			}
+		}
+	}
+
+	/**
+	 * An outgoing slot is free again: discovery fills it from the addresses it knows, instead of
+	 * waiting for a PEERS answer that may not come (#121)
+	 */
+	private void refill()
+	{
+		if (closed)
+		{
+			return;
+		}
+		try
+		{
+			discovery.fill();
+		}
+		catch (RejectedExecutionException closing)
+		{
+			// the node closed between the check and the dial; there is nothing left to fill
 		}
 	}
 
@@ -808,6 +840,7 @@ public final class Node implements AutoCloseable
 	@Override
 	public void close()
 	{
+		closed = true;
 		if (server != null)
 		{
 			closeQuietly(server);
