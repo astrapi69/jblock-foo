@@ -73,8 +73,9 @@ done, 1 refused with the reason on standard error, 2 a command line that was not
 
 ### A test network
 
-The test chain has a network ([ADR 0003](docs/adr/0003-test-network.md)): TCP, a fixed list of
-peers, no peer discovery, no Tor yet. A node runs only on `lethenon-test-1` and refuses a main
+The test chain has a network ([ADR 0003](docs/adr/0003-test-network.md)): TCP, peers given on the
+command line and the addresses they pass on (#102), no Tor yet; Tor is planned in
+[ADR 0004](docs/adr/0004-tor-transport.md). A node runs only on `lethenon-test-1` and refuses a main
 chain. There is no message that asks a node for a balance; a wallet still computes its own from
 a chain file.
 
@@ -145,7 +146,7 @@ payments with the view private key alone; `Wallet.oneTimeKey` blinds the spend k
 that moves such a payment, which is the additive construction Monero uses, built in mystic-crypt
 rather than here (#21); and `NoBalanceQueryTest` keeps the whole chain package unable to name a
 networking type, so the property holds for every run rather than for one captured one. The Tor
-transport is still ahead.
+transport is still ahead ([ADR 0004](docs/adr/0004-tor-transport.md), #112).
 
 **Not built, and postponed:** amount confidentiality and sender ambiguity. The sender is a public
 key in the clear and the amount a plain number in every transaction. Both need constructions that
