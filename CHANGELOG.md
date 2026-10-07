@@ -16,6 +16,12 @@ CHANGED:
 
 FIXED:
 
+- a node left an outgoing slot empty when a connection to a learnt address ended late: it filled
+  slots only when a PEERS answer arrived, so a handshake that timed out after the last answer
+  left the node below its twelve outgoing connections for good. It showed as a red CI run of
+  `PeerExchangeTest` on a slow runner. Now a slot is filled again when an outgoing connection
+  ends or a learnt address cannot be dialled, and an address that opened a connection but never
+  completed a handshake is forgotten, as one that could not be dialled is (#121)
 - two nodes could hold two connections to each other: a node did not notice that a peer was a
   node it was already connected to, so two nodes that dialled each other kept both connections,
   relayed everything twice and used two of their slots for one neighbour. It showed as a red CI
