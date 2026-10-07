@@ -53,16 +53,28 @@ import io.github.astrapi69.lethenon.ChainWork;
  *            the hash of its tip
  * @param work
  *            the cumulative work of its chain ({@link ChainWork})
+ * @param listenPort
+ *            the port the node listens on, 0 for none; in the anonymity zone, the port of its
+ *            onion service
+ * @param nodeId
+ *            the node's random identity for this run, 0 for a command that is not a node
+ * @param onionHost
+ *            the node's onion address, announced only inside the anonymity zone (ADR 0004,
+ *            step 3); empty everywhere else
  */
 public record Hello(int protocolVersion, String chainIdentifier, Bytes genesisHash,
-	long bestHeight, Bytes bestHash, BigInteger work, int listenPort, long nodeId)
+	long bestHeight, Bytes bestHash, BigInteger work, int listenPort, long nodeId,
+	String onionHost)
 {
 
 	/** The bytes every HELLO starts with */
 	public static final String MAGIC = "LETHENON";
 
 	/** The protocol this build speaks */
-	public static final int PROTOCOL_VERSION = 2;
+	public static final int PROTOCOL_VERSION = 3;
+
+	/** A v3 onion host: 56 characters and ".onion" */
+	private static final int ONION_HOST_LIMIT = 62;
 
 	private static final byte[] MAGIC_BYTES = MAGIC.getBytes(StandardCharsets.US_ASCII);
 
@@ -77,6 +89,26 @@ public record Hello(int protocolVersion, String chainIdentifier, Bytes genesisHa
 			throw new IllegalArgumentException(
 				"a listening port is 0 (none) to 65535, not " + listenPort);
 		}
+		if (!onionHost.isEmpty())
+		{
+			PeerAddress announced = new PeerAddress(onionHost, Math.max(listenPort, 1));
+			if (!announced.isOnion())
+			{
+				throw new IllegalArgumentException(
+					"an announced onion address ends in .onion, and '" + onionHost + "' does not");
+			}
+		}
+	}
+
+	/**
+	 * The HELLO of a node that announces no onion address: every clearnet HELLO
+	 */
+	public Hello(final int protocolVersion, final String chainIdentifier, final Bytes genesisHash,
+		final long bestHeight, final Bytes bestHash, final BigInteger work, final int listenPort,
+		final long nodeId)
+	{
+		this(protocolVersion, chainIdentifier, genesisHash, bestHeight, bestHash, work, listenPort,
+			nodeId, "");
 	}
 
 	/**
@@ -139,6 +171,7 @@ public record Hello(int protocolVersion, String chainIdentifier, Bytes genesisHa
 		Wire.writeBytes(out, work.toByteArray());
 		Wire.writeInt(out, listenPort);
 		Wire.writeLong(out, nodeId);
+		Wire.writeText(out, onionHost);
 		return out.toByteArray();
 	}
 
@@ -168,10 +201,15 @@ public record Hello(int protocolVersion, String chainIdentifier, Bytes genesisHa
 		BigInteger work = new BigInteger(1, Wire.readBytes(in, 64, "the work"));
 		int listenPort = Wire.readInt(in);
 		long nodeId = Wire.readLong(in);
+		// a version-2 HELLO ends here; it is decoded so that the handshake can refuse it by its
+		// version rather than as bytes that do not decode
+		String onion = in.hasRemaining() ? Wire.readText(in, ONION_HOST_LIMIT, "the onion address")
+			: "";
 		Wire.requireEnd(in, "a HELLO");
 		try
 		{
-			return new Hello(version, chain, genesis, height, best, work, listenPort, nodeId);
+			return new Hello(version, chain, genesis, height, best, work, listenPort, nodeId,
+				onion);
 		}
 		catch (IllegalArgumentException outOfRange)
 		{

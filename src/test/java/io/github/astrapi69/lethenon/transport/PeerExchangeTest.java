@@ -72,7 +72,7 @@ class PeerExchangeTest
 		Hello hello = Hello.of(genesis, 18431, 42L);
 
 		assertEquals(hello, Hello.decode(hello.encode()));
-		assertEquals(2, Hello.PROTOCOL_VERSION);
+		assertEquals(3, Hello.PROTOCOL_VERSION);
 	}
 
 	@Test

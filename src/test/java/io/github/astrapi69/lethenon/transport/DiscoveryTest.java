@@ -71,6 +71,12 @@ class DiscoveryTest
 			}
 
 			@Override
+			public int maximum()
+			{
+				return Node.MAXIMUM_OUTGOING;
+			}
+
+			@Override
 			public void dial(final PeerAddress address)
 			{
 				dialled.add(address);

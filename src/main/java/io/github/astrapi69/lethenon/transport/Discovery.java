@@ -52,6 +52,12 @@ final class Discovery
 	{
 		int outgoing();
 
+		/**
+		 * The most connections this dialer opens: {@link Node#MAXIMUM_OUTGOING} for clearnet
+		 * peers, the zone's maximum in the anonymity zone
+		 */
+		int maximum();
+
 		void dial(PeerAddress address) throws IOException;
 
 		/**
@@ -144,7 +150,7 @@ final class Discovery
 	 */
 	void fill()
 	{
-		while (dialling && dialer.outgoing() + dialing.size() < Node.MAXIMUM_OUTGOING)
+		while (dialling && dialer.outgoing() + dialing.size() < dialer.maximum())
 		{
 			Optional<PeerAddress> next = book.candidate(busy());
 			if (next.isEmpty())

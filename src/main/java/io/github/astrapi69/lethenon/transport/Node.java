@@ -120,6 +120,12 @@ public final class Node implements AutoCloseable
 
 	private volatile AnonymityZone zone;
 
+	private volatile ServerSocket anonymousServer;
+
+	private volatile PeerAddress announcedOnion;
+
+	private final AtomicInteger anonymousIncoming = new AtomicInteger();
+
 	private volatile boolean closed;
 
 	private Node(final List<BlockBody> chain, final Replay replay, final ChainFile file)
@@ -143,6 +149,12 @@ public final class Node implements AutoCloseable
 			public Set<PeerAddress> handshaking()
 			{
 				return Set.copyOf(handshaking);
+			}
+
+			@Override
+			public int maximum()
+			{
+				return MAXIMUM_OUTGOING;
 			}
 		}, threads);
 		this.gossip = new Gossip(local, file, peers, refusals, discovery);
@@ -514,7 +526,7 @@ public final class Node implements AutoCloseable
 	private Peer shakeHands(final Socket socket, final Optional<PeerAddress> dialed)
 		throws IOException
 	{
-		return shakeHands(socket, Hello.of(chain(), listenPort, nodeId), dialed);
+		return shakeHands(socket, Hello.of(chain(), listenPort, nodeId), dialed, false);
 	}
 
 	/**
@@ -522,10 +534,13 @@ public final class Node implements AutoCloseable
 	 *
 	 * @param dialed
 	 *            the address this node dialled, empty for a connection it accepted
+	 * @param inTheZone
+	 *            whether the connection belongs to the anonymity zone, where an onion address
+	 *            is expected, rather than to the clearnet, where it is refused
 	 * @return the peer, or null when the handshake was refused, with the reason recorded
 	 */
 	private Peer shakeHands(final Socket socket, final Hello ours,
-		final Optional<PeerAddress> dialed) throws IOException
+		final Optional<PeerAddress> dialed, final boolean inTheZone) throws IOException
 	{
 		socket.setSoTimeout(HANDSHAKE_MILLIS);
 		DataInputStream in = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
@@ -545,7 +560,13 @@ public final class Node implements AutoCloseable
 			|| anonymous != null && theirs.nodeId() == anonymous.nodeId())
 		{
 			refusals.add(socket.getRemoteSocketAddress() + " is this node itself");
-			dialed.ifPresent(discovery::isItself);
+			dialed.ifPresent(inTheZone ? zone.discovery()::isItself : discovery::isItself);
+			return null;
+		}
+		if (!inTheZone && !theirs.onionHost().isEmpty())
+		{
+			refusals.add(socket.getRemoteSocketAddress() + " announced an onion address on a "
+				+ "clearnet connection, which would link its IP address to it (ADR 0004)");
 			return null;
 		}
 		Optional<String> refusal = refusalOf(theirs);
@@ -556,7 +577,8 @@ public final class Node implements AutoCloseable
 		}
 		socket.setSoTimeout(0);
 		return new Peer(socket, in, out, theirs, answerMillis, refusals::add,
-			listeningAddress(socket, theirs, dialed), dialed.isPresent());
+			inTheZone ? announcedOnionOf(theirs, dialed) : listeningAddress(socket, theirs, dialed),
+			dialed.isPresent());
 	}
 
 	/**
@@ -564,6 +586,24 @@ public final class Node implements AutoCloseable
 	 * accepted, the peer's host with the port the peer announced; empty for a peer that does
 	 * not listen, which is then never passed on
 	 */
+	/**
+	 * Where a zone peer can be reached: the onion address this node dialled, or the one the peer
+	 * announced; never the loopback address its connection arrives from
+	 */
+	private static Optional<PeerAddress> announcedOnionOf(final Hello theirs,
+		final Optional<PeerAddress> dialed)
+	{
+		if (dialed.isPresent())
+		{
+			return dialed;
+		}
+		if (theirs.onionHost().isEmpty() || theirs.listenPort() == 0)
+		{
+			return Optional.empty();
+		}
+		return Optional.of(new PeerAddress(theirs.onionHost(), theirs.listenPort()));
+	}
+
 	private static Optional<PeerAddress> listeningAddress(final Socket socket, final Hello theirs,
 		final Optional<PeerAddress> dialed)
 	{
@@ -662,9 +702,137 @@ public final class Node implements AutoCloseable
 			anonymousId = drawNodeId();
 		}
 		AnonymityZone anonymous = new AnonymityZone(route, maximum, anonymousId);
+		anonymous.discovery(new Discovery(anonymous.peers(), refusals, zoneDialer(anonymous),
+			threads));
 		zone = anonymous;
 		gossip.anonymityZone(anonymous);
 		return this;
+	}
+
+	/**
+	 * How peer exchange in the zone opens connections: to onion addresses only, through the zone
+	 */
+	private Discovery.Dialer zoneDialer(final AnonymityZone anonymous)
+	{
+		return new Discovery.Dialer()
+		{
+			@Override
+			public int outgoing()
+			{
+				return anonymous.outgoing();
+			}
+
+			@Override
+			public int maximum()
+			{
+				return anonymous.maximum();
+			}
+
+			@Override
+			public void dial(final PeerAddress address) throws IOException
+			{
+				if (!address.isOnion())
+				{
+					throw new IOException("the anonymity zone dials onion addresses only");
+				}
+				connectAnonymously(anonymous, address);
+			}
+
+			@Override
+			public Set<PeerAddress> handshaking()
+			{
+				return Set.copyOf(anonymous.handshaking());
+			}
+		};
+	}
+
+	/**
+	 * Accepts connections from this node's onion service, after Monero's
+	 * {@code --anonymous-inbound} (ADR 0004, step 3): on loopback only, where Tor's
+	 * {@code HiddenServicePort} forwards, and every peer accepted there belongs to the anonymity
+	 * zone. The onion address is announced in the zone's HELLO and nowhere else.
+	 *
+	 * @param onion
+	 *            the onion service's address, as Tor's {@code hostname} file names it, and its port
+	 * @param localPort
+	 *            the loopback port Tor forwards to, 0 for any free one
+	 * @param maximum
+	 *            the most peers it accepts at once
+	 * @return the loopback port it listens on
+	 * @throws IOException
+	 *             when the port cannot be bound
+	 * @throws IllegalStateException
+	 *             without an anonymity zone, which the onion service's peers belong to
+	 * @throws IllegalArgumentException
+	 *             for an address that is not an onion address, or a maximum below 1
+	 */
+	public int listenAnonymously(final PeerAddress onion, final int localPort, final int maximum)
+		throws IOException
+	{
+		AnonymityZone anonymous = zone;
+		if (anonymous == null)
+		{
+			throw new IllegalStateException("an onion service's peers belong to the anonymity "
+				+ "zone, so it needs one first: --tx-proxy (ADR 0004)");
+		}
+		if (!onion.isOnion())
+		{
+			throw new IllegalArgumentException(
+				"an onion service has an onion address, not " + onion);
+		}
+		if (maximum < 1)
+		{
+			throw new IllegalArgumentException(
+				"an onion service takes at least one peer, not " + maximum);
+		}
+		ServerSocket socket = new ServerSocket();
+		socket.bind(new InetSocketAddress(InetAddress.getLoopbackAddress(), localPort));
+		anonymousServer = socket;
+		announcedOnion = onion;
+		threads.submit(() -> acceptAnonymously(anonymous, socket, maximum));
+		return socket.getLocalPort();
+	}
+
+	/**
+	 * The local address the onion service's listener is bound to
+	 *
+	 * @return the loopback address
+	 * @throws IllegalStateException
+	 *             when the node has no onion service
+	 */
+	public InetAddress anonymouslyListeningOn()
+	{
+		if (anonymousServer == null)
+		{
+			throw new IllegalStateException("this node has no onion service");
+		}
+		return anonymousServer.getInetAddress();
+	}
+
+	private void acceptAnonymously(final AnonymityZone anonymous, final ServerSocket socket,
+		final int maximum)
+	{
+		while (!socket.isClosed())
+		{
+			try
+			{
+				Socket accepted = socket.accept();
+				if (anonymousIncoming.incrementAndGet() > maximum)
+				{
+					anonymousIncoming.decrementAndGet();
+					refusals.add("a connection through the onion service was refused: it has "
+						+ maximum + " connections, its limit (ADR 0004)");
+					closeQuietly(accepted);
+					continue;
+				}
+				threads.submit(() -> serveAnonymously(anonymous, accepted, Optional.empty(),
+					anonymousIncoming::decrementAndGet));
+			}
+			catch (IOException closed)
+			{
+				return;
+			}
+		}
 	}
 
 	/**
@@ -700,28 +868,44 @@ public final class Node implements AutoCloseable
 			anonymous.release();
 			throw unreachable;
 		}
-		threads.submit(() -> serveAnonymously(anonymous, socket, dialed));
+		anonymous.handshaking().add(dialed);
+		threads.submit(() -> serveAnonymously(anonymous, socket, Optional.of(dialed),
+			anonymous::release));
 	}
 
 	/**
 	 * Runs one connection of the anonymity zone to its end: a HELLO that names only the genesis
-	 * block, under the zone's own identity and without a listening port, then transfers only
+	 * block, under the zone's own identity, with the onion service's address and port where the
+	 * node has one, then transfers and onion addresses only
+	 *
+	 * @param dialed
+	 *            the onion address this node dialled, empty for a connection through its own
+	 *            onion service
+	 * @param release
+	 *            frees the slot the connection was admitted under
 	 */
 	private void serveAnonymously(final AnonymityZone anonymous, final Socket socket,
-		final PeerAddress dialed)
+		final Optional<PeerAddress> dialed, final Runnable release)
 	{
 		open.add(socket);
 		Peer peer = null;
 		try
 		{
-			Hello ours = Hello.of(List.of(chain().getFirst()), 0, anonymous.nodeId());
-			peer = shakeHands(socket, ours, Optional.of(dialed));
+			try
+			{
+				peer = shakeHands(socket, zoneHello(anonymous), dialed, true);
+			}
+			finally
+			{
+				dialed.ifPresent(anonymous.handshaking()::remove);
+			}
 			if (peer == null)
 			{
 				return;
 			}
 			peer.startWriting(threads);
 			anonymous.joined(peer);
+			anonymous.discovery().connected(peer);
 			while (!socket.isClosed())
 			{
 				gossip.handleAnonymous(peer, Frames.read(peer.in(), Frames.MAXIMUM_FRAME));
@@ -740,8 +924,52 @@ public final class Node implements AutoCloseable
 			}
 			open.remove(socket);
 			closeQuietly(socket);
-			anonymous.release();
+			release.run();
+			if (dialed.isPresent())
+			{
+				refillTheZone(anonymous, dialed.get(), peer == null);
+			}
 		}
+	}
+
+	/**
+	 * An outgoing slot of the zone is free again, as for clearnet peers (#121): an onion address
+	 * that never completed a handshake is forgotten, and peer exchange inside the zone fills the
+	 * slot from the onion addresses it knows
+	 */
+	private void refillTheZone(final AnonymityZone anonymous, final PeerAddress dialed,
+		final boolean withoutAHandshake)
+	{
+		if (withoutAHandshake)
+		{
+			anonymous.discovery().unreachable(dialed);
+		}
+		if (closed)
+		{
+			return;
+		}
+		try
+		{
+			anonymous.discovery().fill();
+		}
+		catch (RejectedExecutionException closing)
+		{
+			// the node closed between the check and the dial; there is nothing left to fill
+		}
+	}
+
+	/**
+	 * The HELLO of the zone: the genesis block as the tip, the zone's identity, and the onion
+	 * service's address and port where the node has one, port 0 and no address otherwise
+	 */
+	private Hello zoneHello(final AnonymityZone anonymous)
+	{
+		Hello genesisOnly = Hello.of(List.of(chain().getFirst()), 0, anonymous.nodeId());
+		PeerAddress onion = announcedOnion;
+		return onion == null ? genesisOnly
+			: new Hello(genesisOnly.protocolVersion(), genesisOnly.chainIdentifier(),
+				genesisOnly.genesisHash(), genesisOnly.bestHeight(), genesisOnly.bestHash(),
+				genesisOnly.work(), onion.port(), anonymous.nodeId(), onion.host());
 	}
 
 	/**
@@ -844,6 +1072,10 @@ public final class Node implements AutoCloseable
 		if (server != null)
 		{
 			closeQuietly(server);
+		}
+		if (anonymousServer != null)
+		{
+			closeQuietly(anonymousServer);
 		}
 		for (Socket socket : open)
 		{

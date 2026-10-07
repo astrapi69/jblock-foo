@@ -57,6 +57,14 @@ ADDED:
   daemon, two onion services per node (the zone's, and one for the chain, since the zone carries
   none), an onion node that mines and a second node in its zone, an own transfer that travels only
   through the zone, and what to record. It has not been run yet; the README says so (#124)
+- Tor, step 3 of ADR 0004 (#120): `node --anonymous-inbound <onion>:<port>,127.0.0.1:<port>[,max]`
+  listens on loopback for the node's onion service, where Tor's `HiddenServicePort` forwards, and
+  every peer accepted there belongs to the anonymity zone; it needs `--tx-proxy`. HELLO protocol
+  version 3 carries the onion address, only inside the zone; version-2 nodes are refused, and a
+  clearnet HELLO that carries an onion address is refused. Zone peers pass onion addresses on
+  among themselves, and nothing crosses between the zone's lists and the clearnet's. A zone slot
+  that frees up is filled again, as on the clearnet. In the library: `Node.listenAnonymously`,
+  `Node.anonymouslyListeningOn` and `Hello.onionHost`
 - Tor, step 2 of ADR 0004 (#116): `node --tx-proxy tor,host:port[,max]` turns on an anonymity zone.
   Onion peers given with `--peer` are reached through Tor and carry transfers only, and a transfer
   that originates on the node - submitted on it, or handed over by a command such as

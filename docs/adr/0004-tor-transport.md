@@ -84,7 +84,7 @@ the daemon does not already do.
      peer disconnect, and none are sent to it. A `BLOCK` it relays is passed over without being
      adopted, because an onion node that does not know it is in a zone relays its blocks to every
      peer;
-   - only `HELLO` and `TRANSFER`; the exchange of onion addresses is step 3.
+   - only `HELLO` and `TRANSFER`, and since step 3 the exchange of onion addresses.
 
    With the zone on, a transfer that originates on this node goes only to anonymity peers: the
    node's own `submitTransfer` and a transfer handed over by a command such as `send --node`. A
@@ -93,12 +93,20 @@ the daemon does not already do.
    originated. Without one, the
    transfer waits in the pool and the refusals say so. It is not sent in the clear. A transfer that
    arrives from a peer is relayed as before.
-3. **Anonymous inbound (`--anonymous-inbound <onion>:<port>,127.0.0.1:<port>[,max]`).** A second
-   listener, on loopback only, whose peers belong to the anonymity zone. Its onion address travels
-   only inside that zone: `HELLO` gains a field for it (protocol version 3), filled only on
-   connections in the anonymity zone and empty everywhere else. An accepted anonymity peer is passed
-   on by the onion address it announced, never as 127.0.0.1. A clearnet `HELLO` that carries one is
-   refused, because a node that did that would link its IP address to its onion address.
+3. **Anonymous inbound (`--anonymous-inbound <onion>:<port>,127.0.0.1:<port>[,max]`, #120).** A
+   second listener, on loopback only, whose peers belong to the anonymity zone, at most `max` of
+   them (default 16, the node's incoming limit); it needs `--tx-proxy`, as Monero's does.
+   - Its onion address travels only inside that zone: `HELLO` gains a field for it (protocol
+     version 3), filled only on connections in the anonymity zone, with the onion service's port
+     as the listening port, and empty everywhere else. A clearnet `HELLO` that carries one is
+     refused, because a node that did that would link its IP address to its onion address.
+   - Zone peers exchange onion addresses with `GET_PEERS` and `PEERS`, a peer exchange of the zone's
+     own: an accepted zone peer is passed on by the onion address it announced, never as
+     127.0.0.1; only onion addresses are kept from a `PEERS` in the zone; learnt ones are dialled
+     through the zone while it has room. Nothing learnt in the zone reaches the clearnet lists,
+     and nothing from the clearnet lists reaches the zone.
+   - A zone slot that frees up is filled again, and an onion address that never completed a
+     handshake is forgotten, as on the clearnet (#121).
 4. **The runbook against a real Tor.** `docs/tor.md`: the torrc lines (`SocksPort`,
    `HiddenServiceDir`, `HiddenServicePort`), the three node configurations, and a manual
    end-to-end run between two machines. It cannot be executed here (see "Measured in this
