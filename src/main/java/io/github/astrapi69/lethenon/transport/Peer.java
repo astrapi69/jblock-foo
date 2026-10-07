@@ -29,13 +29,25 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /**
- * One connection to another node after a successful handshake: the socket, the peer's HELLO, and
- * a lock so that frames from several threads are not interleaved
+ * One connection to another node after a successful handshake: the socket, the peer's HELLO, the
+ * frames waiting to be written, and what the node is fetching from this peer
+ * <p>
+ * Frames are written by a thread of the peer's own, from a bounded queue. A node handles a frame
+ * on the thread that read it, and that thread may have to send to other peers: if it wrote to their
+ * sockets itself, two nodes relaying to each other while both send buffers are full would each
+ * wait for the other to read. A peer whose queue is full does not read and is disconnected.
  */
 final class Peer implements Closeable
 {
+
+	/** How many frames may wait for a peer before it counts as not reading */
+	static final int QUEUE_LIMIT = 1_024;
 
 	private final Socket socket;
 
@@ -45,6 +57,12 @@ final class Peer implements Closeable
 
 	private final Hello hello;
 
+	private final BlockingQueue<Frame> outgoing = new LinkedBlockingQueue<>(QUEUE_LIMIT);
+
+	private volatile Future<?> writer;
+
+	private volatile Fetch fetch;
+
 	Peer(final Socket socket, final DataInputStream in, final DataOutputStream out,
 		final Hello hello)
 	{
@@ -52,6 +70,14 @@ final class Peer implements Closeable
 		this.in = in;
 		this.out = out;
 		this.hello = hello;
+	}
+
+	/**
+	 * Starts the thread that writes this peer's frames
+	 */
+	void startWriting(final ExecutorService threads)
+	{
+		writer = threads.submit(this::write);
 	}
 
 	Hello hello()
@@ -69,17 +95,66 @@ final class Peer implements Closeable
 		return String.valueOf(socket.getRemoteSocketAddress());
 	}
 
-	void send(final Frame frame) throws IOException
+	Fetch fetch()
 	{
-		synchronized (out)
+		return fetch;
+	}
+
+	void fetch(final Fetch next)
+	{
+		fetch = next;
+	}
+
+	/**
+	 * Queues a frame for this peer; a peer whose queue is full is disconnected
+	 */
+	void send(final Frame frame)
+	{
+		if (!outgoing.offer(frame))
 		{
-			Frames.write(out, frame);
+			closeQuietly();
+		}
+	}
+
+	private void write()
+	{
+		try
+		{
+			while (!socket.isClosed())
+			{
+				Frames.write(out, outgoing.take());
+			}
+		}
+		catch (InterruptedException stopped)
+		{
+			Thread.currentThread().interrupt();
+		}
+		catch (IOException broken)
+		{
+			closeQuietly();
+		}
+	}
+
+	private void closeQuietly()
+	{
+		try
+		{
+			close();
+		}
+		catch (IOException alreadyGone)
+		{
+			// a socket that cannot be closed is gone already
 		}
 	}
 
 	@Override
 	public void close() throws IOException
 	{
+		Future<?> running = writer;
+		if (running != null)
+		{
+			running.cancel(true);
+		}
 		socket.close();
 	}
 }

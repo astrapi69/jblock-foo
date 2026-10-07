@@ -40,7 +40,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import io.github.astrapi69.lethenon.BlockBody;
+import io.github.astrapi69.lethenon.Blocks;
+import io.github.astrapi69.lethenon.CanonicalEncoding;
 import io.github.astrapi69.lethenon.Chain;
+import io.github.astrapi69.lethenon.ChainRejected;
+import io.github.astrapi69.lethenon.Replay;
+import io.github.astrapi69.lethenon.SignedTransaction;
+import io.github.astrapi69.lethenon.TransactionPool.Admission;
+import io.github.astrapi69.lethenon.TransactionPool.Outcome;
 
 /**
  * A node of the test network (ADR 0003): it listens, connects to a fixed list of peers, and shakes
@@ -49,14 +56,18 @@ import io.github.astrapi69.lethenon.Chain;
  * A node runs only on the test chain {@link Chain#TEST_IDENTIFIER}: it refuses a main chain at
  * start and a peer that names any other chain or another genesis block. Each connection runs on a
  * virtual thread of its own.
+ * <p>
+ * A node relays what it accepts: a block that extends its chain and verifies, and a transfer its
+ * pool admits, to every peer except the one it came from. A block whose parent it does not know
+ * makes it ask that peer for its chain and fetch the missing blocks. Every chain it adopts is
+ * checked whole with {@link Replay#verify}. A peer that sends bytes that do not decode, a message
+ * out of place, or a block that does not verify is disconnected.
  */
 public final class Node implements AutoCloseable
 {
 
 	/** How long a peer has to say HELLO: Monero's handshake timeout of 5000 ms (ADR 0003) */
 	public static final int HANDSHAKE_MILLIS = 5_000;
-
-	private final Object lock = new Object();
 
 	private final List<Peer> peers = new CopyOnWriteArrayList<>();
 
@@ -66,13 +77,13 @@ public final class Node implements AutoCloseable
 
 	private final ExecutorService threads = Executors.newVirtualThreadPerTaskExecutor();
 
-	private List<BlockBody> chain;
+	private final LocalChain local;
 
 	private ServerSocket server;
 
-	private Node(final List<BlockBody> chain)
+	private Node(final List<BlockBody> chain, final Replay replay)
 	{
-		this.chain = List.copyOf(chain);
+		this.local = new LocalChain(chain, replay);
 	}
 
 	/**
@@ -83,6 +94,8 @@ public final class Node implements AutoCloseable
 	 * @return the node, not yet listening or connected
 	 * @throws IllegalArgumentException
 	 *             for an empty chain or one that is not the test chain
+	 * @throws ChainRejected
+	 *             when the chain does not verify
 	 */
 	public static Node on(final List<BlockBody> chain)
 	{
@@ -96,7 +109,7 @@ public final class Node implements AutoCloseable
 			throw new IllegalArgumentException("a node runs only on '" + Chain.TEST_IDENTIFIER
 				+ "', and this chain is '" + identifier + "' (ADR 0003)");
 		}
-		return new Node(chain);
+		return new Node(chain, Replay.verify(chain));
 	}
 
 	/**
@@ -188,10 +201,7 @@ public final class Node implements AutoCloseable
 	 */
 	public List<BlockBody> chain()
 	{
-		synchronized (lock)
-		{
-			return chain;
-		}
+		return local.blocks();
 	}
 
 	private void accept()
@@ -222,6 +232,7 @@ public final class Node implements AutoCloseable
 			{
 				return;
 			}
+			peer.startWriting(threads);
 			peers.add(peer);
 			while (!socket.isClosed())
 			{
@@ -235,12 +246,17 @@ public final class Node implements AutoCloseable
 				refusals.add(socket.getRemoteSocketAddress() + " ended the handshake: "
 					+ ended.getClass().getSimpleName() + " " + ended.getMessage());
 			}
+			else if (ended instanceof ProtocolViolation violation)
+			{
+				refusals.add(peer.address() + " was disconnected: " + violation.getMessage());
+			}
 		}
 		finally
 		{
 			if (peer != null)
 			{
 				peers.remove(peer);
+				closeQuietly(peer);
 			}
 			open.remove(socket);
 			closeQuietly(socket);
@@ -294,12 +310,225 @@ public final class Node implements AutoCloseable
 	}
 
 	/**
-	 * What a node does with a frame after the handshake; the messages after HELLO arrive with the
-	 * next building blocks of ADR 0003
+	 * Offers a block this node mined or was handed: it is adopted if it extends the chain and the
+	 * chain still verifies, and then relayed to every peer
+	 *
+	 * @param block
+	 *            the block
+	 * @return whether the chain now ends with it; the reason for a refusal is in
+	 *         {@link #refusals()}
 	 */
-	private void handle(final Peer peer, final Frame frame)
+	public boolean submitBlock(final BlockBody block)
 	{
-		// nothing yet
+		try
+		{
+			return acceptBlock(block, null);
+		}
+		catch (ProtocolViolation refused)
+		{
+			refusals.add("a submitted block was refused: " + refused.getMessage());
+			return false;
+		}
+	}
+
+	/**
+	 * Offers a transfer to the node's pool and relays it to every peer when it is admitted
+	 *
+	 * @param transfer
+	 *            the signed transfer
+	 * @return the pool's answer
+	 */
+	public Admission submitTransfer(final SignedTransaction transfer)
+	{
+		return admit(transfer, null);
+	}
+
+	/**
+	 * The transfers waiting in the node's pool, in the order a block can carry them
+	 *
+	 * @return a snapshot
+	 */
+	public List<SignedTransaction> pending()
+	{
+		return local.pool().waiting();
+	}
+
+	/**
+	 * What a node does with a frame after the handshake
+	 */
+	private void handle(final Peer peer, final Frame frame) throws ProtocolViolation
+	{
+		switch (frame.type())
+		{
+			case HELLO -> throw new ProtocolViolation("HELLO after the handshake");
+			case BLOCK -> onBlock(peer, frame);
+			case TRANSFER -> admit(decodeTransfer(frame.payload()), peer);
+			case GET_CHAIN -> peer.send(new Frame(MessageType.CHAIN,
+				local.answer(Locator.decode(frame.payload())).encode()));
+			case CHAIN -> onChain(peer, ChainEntry.decode(frame.payload()));
+			case GET_BLOCKS -> peer.send(new Frame(MessageType.BLOCKS,
+				CanonicalEncoding.encodeChain(local.blocksFor(BlockRequest.decode(frame.payload())))));
+			case BLOCKS -> onBlocks(peer, decodeBlocks(frame.payload()));
+		}
+	}
+
+	private void onBlock(final Peer peer, final Frame frame) throws ProtocolViolation
+	{
+		List<BlockBody> blocks = decodeBlocks(frame.payload());
+		if (blocks.size() != 1)
+		{
+			throw new ProtocolViolation("a BLOCK message carries " + blocks.size() + " blocks");
+		}
+		if (!acceptBlock(blocks.getFirst(), peer) && !local.knows(blocks.getFirst()))
+		{
+			peer.send(new Frame(MessageType.GET_CHAIN, local.locator().encode()));
+		}
+	}
+
+	/**
+	 * Adopts a block that extends the chain and relays it
+	 *
+	 * @return whether it was adopted; false for a known block and for one whose parent is not the
+	 *         tip
+	 * @throws ProtocolViolation
+	 *             when it extends the chain and the chain then does not verify
+	 */
+	private boolean acceptBlock(final BlockBody block, final Peer source) throws ProtocolViolation
+	{
+		if (!local.extendWith(block))
+		{
+			return false;
+		}
+		relay(new Frame(MessageType.BLOCK, CanonicalEncoding.encodeChain(List.of(block))), source);
+		return true;
+	}
+
+	private Admission admit(final SignedTransaction transfer, final Peer source)
+	{
+		Admission admission = local.pool().offer(transfer);
+		if (admission.outcome() == Outcome.ADMITTED)
+		{
+			relay(new Frame(MessageType.TRANSFER, CanonicalEncoding.encode(transfer)), source);
+		}
+		else if (admission.outcome() == Outcome.REFUSED)
+		{
+			refusals.add((source == null ? "a submitted" : source.address() + " sent a")
+				+ " transfer that was refused: " + admission.reason());
+		}
+		return admission;
+	}
+
+	private void onChain(final Peer peer, final ChainEntry entry) throws ProtocolViolation
+	{
+		switch (local.plan(entry))
+		{
+			case LocalChain.Plan.Nothing nothing -> peer.fetch(null);
+			case LocalChain.Plan.Fork fork -> {
+				// following a fork below the tip needs fork choice and rolling back, which is its
+				// own building block of ADR 0003
+				refusals.add(peer.address() + " is on a fork from height " + fork.height()
+					+ ", which this node does not follow yet");
+				peer.fetch(null);
+			}
+			case LocalChain.Plan.Fetching fetching -> {
+				peer.fetch(fetching.fetch());
+				peer.send(new Frame(MessageType.GET_BLOCKS,
+					fetching.fetch().nextRequest().encode()));
+			}
+		}
+	}
+
+	private void onBlocks(final Peer peer, final List<BlockBody> blocks) throws ProtocolViolation
+	{
+		Fetch fetch = peer.fetch();
+		if (fetch == null)
+		{
+			throw new ProtocolViolation("BLOCKS that were not asked for");
+		}
+		if (blocks.isEmpty())
+		{
+			// the peer no longer has what it announced; the next unknown parent asks again
+			peer.fetch(null);
+			return;
+		}
+		BlockRequest asked = fetch.nextRequest();
+		if (blocks.size() > asked.count())
+		{
+			throw new ProtocolViolation("BLOCKS with " + blocks.size() + " blocks for a request of "
+				+ asked.count());
+		}
+		for (int index = 0; index < blocks.size(); index++)
+		{
+			if (!Blocks.hashOf(blocks.get(index)).equals(fetch.expected().get(index)))
+			{
+				throw new ProtocolViolation("BLOCKS carries at height " + (asked.first() + index)
+					+ " a block whose hash the peer did not announce");
+			}
+		}
+		if (!local.extendWith(blocks, asked.first()))
+		{
+			// the chain moved while the blocks were on their way, by a relayed block: the next
+			// block with an unknown parent starts the fetch again from the new tip
+			peer.fetch(null);
+			return;
+		}
+		relay(new Frame(MessageType.BLOCK, CanonicalEncoding.encodeChain(List.of(blocks.getLast()))),
+			peer);
+		continueFetching(peer, fetch.after(blocks.size()));
+	}
+
+	private void continueFetching(final Peer peer, final Fetch rest)
+	{
+		if (!rest.expected().isEmpty())
+		{
+			peer.fetch(rest);
+			peer.send(new Frame(MessageType.GET_BLOCKS, rest.nextRequest().encode()));
+		}
+		else
+		{
+			peer.fetch(null);
+			if (rest.more())
+			{
+				peer.send(new Frame(MessageType.GET_CHAIN, local.locator().encode()));
+			}
+		}
+	}
+
+	private void relay(final Frame frame, final Peer source)
+	{
+		for (Peer peer : peers)
+		{
+			if (peer != source)
+			{
+				peer.send(frame);
+			}
+		}
+	}
+
+	private static List<BlockBody> decodeBlocks(final byte[] payload) throws ProtocolViolation
+	{
+		try
+		{
+			return CanonicalEncoding.readChain(payload);
+		}
+		catch (IllegalArgumentException undecodable)
+		{
+			throw new ProtocolViolation("bytes that do not decode as blocks: "
+				+ undecodable.getMessage());
+		}
+	}
+
+	private static SignedTransaction decodeTransfer(final byte[] payload) throws ProtocolViolation
+	{
+		try
+		{
+			return CanonicalEncoding.readSignedTransaction(payload);
+		}
+		catch (IllegalArgumentException undecodable)
+		{
+			throw new ProtocolViolation("bytes that do not decode as a transfer: "
+				+ undecodable.getMessage());
+		}
 	}
 
 	/**
