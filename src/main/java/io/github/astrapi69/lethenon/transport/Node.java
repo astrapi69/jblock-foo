@@ -39,6 +39,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -89,6 +91,12 @@ public final class Node implements AutoCloseable
 
 	private final List<Peer> peers = new CopyOnWriteArrayList<>();
 
+	/** Dialled addresses whose handshake has not ended yet (#117) */
+	private final Set<PeerAddress> handshaking = ConcurrentHashMap.newKeySet();
+
+	/** Held while a peer is checked against the others and added (#117) */
+	private final Object admitting = new Object();
+
 	private final List<String> refusals = new CopyOnWriteArrayList<>();
 
 	private final List<Socket> open = new CopyOnWriteArrayList<>();
@@ -124,6 +132,12 @@ public final class Node implements AutoCloseable
 			public void dial(final PeerAddress address) throws IOException
 			{
 				connect(address.host(), address.port());
+			}
+
+			@Override
+			public Set<PeerAddress> handshaking()
+			{
+				return Set.copyOf(handshaking);
 			}
 		}, threads);
 		this.gossip = new Gossip(local, file, peers, refusals, discovery);
@@ -252,6 +266,7 @@ public final class Node implements AutoCloseable
 			outgoing.decrementAndGet();
 			throw unreachable;
 		}
+		handshaking.add(dialed);
 		threads.submit(() -> serve(socket, outgoing, Optional.of(dialed)));
 	}
 
@@ -350,13 +365,19 @@ public final class Node implements AutoCloseable
 		Peer peer = null;
 		try
 		{
-			peer = shakeHands(socket, dialed);
-			if (peer == null)
+			try
 			{
-				return;
+				peer = shakeHands(socket, dialed);
+				if (peer == null || !admit(peer))
+				{
+					return;
+				}
+			}
+			finally
+			{
+				dialed.ifPresent(handshaking::remove);
 			}
 			peer.startWriting(threads);
-			peers.add(peer);
 			discovery.connected(peer);
 			gossip.askIfAhead(peer);
 			while (!socket.isClosed())
@@ -394,6 +415,53 @@ public final class Node implements AutoCloseable
 		}
 	}
 
+	/**
+	 * Adds a peer unless this node already has a connection to the same node identity (#117).
+	 * Of two connections between the same two nodes, both ends keep the one dialled by the node
+	 * with the smaller identity, and of two that are equally preferred, the older one. Whether a
+	 * connection is preferred follows from the two identities and its own direction alone, so
+	 * both ends decide alike in whichever order their handshakes end, also while the other
+	 * connection is already being closed. Callers without an identity are commands, not nodes,
+	 * and are never duplicates.
+	 *
+	 * @return whether the peer was added; when not, the caller closes its connection
+	 */
+	private boolean admit(final Peer peer)
+	{
+		long theirs = peer.hello().nodeId();
+		synchronized (admitting)
+		{
+			Optional<Peer> existing = theirs == 0L ? Optional.empty()
+				: peers.stream().filter(other -> other.hello().nodeId() == theirs).findFirst();
+			if (existing.isEmpty())
+			{
+				peers.add(peer);
+				return true;
+			}
+			if (!preferred(peer) || preferred(existing.get()))
+			{
+				refusals.add(peer.address() + " is already a peer over another connection; this "
+					+ "one is closed (#117)");
+				return false;
+			}
+			peers.remove(existing.get());
+			closeQuietly(existing.get());
+			peers.add(peer);
+			refusals.add(existing.get().address() + " is a peer over another connection, which "
+				+ "both ends keep; this one is closed (#117)");
+			return true;
+		}
+	}
+
+	/**
+	 * Whether a connection is the one both ends keep: the one dialled by the node with the
+	 * smaller identity
+	 */
+	private boolean preferred(final Peer peer)
+	{
+		return peer.dialledHere() == nodeId < peer.hello().nodeId();
+	}
+
 	private Peer shakeHands(final Socket socket, final Optional<PeerAddress> dialed)
 		throws IOException
 	{
@@ -425,7 +493,7 @@ public final class Node implements AutoCloseable
 		}
 		socket.setSoTimeout(0);
 		return new Peer(socket, in, out, theirs, answerMillis, refusals::add,
-			listeningAddress(socket, theirs, dialed));
+			listeningAddress(socket, theirs, dialed), dialed.isPresent());
 	}
 
 	/**

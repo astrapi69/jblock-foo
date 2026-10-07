@@ -53,6 +53,12 @@ final class Discovery
 		int outgoing();
 
 		void dial(PeerAddress address) throws IOException;
+
+		/**
+		 * The addresses whose connection is open and whose handshake has not ended yet: not peers
+		 * yet, and not to be dialled again (#117)
+		 */
+		Set<PeerAddress> handshaking();
 	}
 
 	private final PeerBook book = new PeerBook();
@@ -163,6 +169,7 @@ final class Discovery
 	private Set<PeerAddress> busy()
 	{
 		Set<PeerAddress> busy = new HashSet<>(dialing);
+		busy.addAll(dialer.handshaking());
 		for (Peer peer : peers)
 		{
 			peer.listening().ifPresent(busy::add);
