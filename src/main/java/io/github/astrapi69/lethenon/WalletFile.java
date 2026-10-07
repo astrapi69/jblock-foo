@@ -30,6 +30,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.security.GeneralSecurityException;
 import java.util.Arrays;
 
 import io.github.astrapi69.mystic.crypt.secret.SecretBuffers;
@@ -105,8 +106,12 @@ public final class WalletFile
 		try
 		{
 			// the envelope reads the password and leaves it alone; the array stays the caller's
-			byte[] sealed = envelope(() -> PassphraseEnvelope.encrypt(FILE_MAGIC, content, password));
+			byte[] sealed = PassphraseEnvelope.encrypt(FILE_MAGIC, content, password);
 			Files.write(file, sealed, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+		}
+		catch (GeneralSecurityException brokenInstallation)
+		{
+			throw cannotRun(brokenInstallation);
 		}
 		finally
 		{
@@ -164,12 +169,16 @@ public final class WalletFile
 			// PassphraseCryptor zeroes the array it is given, so it gets a copy of its own
 			return writtenBy010
 				? PassphraseCryptor.decrypt(password.clone(), sealed)
-				: envelope(() -> PassphraseEnvelope.decrypt(FILE_MAGIC, sealed, password));
+				: PassphraseEnvelope.decrypt(FILE_MAGIC, sealed, password);
 		}
 		catch (SecurityException refused)
 		{
 			throw new SecurityException(
 				file + " does not open: the password is wrong or the file was altered", refused);
+		}
+		catch (GeneralSecurityException brokenInstallation)
+		{
+			throw cannotRun(brokenInstallation);
 		}
 	}
 
@@ -186,38 +195,20 @@ public final class WalletFile
 	}
 
 	/**
-	 * Runs a call into {@code PassphraseEnvelope}, which declares {@code throws Exception}
-	 * although everything it throws for a reason a caller can act on is already a runtime
-	 * exception - {@code IllegalArgumentException} for "not this format", {@code SecurityException}
-	 * for "would not open" - and both pass through here untouched. What is left is the JCA failing
-	 * underneath, no PBKDF2 or AES-GCM provider: a broken installation, not a bad wallet.
-	 * Workaround until mystic-crypt#182 gives the envelope PassphraseCryptor's contract
+	 * What {@code PassphraseEnvelope}'s {@code GeneralSecurityException} means here. Everything it
+	 * throws for a reason a caller can act on is a runtime exception -
+	 * {@code IllegalArgumentException} for "not this format", {@code SecurityException} for "would
+	 * not open" - so what is left is the JCA failing underneath, no PBKDF2 or AES-GCM provider: a
+	 * broken installation, not a bad wallet
 	 *
-	 * @param call
-	 *            the call
-	 * @return what it returned
+	 * @param brokenInstallation
+	 *            what the envelope threw
+	 * @return the exception to throw instead
 	 */
-	private static byte[] envelope(final EnvelopeCall call)
+	private static IllegalStateException cannotRun(
+		final GeneralSecurityException brokenInstallation)
 	{
-		try
-		{
-			return call.run();
-		}
-		catch (RuntimeException asItWas)
-		{
-			throw asItWas;
-		}
-		catch (Exception brokenInstallation)
-		{
-			throw new IllegalStateException("the password envelope cannot run on this "
-				+ "installation: " + brokenInstallation.getMessage(), brokenInstallation);
-		}
-	}
-
-	/** A call into PassphraseEnvelope, see {@link #envelope(EnvelopeCall)} */
-	@FunctionalInterface
-	private interface EnvelopeCall
-	{
-		byte[] run() throws Exception;
+		return new IllegalStateException("the password envelope cannot run on this installation: "
+			+ brokenInstallation.getMessage(), brokenInstallation);
 	}
 }
