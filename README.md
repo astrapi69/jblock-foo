@@ -125,11 +125,17 @@ rather than here (#21); and `NoBalanceQueryTest` keeps the whole chain package u
 networking type, so the property holds for every run rather than for one captured one. The Tor
 transport is still ahead.
 
-**Not built:** amount confidentiality and sender ambiguity. The sender is a public key in the clear
-and the amount a plain number in every transaction. Both need cryptographic constructions this
-project does not have yet, and those come in only under [ADR 0001](docs/adr/0001-new-cryptographic-constructions.md):
-a peer-reviewed publication with its proof, the authors' test vectors, the test chain first, and
-the main chain only after an external cryptographic review.
+**Not built, and postponed:** amount confidentiality and sender ambiguity. The sender is a public
+key in the clear and the amount a plain number in every transaction. Both need constructions that
+come in only under [ADR 0001](docs/adr/0001-new-cryptographic-constructions.md): a peer-reviewed
+publication with its proof, the authors' test vectors, the test chain first, and the main chain
+only after an external cryptographic review. The phase C pre-check (#74) found no published scheme
+for hidden amounts that meets those rules and fits an account model: the papers that hide amounts
+are built for one-time coins, their code is missing, unlicensed or GPL, or their patent position is
+unclear, and the one path no rule excludes would be a combination of our own over a lattice proof
+system, with a classical proof at best. That is not built without a cryptographer's security
+argument. Sender ambiguity waits for the same reason and, for MatRiCT+, for its patent position.
+The details are in `docs/research/pq-privacy-literature.md`, sections 15 and 16.
 
 **A post-quantum hidden recipient: looked at, and postponed.** The one-time destinations stay as
 they are: Ed25519 one-time keys found with an X25519 view key, which is pre-quantum. The phase C
@@ -145,9 +151,13 @@ details are in `docs/research/pq-privacy-literature.md`, section 15.
 **The label, because somebody would otherwise have to find it out:** Monero's privacy rests entirely
 on Ed25519 mathematics - ring signatures, stealth addresses and RingCT are all discrete-logarithm
 constructions. ML-DSA gives none of that; it is a signature scheme, not a toolkit for rings or
-commitments. So Lethenon is **post-quantum in its authenticity and pre-quantum in its
-unlinkability**. The direction that would join the two is hash-based proofs, and that is a research
-programme rather than a milestone.
+commitments. So Lethenon is **post-quantum in its authenticity, classical in its hidden recipient,
+and open about sender and amount**: transactions are signed with ML-DSA-65 or Ed25519, the
+recipient is hidden with Ed25519 one-time keys and an X25519 view key, and the sender and the amount
+are visible to anybody who reads the chain. The reason is the state of research, not a choice
+against privacy: the literature survey records, for every candidate, which rule of ADR 0001 it does
+not yet meet. The direction that would join the two halves is post-quantum proofs with a quantum
+proof model, and that is a research programme rather than a milestone.
 
 ## The planned shape
 

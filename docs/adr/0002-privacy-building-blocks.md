@@ -223,7 +223,11 @@ maintainer clarifies it.
 
 ## Consequences
 
-- No scheme that hides sender or amount exists yet; this record only makes room for one.
+- No scheme that hides sender or amount exists yet; this record only makes room for one. As of
+  2026-10-07 none will be built for now: the post-quantum recipient is postponed (#72), hidden
+  amounts are postponed without a cryptographer's security argument for a combination of our own
+  (#74), and sender ambiguity waits as well. The recipient stays `stealth-v2`, sender and amount
+  stay visible, and the account model stays (#74).
 - A new scheme is a new identifier and a new activation line, not a change to an existing scheme.
   Switching a broken one off is an end height, not a new chain.
 - The amount block's wire format is open until phase C.
