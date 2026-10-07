@@ -30,15 +30,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * A block is at most 300,000 bytes on the test chain, Monero's full reward zone taken as a hard
- * limit, and a block that is mined carries the longest prefix of the waiting transfers that fits
- * (#99)
+ * A block is at most 300,000 bytes, Monero's full reward zone taken as a hard limit, on the test
+ * chain (#99) and on the main chain (#109), and a block that is mined carries the longest prefix of
+ * the waiting transfers that fits
  */
 class BlockSizeTest
 {
@@ -51,74 +54,87 @@ class BlockSizeTest
 
 	private static final long STEP = DifficultyRule.TARGET_BLOCK_MILLIS;
 
-	private static Wallet holder;
-
-	private static List<BlockBody> funded;
-
-	private static List<SignedTransaction> postQuantum;
+	private static final Map<String, Funded> FUNDED = new ConcurrentHashMap<>();
 
 	/**
-	 * A test chain whose holder funded its ML-DSA-65 account, and 60 ML-DSA-65 transfers from it,
-	 * more than one block takes: 60 times 5,380 bytes is past 300,000
+	 * A chain whose holder funded its ML-DSA-65 account, and 60 ML-DSA-65 transfers from it, more
+	 * than one block takes: 60 times 5,380 bytes is past 300,000
 	 */
-	@BeforeAll
-	static void aFundedPostQuantumAccount()
+	private record Funded(List<BlockBody> chain, List<SignedTransaction> postQuantum)
 	{
-		holder = Wallet.create();
+	}
+
+	private static Funded funded(final String chainIdentifier)
+	{
+		return FUNDED.computeIfAbsent(chainIdentifier, BlockSizeTest::aFundedPostQuantumAccount);
+	}
+
+	private static Funded aFundedPostQuantumAccount(final String chainIdentifier)
+	{
+		Wallet holder = Wallet.create();
 		Bytes classical = holder.spendKey(SignatureSuite.ED25519);
 		Bytes pq = holder.spendKey(SignatureSuite.ML_DSA_65);
 		List<BlockBody> chain = new ArrayList<>(List.of(Blocks.mine(Mining.nextBlock(
-			Chain.TEST_IDENTIFIER, List.of(), classical, List.of(), "genesis", GENESIS_TIME),
+			chainIdentifier, List.of(), classical, List.of(), "genesis", GENESIS_TIME),
 			1_000_000L).orElseThrow()));
-		SignedTransaction funding = holder.sign(new TransactionBody(Chain.TEST_IDENTIFIER, 0L,
+		SignedTransaction funding = holder.sign(new TransactionBody(chainIdentifier, 0L,
 			classical, Destination.direct(pq), Amount.ofLeth(1_000L), Amount.ZERO, ""),
 			SignatureSuite.ED25519);
 		chain.add(Blocks.mine(Mining.nextBlock(chain, MINER, List.of(funding), "funding",
 			GENESIS_TIME + STEP), 1_000_000L).orElseThrow());
-		funded = List.copyOf(chain);
-		postQuantum = new ArrayList<>();
+		List<SignedTransaction> postQuantum = new ArrayList<>();
 		for (long nonce = 0; nonce < 60; nonce++)
 		{
-			postQuantum.add(holder.sign(new TransactionBody(Chain.TEST_IDENTIFIER, nonce, pq,
-				SOMEONE, Amount.ofLethe(1L), Amount.ZERO, ""), SignatureSuite.ML_DSA_65));
+			postQuantum.add(holder.sign(new TransactionBody(chainIdentifier, nonce, pq, SOMEONE,
+				Amount.ofLethe(1L), Amount.ZERO, ""), SignatureSuite.ML_DSA_65));
 		}
+		return new Funded(List.copyOf(chain), List.copyOf(postQuantum));
 	}
 
-	private static List<BlockBody> withBlockOf(final List<SignedTransaction> transfers)
+	private static List<BlockBody> withBlockOf(final String chainIdentifier,
+		final List<SignedTransaction> transfers)
 	{
+		List<BlockBody> funded = funded(chainIdentifier).chain();
 		BlockBody unmined = Mining.nextBlock(Chain.IDENTIFIER, List.of(), MINER, List.of(), "",
 			0L);
-		BlockBody next = new BlockBody(Chain.TEST_IDENTIFIER, 2L,
-			Blocks.hashOf(funded.getLast()), MINER, transfers, GENESIS_TIME + 2 * STEP,
-			unmined.difficulty(), "too large");
+		BlockBody next = new BlockBody(chainIdentifier, 2L, Blocks.hashOf(funded.getLast()), MINER,
+			transfers, GENESIS_TIME + 2 * STEP, unmined.difficulty(), "too large");
 		List<BlockBody> chain = new ArrayList<>(funded);
 		chain.add(Blocks.mine(next, 1_000_000L).orElseThrow());
 		return List.copyOf(chain);
 	}
 
-	@Test
-	@DisplayName("the test chain's limit is 300,000 bytes")
-	void theLimit_is300000Bytes()
+	private static List<SignedTransaction> postQuantum(final String chainIdentifier)
 	{
-		assertEquals(300_000, ConsensusRules.LETHENON.limitsFor(Chain.TEST_IDENTIFIER)
-			.orElseThrow().maximumBytes());
+		return funded(chainIdentifier).postQuantum();
+	}
+
+	@ParameterizedTest(name = "{0}")
+	@ValueSource(strings = { Chain.TEST_IDENTIFIER, Chain.IDENTIFIER })
+	@DisplayName("the limit is 300,000 bytes on both chains")
+	void theLimit_is300000Bytes(final String chainIdentifier)
+	{
+		assertEquals(300_000,
+			ConsensusRules.LETHENON.limitsFor(chainIdentifier).orElseThrow().maximumBytes());
 	}
 
 	@Test
 	@DisplayName("a block's size is what it takes in the chain encoding")
 	void aBlocksSize_isWhatItTakesInTheChainEncoding()
 	{
-		BlockBody block = withBlockOf(postQuantum.subList(0, 3)).getLast();
+		BlockBody block = withBlockOf(Chain.TEST_IDENTIFIER,
+			postQuantum(Chain.TEST_IDENTIFIER).subList(0, 3)).getLast();
 
 		assertEquals(CanonicalEncoding.encodeChain(List.of(block)).length - 1 - Long.BYTES,
 			CanonicalEncoding.blockSize(block));
 	}
 
-	@Test
-	@DisplayName("a block larger than the limit does not verify")
-	void aBlockLargerThanTheLimit_doesNotVerify()
+	@ParameterizedTest(name = "{0}")
+	@ValueSource(strings = { Chain.TEST_IDENTIFIER, Chain.IDENTIFIER })
+	@DisplayName("a block larger than the limit does not verify, on either chain")
+	void aBlockLargerThanTheLimit_doesNotVerify(final String chainIdentifier)
 	{
-		List<BlockBody> chain = withBlockOf(postQuantum);
+		List<BlockBody> chain = withBlockOf(chainIdentifier, postQuantum(chainIdentifier));
 
 		ChainRejected rejected = assertThrows(ChainRejected.class, () -> Replay.verify(chain));
 
@@ -126,35 +142,34 @@ class BlockSizeTest
 		assertTrue(rejected.getMessage().contains("allows 300000"), rejected.getMessage());
 	}
 
-	@Test
-	@DisplayName("the limit holds to the byte")
-	void theLimitHoldsToTheByte()
+	@ParameterizedTest(name = "{0}")
+	@ValueSource(strings = { Chain.TEST_IDENTIFIER, Chain.IDENTIFIER })
+	@DisplayName("the limit holds to the byte, on either chain")
+	void theLimitHoldsToTheByte(final String chainIdentifier)
 	{
-		List<BlockBody> chain = withBlockOf(postQuantum.subList(0, 10));
+		List<BlockBody> chain = withBlockOf(chainIdentifier,
+			postQuantum(chainIdentifier).subList(0, 10));
 		int size = CanonicalEncoding.blockSize(chain.getLast());
 
-		assertEquals(3L, Replay.verify(chain, rulesWithLimit(size), GENESIS_TIME).blocks());
+		assertEquals(3L,
+			Replay.verify(chain, rulesWithLimit(chainIdentifier, size), GENESIS_TIME).blocks());
 		assertThrows(ChainRejected.class,
-			() -> Replay.verify(chain, rulesWithLimit(size - 1), GENESIS_TIME));
+			() -> Replay.verify(chain, rulesWithLimit(chainIdentifier, size - 1), GENESIS_TIME));
 	}
 
-	private static ConsensusRules rulesWithLimit(final int bytes)
+	private static ConsensusRules rulesWithLimit(final String chainIdentifier, final int bytes)
 	{
 		return new ConsensusRules(ConsensusRules.LETHENON.activations(),
-			List.of(new BlockLimits(Chain.TEST_IDENTIFIER, BlockLimits.TWO_HOURS, bytes)));
+			List.of(new BlockLimits(chainIdentifier, BlockLimits.TWO_HOURS, bytes)));
 	}
 
-	@Test
-	@DisplayName("the main chain carries no size limit until the decision that starts it")
-	void theMainChain_carriesNoSizeLimitYet()
+	@ParameterizedTest(name = "{0}")
+	@ValueSource(strings = { Chain.TEST_IDENTIFIER, Chain.IDENTIFIER })
+	@DisplayName("a mined block carries the longest prefix that fits, and it verifies, on either chain")
+	void aMinedBlock_carriesTheLongestPrefixThatFits(final String chainIdentifier)
 	{
-		assertTrue(ConsensusRules.LETHENON.limitsFor(Chain.IDENTIFIER).isEmpty());
-	}
-
-	@Test
-	@DisplayName("a mined block carries the longest prefix that fits, and it verifies")
-	void aMinedBlock_carriesTheLongestPrefixThatFits()
-	{
+		List<BlockBody> funded = funded(chainIdentifier).chain();
+		List<SignedTransaction> postQuantum = postQuantum(chainIdentifier);
 		BlockBody next = Mining.nextBlock(funded, MINER, postQuantum, "a pun",
 			GENESIS_TIME + 2 * STEP);
 		BlockBody mined = Blocks.mine(next, 1_000_000L).orElseThrow();
@@ -175,8 +190,9 @@ class BlockSizeTest
 	@DisplayName("a transfer is carried only with room left for the characters mining adds")
 	void aTransferIsCarried_onlyWithRoomForTheMiningSuffix()
 	{
-		BlockBody empty = Mining.nextBlock(funded, MINER, List.of(), "a pun",
-			GENESIS_TIME + 2 * STEP);
+		List<SignedTransaction> postQuantum = postQuantum(Chain.TEST_IDENTIFIER);
+		BlockBody empty = Mining.nextBlock(funded(Chain.TEST_IDENTIFIER).chain(), MINER,
+			List.of(), "a pun", GENESIS_TIME + 2 * STEP);
 		SignedTransaction first = postQuantum.getFirst();
 		int exactly = CanonicalEncoding.blockSize(empty) + CanonicalEncoding.sizeInBlock(first)
 			+ Mining.MINING_SUFFIX_BYTES;

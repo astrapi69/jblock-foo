@@ -32,13 +32,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * A block's timestamp may lie at most two hours after the verifying node's clock, Monero's
- * CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT; on the test chain from height 0 (#96)
+ * CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT; on the test chain from height 0 (#96), and on the main chain
+ * from height 0 (#109)
  */
 class FutureTimestampTest
 {
@@ -58,19 +59,22 @@ class FutureTimestampTest
 		return List.copyOf(chain);
 	}
 
-	@Test
-	@DisplayName("the test chain's limit is Monero's two hours")
-	void theLimit_isTwoHours()
+	@ParameterizedTest(name = "{0}")
+	@ValueSource(strings = { Chain.TEST_IDENTIFIER, Chain.IDENTIFIER })
+	@DisplayName("the limit is Monero's two hours on both chains")
+	void theLimit_isTwoHours(final String chainIdentifier)
 	{
 		assertEquals(TWO_HOURS,
-			ConsensusRules.LETHENON.limitsFor(Chain.TEST_IDENTIFIER).orElseThrow().futureMillis());
+			ConsensusRules.LETHENON.limitsFor(chainIdentifier).orElseThrow().futureMillis());
 	}
 
-	@ParameterizedTest(name = "the clock {0} ms before the block's time minus two hours")
-	@ValueSource(longs = { 1L, 1_000L, 60L * 60L * 1_000L })
-	void aBlockMoreThanTwoHoursAhead_isRejected(final long tooEarly)
+	@ParameterizedTest(name = "{0}, the clock {1} ms before the block time minus two hours")
+	@CsvSource({ "lethenon-test-1, 1", "lethenon-test-1, 1000", "lethenon-test-1, 3600000",
+		"lethenon-1, 1", "lethenon-1, 1000", "lethenon-1, 3600000" })
+	void aBlockMoreThanTwoHoursAhead_isRejected(final String chainIdentifier,
+		final long tooEarly)
 	{
-		List<BlockBody> chain = chainOf(Chain.TEST_IDENTIFIER, 1_759_000_000_000L,
+		List<BlockBody> chain = chainOf(chainIdentifier, 1_759_000_000_000L,
 			1_759_000_000_000L + 5L * 60L * 60L * 1_000L);
 		long now = chain.getLast().timestamp() - TWO_HOURS - tooEarly;
 
@@ -81,23 +85,23 @@ class FutureTimestampTest
 		assertTrue(rejected.getMessage().contains("in the future"), rejected.getMessage());
 	}
 
-	@Test
-	@DisplayName("a block exactly two hours ahead is accepted")
-	void aBlockExactlyTwoHoursAhead_isAccepted()
+	@ParameterizedTest(name = "{0}")
+	@ValueSource(strings = { Chain.TEST_IDENTIFIER, Chain.IDENTIFIER })
+	@DisplayName("a block exactly two hours ahead is accepted on both chains")
+	void aBlockExactlyTwoHoursAhead_isAccepted(final String chainIdentifier)
 	{
-		List<BlockBody> chain = chainOf(Chain.TEST_IDENTIFIER, 1_759_000_000_000L,
-			1_759_000_120_000L);
+		List<BlockBody> chain = chainOf(chainIdentifier, 1_759_000_000_000L, 1_759_000_120_000L);
 
 		assertEquals(2L, Replay.verify(chain, ConsensusRules.LETHENON,
 			chain.getLast().timestamp() - TWO_HOURS).blocks());
 	}
 
-	@Test
-	@DisplayName("the genesis block is held to the same bound")
-	void theGenesisBlock_isHeldToTheBound()
+	@ParameterizedTest(name = "{0}")
+	@ValueSource(strings = { Chain.TEST_IDENTIFIER, Chain.IDENTIFIER })
+	@DisplayName("the genesis block is held to the same bound on both chains")
+	void theGenesisBlock_isHeldToTheBound(final String chainIdentifier)
 	{
-		List<BlockBody> chain = chainOf(Chain.TEST_IDENTIFIER, 1_759_000_000_000L,
-			1_759_000_120_000L);
+		List<BlockBody> chain = chainOf(chainIdentifier, 1_759_000_000_000L, 1_759_000_120_000L);
 
 		ChainRejected rejected = assertThrows(ChainRejected.class, () -> Replay
 			.verify(chain.subList(0, 1), ConsensusRules.LETHENON,
@@ -106,23 +110,23 @@ class FutureTimestampTest
 		assertTrue(rejected.getMessage().contains("block 0"), rejected.getMessage());
 	}
 
-	@Test
-	@DisplayName("the main chain carries no limit until the decision that starts it")
-	void theMainChain_carriesNoLimitYet()
+	@ParameterizedTest(name = "{0}")
+	@ValueSource(strings = { Chain.TEST_IDENTIFIER, Chain.IDENTIFIER })
+	@DisplayName("a chain mined in the past keeps verifying as the clock moves on")
+	void aChainMinedInThePast_keepsVerifying(final String chainIdentifier)
 	{
-		List<BlockBody> chain = chainOf(Chain.IDENTIFIER, 1_759_000_000_000L,
-			1_759_000_120_000L);
+		List<BlockBody> chain = chainOf(chainIdentifier, 1_759_000_000_000L, 1_759_000_120_000L);
 
-		assertTrue(ConsensusRules.LETHENON.limitsFor(Chain.IDENTIFIER).isEmpty());
-		assertEquals(2L, Replay.verify(chain, ConsensusRules.LETHENON, 0L).blocks());
+		assertEquals(2L, Replay.verify(chain).blocks());
 	}
 
-	@Test
-	@DisplayName("with the real clock, a test-chain block three hours ahead does not verify")
-	void withTheRealClock_aBlockThreeHoursAhead_doesNotVerify()
+	@ParameterizedTest(name = "{0}")
+	@ValueSource(strings = { Chain.TEST_IDENTIFIER, Chain.IDENTIFIER })
+	@DisplayName("with the real clock, a block three hours ahead does not verify on either chain")
+	void withTheRealClock_aBlockThreeHoursAhead_doesNotVerify(final String chainIdentifier)
 	{
 		long now = System.currentTimeMillis();
-		List<BlockBody> chain = chainOf(Chain.TEST_IDENTIFIER, now, now + 3L * 60L * 60L * 1_000L);
+		List<BlockBody> chain = chainOf(chainIdentifier, now, now + 3L * 60L * 60L * 1_000L);
 
 		assertThrows(ChainRejected.class, () -> Replay.verify(chain));
 		assertEquals(1L, Replay.verify(chain.subList(0, 1)).blocks());

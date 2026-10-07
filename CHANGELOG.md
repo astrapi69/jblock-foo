@@ -4,6 +4,16 @@
 Version 0.3.0 (unreleased)
 -------------
 
+CHANGED:
+
+- the main chain, `lethenon-1`, runs the same block limits as the test chain, from height 0 (#109):
+  a block's timestamp at most two hours after the verifying node's clock, a block at most 300,000
+  bytes. This is a consensus change. The timestamp bound rejects no chain that verified before,
+  since the clock only moves on. The size limit rejects a main chain with a block over 300,000
+  bytes, which lethenon 0.2.0 could mine: 56 or more ML-DSA-65 transfers, or 1,515 or more
+  Ed25519 transfers, in one block paying an Ed25519 miner. Mining on the main chain now carries the
+  longest prefix of the waiting transfers that fits, and the rest keeps waiting
+
 FIXED:
 
 - two nodes could hold two connections to each other: a node did not notice that a peer was a
@@ -71,12 +81,11 @@ ADDED:
   `lethenon-test-1` a block larger than 300,000 bytes does not verify, Monero's full reward zone
   taken as a hard limit; `CanonicalEncoding.blockSize` counts it. Mining carries the longest
   prefix of the waiting transfers that fits, and `mine` keeps the rest waiting instead of dropping
-  it. The main chain has no limit until the decision that starts it
+  it. The main chain has the same limit since #109
 - a consensus bound on timestamps in the future, the first prerequisite for a main chain (#96):
   on `lethenon-test-1` a block whose timestamp lies more than two hours after the verifying
   node's clock does not verify, Monero's `CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT`. The limit sits in
-  `ConsensusRules` as the chain's `BlockLimits`; the main chain has none until the decision that
-  starts it
+  `ConsensusRules` as the chain's `BlockLimits`; the main chain has the same bound since #109
 - a network for the test chain, seventh building block (#76, #94, ADR 0003): `lethenon node
   --chain <file> --listen <port> [--peer host:port ...] [--mine --wallet <file>] [--for <seconds>]`.
   It serves the chain file, relays and synchronises; with `--mine` it mines on its pool, at most
