@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-10-06
-- Decided by the maintainer on 2026-10-06 (#49); rule 5 added by the maintainer on 2026-10-07 (#55); rules 6 and 7 added by the maintainer on 2026-10-07 (#58)
+- Decided by the maintainer on 2026-10-06 (#49); rule 5 added by the maintainer on 2026-10-07 (#55); rules 6 and 7 added by the maintainer on 2026-10-07 (#58), rule 6 extended for Apache-2.0 (#65)
 - Replaces: "Both mean writing new cryptography, which this project does not do" (README, privacy
   section) and "This project writes formats and rules, not primitives" (README, planned shape)
 
@@ -49,6 +49,8 @@ The maintainer set seven rules for any construction that is new to this project:
    exactly this question.
 6. **Licences.** Code taken into lethenon - a library, a plugin, copied source, anything that runs
    in the same process - is under a licence compatible with MIT, lethenon's own licence.
+   Apache-2.0 counts as compatible, provided its notices are carried in a NOTICE file at the root
+   of the repository that takes the code in.
    Copyleft code, such as GPL, is never taken into lethenon: it is allowed only as a separate
    program, in a repository of its own under that licence, which lethenon calls across a process
    boundary, and never as a library or a plugin in the same process. Code without a licence is

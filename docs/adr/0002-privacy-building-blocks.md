@@ -1,6 +1,6 @@
 # ADR 0002: Building blocks, scheme identifiers and their activation by consensus
 
-- Status: accepted for the architecture; the way C code is integrated is open, for the maintainer
+- Status: accepted; the way C code is integrated decided by the maintainer on 2026-10-07 (#65)
 - Date: 2026-10-07
 - Phase B of the privacy block (#60), after the literature of phase A (#54,
   `docs/research/pq-privacy-literature.md`) and under ADR 0001
@@ -98,7 +98,7 @@ height 2, one switched off at height 2, one missing), through a package-private
    transaction encoding version, decided with the maintainer.
 4. One activation line for `lethenon-test-1`. A line for `lethenon-1` only after the review.
 
-## Open: how a scheme written in C is integrated
+## How a scheme written in C is integrated
 
 The only scheme of phase A with licensed code that hides sender and amount is MatRiCT+, in C. The
 other implementations phase A found are in C or Go, or have no licence. Three ways are possible.
@@ -165,7 +165,30 @@ to check against where the authors give no test vectors, keeps every platform, a
 out of the process that holds keys. Way 1 is not recommended: it ties the chain to x86-64 builds and
 to a JVM flag, and puts C memory safety into the wallet's process.
 
-**The decision is the maintainer's.** It is taken together with the choice of scheme in phase C.
+### Decision
+
+Decided by the maintainer on 2026-10-07 (#65):
+
+- **Every scheme is implemented in pure Java.** The chain, the wallets, the command line and the
+  desktop plugin run no native code.
+- **The authors' C code is used in the tests only, through the Foreign Function and Memory API,
+  as the reference for difference tests:** the same inputs, including the randomness, go into the
+  Java implementation and into the C code, and the outputs have to be equal. Any difference is a
+  failure, not a tolerance.
+- **Targeted forgery tests** beside them: proofs, signatures and transactions altered on purpose -
+  a changed byte, a swapped response, an amount that does not balance, a reused key - each of
+  which the Java verifier has to refuse.
+- **PIT on the verification logic**, so that a verifier that accepts too much is caught by a
+  surviving mutant and not only by luck.
+- **Parameters only from the paper or the authors' reference code**, each with its location (the
+  table or the file and line); none chosen or tuned here.
+
+This differs from the recommendation above in one point: the reference runs in the test JVM
+through FFM, not across a process boundary. The test JVM then needs native access enabled
+(`--enable-native-access`, measured above), and the C code has to be MIT-compatible under
+ADR 0001 rule 6, because it runs in the same process: MatRiCT+ (0BSD) is; copyleft code could not
+be used this way. Building the reference needs what the C code needs (for MatRiCT+: a C compiler,
+XKCP, an x86-64 CPU with AVX2, one build per anonymity level), on the machine that runs the tests.
 
 ### Licences of the code phase B considered (ADR 0001 rule 6)
 
@@ -185,9 +208,8 @@ Read on 2026-10-07 from a `git clone --depth 1` of each repository:
 
 Not checked here: the licences of what LaZer fetches or needs at build time (cpu_features,
 sagemath), and the per-file terms of XKCP beyond its summary. By rule 6, Gao et al. and SPIRIT are
-excluded in every repository: they carry no licence. Whether Apache-2.0 code (LaBRADOR, HEXL) counts
-as MIT-compatible in the sense of rule 6 is the maintainer's call; this record states the licence,
-not its compatibility.
+excluded in every repository: they carry no licence. Apache-2.0 code (LaBRADOR, HEXL) is allowed,
+with a NOTICE file, as decided by the maintainer on 2026-10-07 and written into rule 6 (#65).
 
 ### Patents (ADR 0001 rule 7)
 
@@ -205,7 +227,9 @@ maintainer clarifies it.
 - A new scheme is a new identifier and a new activation line, not a change to an existing scheme.
   Switching a broken one off is an end height, not a new chain.
 - The amount block's wire format is open until phase C.
-- The choice of scheme and of the integration way waits for the maintainer. On the facts above,
+- The integration way is decided: pure Java, the authors' C code as a reference in the tests only.
+- The choice of scheme waits for the maintainer, and the patent clarification of rule 7 comes
+  before phase C. On the facts above,
   MatRiCT+, the only scheme hiding sender and amount with code under a licence file, is excluded
   by rule 7 until its patent position is clarified. Of the others that hide both, Gao et al. has
   code without a licence, LRCT v2.0 only third-party code with no licence file (its README names
