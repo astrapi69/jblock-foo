@@ -117,6 +117,8 @@ public final class Node implements AutoCloseable
 
 	private volatile Outbound outbound = Outbound.DIRECT;
 
+	private volatile AnonymityZone zone;
+
 	private Node(final List<BlockBody> chain, final Replay replay, final ChainFile file)
 	{
 		this.local = new LocalChain(chain, replay);
@@ -250,6 +252,12 @@ public final class Node implements AutoCloseable
 	public void connect(final String host, final int port) throws IOException
 	{
 		PeerAddress dialed = new PeerAddress(host, port);
+		AnonymityZone anonymous = zone;
+		if (anonymous != null && dialed.isOnion())
+		{
+			connectAnonymously(anonymous, dialed);
+			return;
+		}
 		if (outgoing.incrementAndGet() > MAXIMUM_OUTGOING)
 		{
 			outgoing.decrementAndGet();
@@ -387,20 +395,7 @@ public final class Node implements AutoCloseable
 		}
 		catch (IOException ended)
 		{
-			if (peer == null)
-			{
-				refusals.add(socket.getRemoteSocketAddress() + " ended the handshake: "
-					+ ended.getClass().getSimpleName() + " " + ended.getMessage());
-			}
-			else if (ended instanceof ProtocolViolation violation)
-			{
-				refusals.add(peer.address() + " was disconnected: " + violation.getMessage());
-			}
-			else if (ended instanceof SocketTimeoutException)
-			{
-				refusals.add(peer.address() + " did not answer within " + answerMillis
-					+ " ms and was disconnected");
-			}
+			recordTheEnd(socket, peer, ended);
 		}
 		finally
 		{
@@ -412,6 +407,28 @@ public final class Node implements AutoCloseable
 			open.remove(socket);
 			closeQuietly(socket);
 			counted.decrementAndGet();
+		}
+	}
+
+	/**
+	 * Records why a connection ended, when it ended for a reason: a handshake that failed, a
+	 * protocol violation, a peer that did not answer
+	 */
+	private void recordTheEnd(final Socket socket, final Peer peer, final IOException ended)
+	{
+		if (peer == null)
+		{
+			refusals.add(socket.getRemoteSocketAddress() + " ended the handshake: "
+				+ ended.getClass().getSimpleName() + " " + ended.getMessage());
+		}
+		else if (ended instanceof ProtocolViolation violation)
+		{
+			refusals.add(peer.address() + " was disconnected: " + violation.getMessage());
+		}
+		else if (ended instanceof SocketTimeoutException)
+		{
+			refusals.add(peer.address() + " did not answer within " + answerMillis
+				+ " ms and was disconnected");
 		}
 	}
 
@@ -465,12 +482,24 @@ public final class Node implements AutoCloseable
 	private Peer shakeHands(final Socket socket, final Optional<PeerAddress> dialed)
 		throws IOException
 	{
+		return shakeHands(socket, Hello.of(chain(), listenPort, nodeId), dialed);
+	}
+
+	/**
+	 * Sends this node's HELLO, reads the peer's and checks it
+	 *
+	 * @param dialed
+	 *            the address this node dialled, empty for a connection it accepted
+	 * @return the peer, or null when the handshake was refused, with the reason recorded
+	 */
+	private Peer shakeHands(final Socket socket, final Hello ours,
+		final Optional<PeerAddress> dialed) throws IOException
+	{
 		socket.setSoTimeout(HANDSHAKE_MILLIS);
 		DataInputStream in = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
 		DataOutputStream out = new DataOutputStream(
 			new BufferedOutputStream(socket.getOutputStream()));
-		Frames.write(out,
-			new Frame(MessageType.HELLO, Hello.of(chain(), listenPort, nodeId).encode()));
+		Frames.write(out, new Frame(MessageType.HELLO, ours.encode()));
 		Frame first = Frames.read(in, Frames.MAXIMUM_FRAME);
 		if (first.type() != MessageType.HELLO)
 		{
@@ -479,7 +508,9 @@ public final class Node implements AutoCloseable
 			return null;
 		}
 		Hello theirs = Hello.decode(first.payload());
-		if (theirs.nodeId() == nodeId)
+		AnonymityZone anonymous = zone;
+		if (theirs.nodeId() == nodeId
+			|| anonymous != null && theirs.nodeId() == anonymous.nodeId())
 		{
 			refusals.add(socket.getRemoteSocketAddress() + " is this node itself");
 			dialed.ifPresent(discovery::isItself);
@@ -566,6 +597,119 @@ public final class Node implements AutoCloseable
 			throw new IllegalStateException("this node does not listen");
 		}
 		return server.getInetAddress();
+	}
+
+	/**
+	 * Turns on an anonymity zone, after Monero's {@code --tx-proxy} (ADR 0004, step 2): onion
+	 * peers are reached through the given route and carry transfers only, and a transfer that
+	 * originates on this node goes to them alone, or waits for one, never in the clear
+	 *
+	 * @param route
+	 *            how zone connections leave the machine, a Tor SOCKS proxy
+	 * @param maximum
+	 *            the most peers the zone takes
+	 * @return this node
+	 * @throws IllegalArgumentException
+	 *             for a direct route, which cannot reach an onion address, or a maximum below 1
+	 */
+	public Node anonymityZone(final Outbound route, final int maximum)
+	{
+		if (!route.proxied())
+		{
+			throw new IllegalArgumentException("an anonymity zone needs a proxy to reach onion "
+				+ "addresses, and the route is " + route);
+		}
+		if (maximum < 1)
+		{
+			throw new IllegalArgumentException(
+				"an anonymity zone takes at least one peer, not " + maximum);
+		}
+		long anonymousId = drawNodeId();
+		while (anonymousId == nodeId)
+		{
+			anonymousId = drawNodeId();
+		}
+		AnonymityZone anonymous = new AnonymityZone(route, maximum, anonymousId);
+		zone = anonymous;
+		gossip.anonymityZone(anonymous);
+		return this;
+	}
+
+	/**
+	 * The HELLOs of the peers of the anonymity zone this node is connected to
+	 *
+	 * @return a snapshot; empty without a zone
+	 */
+	public List<Hello> anonymousPeers()
+	{
+		AnonymityZone anonymous = zone;
+		if (anonymous == null)
+		{
+			return List.of();
+		}
+		return anonymous.peers().stream().map(Peer::hello).toList();
+	}
+
+	private void connectAnonymously(final AnonymityZone anonymous, final PeerAddress dialed)
+		throws IOException
+	{
+		if (!anonymous.reserve())
+		{
+			throw new IOException("the anonymity zone has " + anonymous.maximum()
+				+ " anonymity connection(s), its limit (ADR 0004)");
+		}
+		Socket socket;
+		try
+		{
+			socket = anonymous.route().open(dialed, HANDSHAKE_MILLIS);
+		}
+		catch (IOException unreachable)
+		{
+			anonymous.release();
+			throw unreachable;
+		}
+		threads.submit(() -> serveAnonymously(anonymous, socket, dialed));
+	}
+
+	/**
+	 * Runs one connection of the anonymity zone to its end: a HELLO that names only the genesis
+	 * block, under the zone's own identity and without a listening port, then transfers only
+	 */
+	private void serveAnonymously(final AnonymityZone anonymous, final Socket socket,
+		final PeerAddress dialed)
+	{
+		open.add(socket);
+		Peer peer = null;
+		try
+		{
+			Hello ours = Hello.of(List.of(chain().getFirst()), 0, anonymous.nodeId());
+			peer = shakeHands(socket, ours, Optional.of(dialed));
+			if (peer == null)
+			{
+				return;
+			}
+			peer.startWriting(threads);
+			anonymous.joined(peer);
+			while (!socket.isClosed())
+			{
+				gossip.handleAnonymous(peer, Frames.read(peer.in(), Frames.MAXIMUM_FRAME));
+			}
+		}
+		catch (IOException ended)
+		{
+			recordTheEnd(socket, peer, ended);
+		}
+		finally
+		{
+			if (peer != null)
+			{
+				anonymous.left(peer);
+				closeQuietly(peer);
+			}
+			open.remove(socket);
+			closeQuietly(socket);
+			anonymous.release();
+		}
 	}
 
 	/**

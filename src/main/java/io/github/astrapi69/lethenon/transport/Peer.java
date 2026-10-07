@@ -167,9 +167,15 @@ final class Peer implements Closeable
 		return in;
 	}
 
+	/**
+	 * The peer's name in a reason: the address it listens on where known, which for a peer
+	 * reached through a proxy is its own and not the proxy's, otherwise the remote end of the
+	 * socket
+	 */
 	String address()
 	{
-		return String.valueOf(socket.getRemoteSocketAddress());
+		return listening().map(PeerAddress::toString)
+			.orElseGet(() -> String.valueOf(socket.getRemoteSocketAddress()));
 	}
 
 	Fetch fetch()

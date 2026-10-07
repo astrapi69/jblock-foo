@@ -37,6 +37,15 @@ FIXED:
 
 ADDED:
 
+- Tor, step 2 of ADR 0004 (#116): `node --tx-proxy tor,host:port[,max]` turns on an anonymity zone.
+  Onion peers given with `--peer` are reached through Tor and carry transfers only, and a transfer
+  that originates on the node - submitted on it, or handed over by a command such as
+  `send --node` - goes only to them, or waits for one, and is never sent in the clear. The zone has
+  its own node identity, announces no listening port and names only the genesis block, carries no
+  chain sync, and passes over blocks a zone peer relays. Transfers from other nodes are relayed as
+  before. In the library: `Node.anonymityZone(Outbound, int)` and `Node.anonymousPeers()`. Known
+  limits, in the ADR: a node that mines can reveal its own transfers in its own block, and every
+  zone peer sees all own transfers
 - Tor, step 1 of ADR 0004 (#114): `node --proxy host:port` and `sync --proxy host:port` send every
   outgoing connection through a SOCKS5 proxy such as a Tor daemon, with the peer's host handed over
   unresolved, so nothing about a peer reaches the local DNS. Peers learnt by peer exchange go the

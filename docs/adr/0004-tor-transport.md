@@ -65,22 +65,32 @@ the daemon does not already do.
 
 ### Steps, one pull request each
 
-1. **A proxy for every outgoing connection (`--proxy host:port`).** Node, `sync`, `send --node` and
-   the genesis bootstrap dial through SOCKS5 with the host unresolved. A proxy given means no
+1. **A proxy for every outgoing connection (`--proxy host:port`, #114).** Node, `sync` and the
+   genesis bootstrap dial through SOCKS5 with the host unresolved. `send --node` keeps its direct
+   route: it hands a transfer to the node that serves the same chain file and reads that file's
+   pool afterwards, so that node is local; one's own transfers reach Tor through step 2. A proxy given means no
    connection is ever made around it. A node with a proxy listens on 127.0.0.1 unless `--bind`
    says otherwise. `PeerAddress` recognises v3 onion addresses: 56 base32 characters and
    `.onion`, case-insensitive, other lengths refused. An onion address without a proxy is refused
    before anything touches the network.
-2. **An anonymity zone (`--tx-proxy tor,host:port[,max]`).** Onion peers are dialled through that
-   proxy and belong to a zone of their own:
-   - their own peer lists;
-   - their own node identity in `HELLO`, drawn apart from the clearnet one;
-   - no chain synchronisation: `GET_CHAIN`, `GET_BLOCKS` and `BLOCK` from such a peer disconnect,
-     and none are sent to it;
-   - only `HELLO`, `TRANSFER` and the exchange of onion addresses.
+2. **An anonymity zone (`--tx-proxy tor,host:port[,max]`, #116).** Onion peers given with `--peer`
+   are dialled through that proxy, at most `max` of them (default 10), and belong to a zone of
+   their own:
+   - kept apart from the clearnet peers: nothing the node relays in the clear reaches them;
+   - their own node identity in `HELLO`, drawn apart from the clearnet one, listening port 0, and
+     the genesis block as the tip, so the zone's `HELLO` says nothing about the node's chain and
+     never makes the peer ask for it;
+   - no chain: `GET_CHAIN`, `CHAIN`, `GET_BLOCKS`, `BLOCKS`, `GET_PEERS` and `PEERS` from such a
+     peer disconnect, and none are sent to it. A `BLOCK` it relays is passed over without being
+     adopted, because an onion node that does not know it is in a zone relays its blocks to every
+     peer;
+   - only `HELLO` and `TRANSFER`; the exchange of onion addresses is step 3.
 
    With the zone on, a transfer that originates on this node goes only to anonymity peers: the
-   node's own `submitTransfer` and a transfer handed over with `send --node`. Without one, the
+   node's own `submitTransfer` and a transfer handed over by a command such as `send --node`. A
+   command is told apart by its missing node identity (`nodeId` 0), not by its listening port,
+   since a node that does not listen announces port 0 as well and its transfers are relayed, not
+   originated. Without one, the
    transfer waits in the pool and the refusals say so. It is not sent in the clear. A transfer that
    arrives from a peer is relayed as before.
 3. **Anonymous inbound (`--anonymous-inbound <onion>:<port>,127.0.0.1:<port>[,max]`).** A second
@@ -119,6 +129,14 @@ These are the limits Monero lists, and they apply here as well:
 - **Timestamps.** `HELLO` carries no clock time, so this linkage of the zones does not apply. A
   block's timestamp is the miner's, and blocks do not travel in the anonymity zone.
 
+Two that come with the anonymity zone:
+- **The node's own miner.** A node that mines can put its own waiting transfer into a block before
+  any other node has it, which tells every peer where the transfer came from. A node that sends
+  over Tor should not mine on the same pool.
+- **Every own transfer to every zone peer.** A zone peer's operator learns all of this node's own
+  transfers and can link them to each other, though not to an address. Monero sends over two
+  outgoing connections it rotates every five minutes; doing the same is a later step.
+
 And one that is lethenon's own: the chain is public, and every transfer names its sender's account
 (ADR 0002, sender ambiguity postponed). Tor hides where a transfer was sent from, not who sent it.
 
@@ -128,5 +146,9 @@ And one that is lethenon's own: the chain is public, and every transfer names it
 - The chain package stays unable to name a networking type (`NoBalanceQueryTest`). Everything here
   lives in `transport` and `cli`.
 - Protocol version 3 with step 3. Version-2 nodes are refused, as version 1 was at #102.
-- The chain is synchronised in the clear, or through `--proxy` over Tor exit nodes to clearnet
-  peers, never over onion services. That follows Monero's reasoning on Sybil attacks.
+- Inside the anonymity zone the chain is never synchronised, after Monero's reasoning on Sybil
+  attacks. A peer reached through `--proxy` is an ordinary peer, onion address or not, and a node
+  or `sync` takes the chain from it: that is what a wallet needs to catch up over Tor, as Monero's
+  wallet reaches a daemon's RPC over an onion service. This sentence said "never over onion
+  services" when the ADR was accepted; step 1 showed that the restriction belongs to the zone, not
+  to the proxy.
