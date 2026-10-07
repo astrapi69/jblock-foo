@@ -107,6 +107,15 @@ final class Discovery
 		book.isItself(address);
 	}
 
+	/**
+	 * A connection to this address opened and ended without a handshake: it is forgotten, as an
+	 * address that could not be dialled is, so that filling a slot again tries another one (#121)
+	 */
+	void unreachable(final PeerAddress address)
+	{
+		book.forget(address);
+	}
+
 	void answer(final Peer peer)
 	{
 		peer.send(new Frame(MessageType.PEERS, new PeerList(book.shareable()).encode()));
@@ -150,6 +159,7 @@ final class Discovery
 
 	private void dial(final PeerAddress address)
 	{
+		boolean failedToDial = false;
 		try
 		{
 			dialer.dial(address);
@@ -159,10 +169,16 @@ final class Discovery
 			book.forget(address);
 			refusals.add(address + ", learnt from a peer, was not connected: "
 				+ failed.getMessage());
+			failedToDial = true;
 		}
 		finally
 		{
 			dialing.remove(address);
+		}
+		if (failedToDial)
+		{
+			// the slot it held is free again; the address is forgotten, so this tries the next
+			fill();
 		}
 	}
 
