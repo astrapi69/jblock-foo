@@ -50,7 +50,13 @@ public enum MessageType
 	GET_BLOCKS((byte)6),
 
 	/** Blocks, encoded as a chain */
-	BLOCKS((byte)7);
+	BLOCKS((byte)7),
+
+	/** asks a peer for addresses of nodes it has itself been connected to */
+	GET_PEERS((byte)8),
+
+	/** at most {@link PeerList#LIMIT} addresses of nodes that listen */
+	PEERS((byte)9);
 
 	private final byte code;
 

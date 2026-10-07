@@ -30,10 +30,12 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketException;
+import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.function.Consumer;
 
 /**
  * One connection to another node after a successful handshake: the socket, the peer's HELLO, the
@@ -70,14 +72,38 @@ final class Peer implements Closeable
 
 	private final int answerMillis;
 
+	private final Consumer<String> report;
+
+	private final Optional<PeerAddress> listening;
+
+	private boolean peersExpected;
+
+	/**
+	 * @param report
+	 *            where the reason goes when this side ends the connection because a frame could
+	 *            not be written or the queue is full (#101)
+	 */
 	Peer(final Socket socket, final DataInputStream in, final DataOutputStream out,
-		final Hello hello, final int answerMillis)
+		final Hello hello, final int answerMillis, final Consumer<String> report)
 	{
+		this(socket, in, out, hello, answerMillis, report, Optional.empty());
+	}
+
+	/**
+	 * @param listening
+	 *            the address this peer listens on, as far as it said so, for peer exchange
+	 */
+	Peer(final Socket socket, final DataInputStream in, final DataOutputStream out,
+		final Hello hello, final int answerMillis, final Consumer<String> report,
+		final Optional<PeerAddress> listening)
+	{
+		this.listening = listening;
 		this.socket = socket;
 		this.in = in;
 		this.out = out;
 		this.hello = hello;
 		this.answerMillis = answerMillis;
+		this.report = report;
 	}
 
 	/**
@@ -91,6 +117,26 @@ final class Peer implements Closeable
 	Hello hello()
 	{
 		return hello;
+	}
+
+	Optional<PeerAddress> listening()
+	{
+		return listening;
+	}
+
+	synchronized void expectPeers()
+	{
+		peersExpected = true;
+	}
+
+	/**
+	 * Whether a PEERS answer was asked for; it is taken, so a second one was not
+	 */
+	synchronized boolean takeExpectedPeers()
+	{
+		boolean expected = peersExpected;
+		peersExpected = false;
+		return expected;
 	}
 
 	DataInputStream in()
@@ -179,6 +225,8 @@ final class Peer implements Closeable
 	{
 		if (!outgoing.offer(frame))
 		{
+			report.accept(address() + " was disconnected: " + QUEUE_LIMIT
+				+ " frames waited for it, and it does not read them");
 			closeQuietly();
 		}
 	}
@@ -198,6 +246,11 @@ final class Peer implements Closeable
 		}
 		catch (IOException broken)
 		{
+			if (!socket.isClosed())
+			{
+				report.accept(address() + " was disconnected: a frame could not be written: "
+					+ broken.getMessage());
+			}
 			closeQuietly();
 		}
 	}

@@ -6,6 +6,9 @@ Version 0.3.0 (unreleased)
 
 FIXED:
 
+- a connection that ended because a frame could not be written, or because a peer let its queue of
+  1,024 frames fill up, ended without a reason on either side. The node's refusals now name the
+  peer and the cause (#101)
 - a block the node's own miner built could be too large to fetch: the miner capped blocks at 500
   transfers by count, and 500 ML-DSA-65 transfers make 2,692,122 bytes, so two such blocks did not
   fit in a 4 MiB BLOCKS frame and a node behind never caught up. Blocks are now bounded in bytes,
@@ -32,6 +35,13 @@ ADDED:
   through it; `lethenon genesis` prints a candidate's hash and bytes and writes nothing. No chain
   has an anchor yet: the main chain's block, and the allocation it carries, is the maintainer's
   decision
+- peer exchange, the third prerequisite for a main chain (#102): HELLO carries the listening port
+  and a random node identity (protocol version 2), after Monero's `my_port` and `peer_id`. A node
+  asks listening peers with GET_PEERS, passes on at most 250 addresses of nodes it has itself been
+  connected to, keeps Monero's confirmed and heard-of lists (1,000 and 5,000), and dials learnt
+  addresses while it has room for outgoing connections. A caller that does not listen is never
+  passed on; a connection to the node itself is recognised and that address never dialled again.
+  `node --no-discovery` stays with the given peers
 - a consensus limit on block size, the second prerequisite for a main chain (#99): on
   `lethenon-test-1` a block larger than 300,000 bytes does not verify, Monero's full reward zone
   taken as a hard limit; `CanonicalEncoding.blockSize` counts it. Mining carries the longest
