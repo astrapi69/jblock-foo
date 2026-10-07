@@ -77,7 +77,7 @@ class NodeCommandTest extends AbstractCliTest
 		assertEquals(Chain.TEST_IDENTIFIER, blocks.getFirst().chainIdentifier());
 		assertTrue(blocks.size() >= 2, blocks.size() + " blocks");
 		Replay.verify(blocks);
-		assertTrue(out.contains("listening on port"), out);
+		assertTrue(out.contains("listening on 0.0.0.0 port"), out);
 		assertTrue(out.contains("height " + (blocks.size() - 1)), out);
 	}
 

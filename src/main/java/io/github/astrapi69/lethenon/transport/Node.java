@@ -29,6 +29,7 @@ import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -36,6 +37,7 @@ import java.net.SocketTimeoutException;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
@@ -104,6 +106,8 @@ public final class Node implements AutoCloseable
 	private final Discovery discovery;
 
 	private volatile int listenPort;
+
+	private volatile Outbound outbound = Outbound.DIRECT;
 
 	private Node(final List<BlockBody> chain, final Replay replay, final ChainFile file)
 	{
@@ -202,7 +206,9 @@ public final class Node implements AutoCloseable
 	}
 
 	/**
-	 * Starts accepting connections
+	 * Starts accepting connections: on every interface, or on loopback only when this node dials
+	 * through a proxy ({@link #dialingThrough(Outbound)}), so that a node meant to be reached over
+	 * Tor is not reachable around it
 	 *
 	 * @param port
 	 *            the TCP port, 0 for any free one
@@ -212,12 +218,8 @@ public final class Node implements AutoCloseable
 	 */
 	public int listen(final int port) throws IOException
 	{
-		ServerSocket socket = new ServerSocket();
-		socket.bind(new InetSocketAddress(port));
-		server = socket;
-		listenPort = socket.getLocalPort();
-		threads.submit(this::accept);
-		return listenPort;
+		return listen(outbound.proxied() ? InetAddress.getLoopbackAddress()
+			: new InetSocketAddress(0).getAddress(), port);
 	}
 
 	/**
@@ -233,24 +235,23 @@ public final class Node implements AutoCloseable
 	 */
 	public void connect(final String host, final int port) throws IOException
 	{
+		PeerAddress dialed = new PeerAddress(host, port);
 		if (outgoing.incrementAndGet() > MAXIMUM_OUTGOING)
 		{
 			outgoing.decrementAndGet();
 			throw new IOException("this node has " + MAXIMUM_OUTGOING
 				+ " outgoing connections, its limit (ADR 0003)");
 		}
-		Socket socket = new Socket();
+		Socket socket;
 		try
 		{
-			socket.connect(new InetSocketAddress(host, port), HANDSHAKE_MILLIS);
+			socket = outbound.open(dialed, HANDSHAKE_MILLIS);
 		}
 		catch (IOException unreachable)
 		{
 			outgoing.decrementAndGet();
-			closeQuietly(socket);
 			throw unreachable;
 		}
-		PeerAddress dialed = new PeerAddress(host, port);
 		threads.submit(() -> serve(socket, outgoing, Optional.of(dialed)));
 	}
 
@@ -445,6 +446,58 @@ public final class Node implements AutoCloseable
 		}
 		return Optional.of(
 			new PeerAddress(socket.getInetAddress().getHostAddress(), theirs.listenPort()));
+	}
+
+	/**
+	 * How this node's outgoing connections leave the machine, given peers and learnt ones alike;
+	 * {@link Outbound#DIRECT} by default. Through a proxy, {@link #listen(int)} binds loopback only.
+	 *
+	 * @param route
+	 *            the route
+	 * @return this node
+	 */
+	public Node dialingThrough(final Outbound route)
+	{
+		this.outbound = Objects.requireNonNull(route, "an outbound route");
+		return this;
+	}
+
+	/**
+	 * Starts accepting connections on the given address only
+	 *
+	 * @param bind
+	 *            the local address to listen on, for example the loopback address an onion service
+	 *            forwards to
+	 * @param port
+	 *            the TCP port, 0 for any free one
+	 * @return the port it listens on
+	 * @throws IOException
+	 *             when the port cannot be bound
+	 */
+	public int listen(final InetAddress bind, final int port) throws IOException
+	{
+		ServerSocket socket = new ServerSocket();
+		socket.bind(new InetSocketAddress(bind, port));
+		server = socket;
+		listenPort = socket.getLocalPort();
+		threads.submit(this::accept);
+		return listenPort;
+	}
+
+	/**
+	 * The local address this node listens on
+	 *
+	 * @return the address, the wildcard address for every interface
+	 * @throws IllegalStateException
+	 *             when the node does not listen
+	 */
+	public InetAddress listeningOn()
+	{
+		if (server == null)
+		{
+			throw new IllegalStateException("this node does not listen");
+		}
+		return server.getInetAddress();
 	}
 
 	/**

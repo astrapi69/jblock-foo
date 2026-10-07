@@ -62,9 +62,31 @@ public final class Handover
 	public static void send(final PeerAddress address, final List<BlockBody> chain,
 		final SignedTransaction transfer) throws IOException
 	{
+		send(address, chain, transfer, Outbound.DIRECT);
+	}
+
+	/**
+	 * Hands a transfer to the node at the given address, over the given route
+	 *
+	 * @param address
+	 *            the node; an onion address needs a proxy
+	 * @param chain
+	 *            the caller's chain, for the HELLO; its chain identifier and genesis block have
+	 *            to be the node's
+	 * @param transfer
+	 *            the signed transfer
+	 * @param outbound
+	 *            how the connection leaves this machine, for Tor through its SOCKS proxy
+	 * @throws IOException
+	 *             when the node cannot be reached, is on another chain or genesis block, or does
+	 *             not close within {@link Node#HANDSHAKE_MILLIS}
+	 */
+	public static void send(final PeerAddress address, final List<BlockBody> chain,
+		final SignedTransaction transfer, final Outbound outbound) throws IOException
+	{
 		try
 		{
-			handOver(address, chain, transfer);
+			handOver(address, chain, transfer, outbound);
 		}
 		catch (IOException failed)
 		{
@@ -74,9 +96,9 @@ public final class Handover
 	}
 
 	private static void handOver(final PeerAddress address, final List<BlockBody> chain,
-		final SignedTransaction transfer) throws IOException
+		final SignedTransaction transfer, final Outbound outbound) throws IOException
 	{
-		try (Client node = Client.open(address))
+		try (Client node = Client.open(address, outbound))
 		{
 			Hello ours = Hello.of(chain);
 			requireSameChain(ours, node.theirs());
