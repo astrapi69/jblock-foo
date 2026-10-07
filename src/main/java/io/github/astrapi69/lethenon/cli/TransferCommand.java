@@ -39,6 +39,8 @@ import io.github.astrapi69.lethenon.SignatureSuite;
 import io.github.astrapi69.lethenon.SignedTransaction;
 import io.github.astrapi69.lethenon.Transfers;
 import io.github.astrapi69.lethenon.Wallet;
+import io.github.astrapi69.lethenon.transport.Handover;
+import io.github.astrapi69.lethenon.transport.PeerAddress;
 import picocli.CommandLine.Option;
 
 /**
@@ -67,6 +69,12 @@ abstract class TransferCommand extends ChainCommand
 	@Option(names = "--fee", defaultValue = "0",
 		description = "the fee in LETH, up to 8 decimals; default: 0")
 	String fee;
+
+	@Option(names = "--node",
+		description = "host:port of a running node that serves the chain file named by --chain; the "
+			+ "transfer is handed to it instead of being written to the pool file, which the node "
+			+ "keeps")
+	String node;
 
 	@Option(names = "--suite", defaultValue = "ed25519",
 		description = "the signature suite of the sending account: ed25519 or ml-dsa-65")
@@ -102,24 +110,43 @@ abstract class TransferCommand extends ChainCommand
 		List<SignedTransaction> waiting = new ArrayList<>(readPending());
 		SignedTransaction signed = Transfers.prepare(sender, SignatureSuite.withIdentifier(suite),
 			blocks, waiting, destination(), amount, amountOf(fee), memo);
-		long nonce = signed.body().nonce();
+		String signedLine = "signed a transfer of " + amount + " LETH to " + whomItNames()
+			+ " with nonce " + signed.body().nonce();
+		if (node != null)
+		{
+			int count = handOver(blocks, signed);
+			out.println(signedLine + " and handed it to the node at " + node
+				+ "; it waits in its pool (" + count + " waiting)");
+			return 0;
+		}
 		waiting.add(signed);
 		writePending(waiting);
-		out.println("signed a transfer of " + amount + " LETH to " + whomItNames() + " with nonce "
-			+ nonce + "; it waits for the next block (" + waiting.size() + " waiting)");
+		out.println(signedLine + "; it waits for the next block (" + waiting.size() + " waiting)");
 		return 0;
 	}
 
 	/**
-	 * An amount as a person types it - "12.5", "1984", "0.00000001" - turned into lethe exactly;
-	 * {@link Amount#parseLeth(String)} since lethenon#32, where the desktop plugin reads it too
+	 * Hands the transfer to the node and reads its pool file afterwards: the handover returns once
+	 * the node has handled the frame, so the file then says whether it was admitted (ADR 0003)
 	 *
-	 * @param text
-	 *            the amount in LETH
-	 * @return the amount
-	 * @throws IllegalArgumentException
-	 *             for more than eight decimals, a negative amount, or no number at all
+	 * @return how many transfers wait in the node's pool
+	 * @throws IllegalStateException
+	 *             when the node's pool file does not carry the transfer
 	 */
+	private int handOver(final List<BlockBody> blocks, final SignedTransaction signed)
+		throws IOException
+	{
+		Handover.send(PeerAddress.parse(node), blocks, signed);
+		List<SignedTransaction> after = readPending();
+		if (!after.contains(signed))
+		{
+			throw new IllegalStateException("the node at " + node + " took the transfer, and it "
+				+ "is not in " + chain + ".pending: a node that serves another chain file keeps "
+				+ "its pool there, and a node that refused it says why in its output");
+		}
+		return after.size();
+	}
+
 	/**
 	 * Where the money goes: a transparent account, or a one-time destination derived from a
 	 * published address. Exactly one of the two options says so - a transfer that names both
@@ -154,6 +181,16 @@ abstract class TransferCommand extends ChainCommand
 			: "a one-time destination of " + recipientAddress;
 	}
 
+	/**
+	 * An amount as a person types it - "12.5", "1984", "0.00000001" - turned into lethe exactly;
+	 * {@link Amount#parseLeth(String)} since lethenon#32, where the desktop plugin reads it too
+	 *
+	 * @param text
+	 *            the amount in LETH
+	 * @return the amount
+	 * @throws IllegalArgumentException
+	 *             for more than eight decimals, a negative amount, or no number at all
+	 */
 	static Amount amountOf(final String text)
 	{
 		return Amount.parseLeth(text);
