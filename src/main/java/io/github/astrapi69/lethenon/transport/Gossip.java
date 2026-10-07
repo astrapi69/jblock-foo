@@ -144,20 +144,24 @@ final class Gossip
 
 	/**
 	 * What a node does with a frame from a peer of its anonymity zone: a transfer is offered to the
-	 * pool, a block the peer relays is passed over, since the zone carries no chain, and anything
-	 * else disconnects
+	 * pool, onion addresses are exchanged and only onion addresses kept, a block the peer relays is
+	 * passed over, since the zone carries no chain, and anything else disconnects
 	 */
 	void handleAnonymous(final Peer peer, final Frame frame) throws ProtocolViolation
 	{
 		switch (frame.type())
 		{
 			case TRANSFER -> admit(decodeTransfer(frame.payload()), peer);
+			case GET_PEERS -> zone.discovery().answer(peer);
+			case PEERS -> zone.discovery().learn(peer, new PeerList(PeerList
+				.decode(frame.payload()).addresses().stream().filter(PeerAddress::isOnion).toList()));
 			case BLOCK -> {
 				// a node that does not know it is in an anonymity zone relays its blocks to every
 				// peer; the zone does not take part in the chain, so the block is passed over
 			}
 			default -> throw new ProtocolViolation(frame.type()
-				+ " in the anonymity zone, which carries transfers only (ADR 0004)");
+				+ " in the anonymity zone, which carries transfers and onion addresses only "
+				+ "(ADR 0004)");
 		}
 	}
 

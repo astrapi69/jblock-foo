@@ -84,6 +84,12 @@ class NodeCommand implements Callable<Integer>
 		+ "for one, never in the clear (ADR 0004)")
 	String txProxy;
 
+	@Option(names = "--anonymous-inbound", description = "<onion>:<port>,127.0.0.1:<port>[,max]: "
+		+ "this node's onion service, whose HiddenServicePort forwards to the loopback port; its "
+		+ "peers belong to the anonymity zone, at most max of them (default 16), and the onion "
+		+ "address is announced inside the zone only; needs --tx-proxy (ADR 0004)")
+	String anonymousInbound;
+
 	@Option(names = "--bind", description = "the local address to listen on; default: every "
 		+ "interface, or 127.0.0.1 with --proxy")
 	String bind;
@@ -148,6 +154,7 @@ class NodeCommand implements Callable<Integer>
 		try (Node node = Node.serving(file).discoverPeers(!noDiscovery).dialingThrough(outbound))
 		{
 			String zone = txProxy == null ? "" : startTheZone(node, txProxy);
+			zone += anonymousInbound == null ? "" : startTheOnionService(node, anonymousInbound);
 			int port = bind == null ? node.listen(listen)
 				: node.listen(InetAddress.getByName(bind), listen);
 			node.connectAll(addresses);
@@ -164,6 +171,56 @@ class NodeCommand implements Callable<Integer>
 			node.refusals().forEach(System.err::println);
 		}
 		return 0;
+	}
+
+	/**
+	 * Reads &lt;onion&gt;:&lt;port&gt;,127.0.0.1:&lt;port&gt;[,max] and starts listening for the onion
+	 * service
+	 *
+	 * @return what the start line says about it
+	 */
+	private static String startTheOnionService(final Node node, final String value)
+		throws IOException
+	{
+		String form = "--anonymous-inbound is <onion>:<port>,127.0.0.1:<port>[,max], not '"
+			+ value + "'";
+		String[] parts = value.split(",", -1);
+		if (parts.length < 2 || parts.length > 3)
+		{
+			throw new IllegalArgumentException(form);
+		}
+		PeerAddress onion = PeerAddress.parse(parts[0]);
+		if (!onion.isOnion())
+		{
+			throw new IllegalArgumentException("--anonymous-inbound starts with this node's onion "
+				+ "address, and '" + parts[0] + "' is not one");
+		}
+		int colon = parts[1].lastIndexOf(':');
+		if (colon <= 0)
+		{
+			throw new IllegalArgumentException(form);
+		}
+		String localHost = parts[1].substring(0, colon);
+		if (!"127.0.0.1".equals(localHost))
+		{
+			throw new IllegalArgumentException("--anonymous-inbound listens on 127.0.0.1 only, "
+				+ "where Tor forwards, not on " + localHost);
+		}
+		int localPort;
+		int maximum;
+		try
+		{
+			// 0 is a port here: any free one, which a test or a second node on one machine uses
+			localPort = Integer.parseInt(parts[1].substring(colon + 1));
+			maximum = parts.length == 3 ? Integer.parseInt(parts[2]) : Node.MAXIMUM_INCOMING;
+		}
+		catch (NumberFormatException notANumber)
+		{
+			throw new IllegalArgumentException(form);
+		}
+		int port = node.listenAnonymously(onion, localPort, maximum);
+		return ", onion service " + onion + " on 127.0.0.1 port " + port + ", at most " + maximum
+			+ " peer(s)";
 	}
 
 	/**

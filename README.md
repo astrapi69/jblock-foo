@@ -87,6 +87,8 @@ lethenon balance --chain b.lethenon --wallet friend.wallet                      
 lethenon genesis --testnet --wallet holder.wallet       # a candidate genesis block, its hash and bytes
 lethenon sync --chain c.lethenon --peer 127.0.0.1:18431  # brings c up to a's tip, verified, and stops
 lethenon sync --chain c.lethenon --peer <56 characters>.onion:18431 --proxy 127.0.0.1:9050   # the same over Tor
+lethenon node --chain d.lethenon --listen 18431 --tx-proxy tor,127.0.0.1:9050 \
+    --anonymous-inbound <56 characters>.onion:18484,127.0.0.1:18484   # own transfers only over Tor, reachable as an onion service
 ```
 
 A node keeps its chain file and `<chain>.pending` up to date and owns them while it runs.

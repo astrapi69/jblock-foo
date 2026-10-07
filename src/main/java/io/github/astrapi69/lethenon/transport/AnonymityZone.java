@@ -26,6 +26,8 @@ package io.github.astrapi69.lethenon.transport;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -52,6 +54,10 @@ final class AnonymityZone
 	private final AtomicInteger connections = new AtomicInteger();
 
 	private final List<SignedTransaction> waiting = new ArrayList<>();
+
+	private final Set<PeerAddress> handshaking = ConcurrentHashMap.newKeySet();
+
+	private volatile Discovery discovery;
 
 	AnonymityZone(final Outbound route, final int maximum, final long nodeId)
 	{
@@ -103,6 +109,29 @@ final class AnonymityZone
 	int maximum()
 	{
 		return maximum;
+	}
+
+	int outgoing()
+	{
+		return connections.get();
+	}
+
+	Set<PeerAddress> handshaking()
+	{
+		return handshaking;
+	}
+
+	/**
+	 * Peer exchange inside the zone: onion addresses only (ADR 0004, step 3)
+	 */
+	Discovery discovery()
+	{
+		return discovery;
+	}
+
+	void discovery(final Discovery zoneDiscovery)
+	{
+		this.discovery = zoneDiscovery;
 	}
 
 	/**
