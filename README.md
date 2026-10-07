@@ -165,6 +165,35 @@ primitives; when it uses a new construction, [ADR 0001](docs/adr/0001-new-crypto
 5. an internal plugin for [mystic-crypt-ui](https://github.com/astrapi69/mystic-crypt-ui), once
    milestone 4 is green
 
+## Releasing
+
+What a release consists of, in the order it is run (0.2.0 was the first one run this way):
+
+1. **One pull request** from `release/X.Y.Z` with `projectVersion` without `-SNAPSHOT`, the CHANGELOG
+   heading without "(unreleased)", the README's dependency line, and a FORMAT section that says what the
+   previous release does with what this one writes - measured against the published previous release,
+   not assumed.
+2. **The consumer, against the candidate**: mystic-crypt-ui built against the candidate laid into
+   `~/.m2` by hand (jar and pom, nothing signed), with `make bump-check GRADLE_FLAGS=-PuseMavenLocal`.
+   The candidate is deleted from `~/.m2` afterwards.
+3. **Nothing else is merged into `develop`** until the tag exists. At 0.2.0 a feature pull request was
+   merged 28 seconds before the release, so the merge carried code the release had not checked; the
+   tag went on the release commit instead (astrapi69/mystic-crypt-ui#516 tracks a freeze that enforces
+   this).
+4. **Tag the release commit** with an annotated `RELEASE-X.Y.Z` and push the tag. The publish workflow
+   uploads to the Central Portal, where the maintainer releases it. A pushed tag is never moved or
+   deleted; a failed run is fixed on the branch and re-run.
+5. **Verify on Central**, with the artifacts downloaded inside the command that checks them: the jar,
+   pom, `-sources.jar`, `-javadoc.jar`, `.module`, and `gpg --verify` on each `.asc`.
+6. **GitHub release** from the CHANGELOG entry, without binaries: this is a library.
+7. **`master` follows the release**: a fast-forward to the tagged commit
+   (`git push origin "RELEASE-X.Y.Z^{}:master"`), otherwise a merge of the tag on `master`, never a
+   force push. Afterwards `git diff RELEASE-X.Y.Z master` is empty. (`master` exists since 0.2.0; the
+   2021 template branch `main` was deleted.)
+8. **Open the next cycle**: `projectVersion` to the next `-SNAPSHOT`, and a CHANGELOG section
+   "(unreleased)" for whatever `develop` already carries beyond the tag.
+9. **The consumer follows**: mystic-crypt-ui's catalog moves to the release, with `make bump-check`.
+
 ## License
 
 MIT.
