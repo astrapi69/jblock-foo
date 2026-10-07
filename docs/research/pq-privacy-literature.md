@@ -2,11 +2,12 @@
 
 First research: 2026-10-06. Revised: 2026-10-07 (second pass with more hosts reachable, then a third
 pass against the full texts of 14 ePrint papers uploaded by the maintainer, see 0.3; fourth pass:
-proof-model levels, see 14). Scope: building blocks that could hide SENDER and AMOUNT on lethenon
-against a quantum adversary, checked against ADR 0001 rules (1) peer-reviewed publication with
-assumption and proof, (2) authors' test vectors or reference implementation, and (5) the proof model
-at one of three levels: L1 "QROM, direct", L2 "QROM via a general result", L3 "ROM only"; an L3
-scheme is described as "post-quantum assumptions, classical proof".
+proof-model levels, see 14; fifth pass: the six general QROM results in full text, see 14.1). Scope:
+building blocks that could hide SENDER and AMOUNT on lethenon against a quantum adversary, checked
+against ADR 0001 rules (1) peer-reviewed publication with assumption and proof, (2) authors' test
+vectors or reference implementation, and (5) the proof model at one of three levels: L1 "QROM,
+direct", L2 "QROM via a general result", L3 "ROM only"; an L3 scheme is described as "post-quantum
+assumptions, classical proof".
 
 ## 0. How this survey was produced, and what that limits
 
@@ -38,7 +39,11 @@ Every fact below carries one of these tags and the link of a page fetched in THI
   "ePrint YYYY/NNN full text, p. N, <label>". Page numbers are PDF pages; for all 14 PDFs they
   coincide with the printed page numbers. After the first full [F] citation in a bullet, later ones
   in the same bullet are shortened to "[F: p. N]" (same paper); a bare [F] cites the pages named in
-  the same sentence.
+  the same sentence. In section 14 [F] also cites the full texts of six general QROM results
+  uploaded by the maintainer on 2026-10-07 (2017/916, 2021/927, 2022/889, 2023/245, 2023/246,
+  2025/985), with PDF page numbers. For 2017/916, 2021/927, 2023/245 and 2025/985 they coincide
+  with the printed page numbers; for 2023/246 the printed number is one lower (title page
+  unnumbered); for 2022/889 the two were not compared.
 - **[A]** arXiv full text, read in this pass (section, theorem and table numbers given).
 - **[P]** proceedings full text from iacr.org/archive, read in this pass.
 - **[C]** IACR cryptodb accepted-paper listing for the named conference and year.
@@ -886,7 +891,11 @@ the recipient side (section 14).
 ## 11. Open questions
 
 1. Proof model: moved to section 14 (the "not determinable" rows of 14.3, the open L2 conditions
-   per candidate, and the general results not read in full, 14.5).
+   per candidate, and the general results not read in full, 14.5). Aborts in multi-round FS in the
+   QROM: still open after the fifth pass. No general result read in full covers them: 2022/889
+   excludes prover aborts and is interactive only, 2017/916, 2023/245, 2023/246 and 2025/985 are
+   3-move only, 2021/927 is concrete for 5 rounds only and needs its LinHC; 2023/245 p. 3 says most
+   of its results "carry over" to constant-round protocols but states no theorem (14.6) [F].
 2. Sizes/timings tables for LRCT v1.0, Esgin et al. (PDF); Gao et al. prints plots only.
 3. SMILE and MatRiCT: public code; test vectors for every candidate (SRCH).
 4. MatRiCT patent: number, jurisdictions, status (no patent source fetched).
@@ -1004,9 +1013,12 @@ argument the project could build itself is listed as open, not credited.
 
 Sources: general results via their ePrint landing pages [E] (https://eprint.iacr.org/YYYY/NNN),
 IACR cryptodb paper pages, written [C N] for https://iacr.org/cryptodb/data/paper.php?pubkey=N, and
-for the results read in full the arXiv text [Q] (https://arxiv.org/abs/ID). Candidates are cited
-[F] or [A] as in 0.2. Quotes transliterate non-ASCII symbols (Sigma, >=, q^2, x for the product).
-"(abstract only)" = the statement rests only on the ePrint abstract.
+for the results read in full the arXiv text [Q] (https://arxiv.org/abs/ID) or, for the six uploaded
+on 2026-10-07 (2017/916, 2021/927, 2022/889, 2023/245, 2023/246, 2025/985), the ePrint full text
+[F]. Candidates are cited [F] or [A] as in 0.2. Quotes transliterate non-ASCII symbols (Sigma, >=,
+q^2, x for the product). "(abstract only)" = the statement rests only on the ePrint abstract. In
+14.1, the six rows marked "ePrint full text [F]" end with three verdicts from the full text:
+aborts, multi-round, extraction.
 
 ### 14.1 General results
 
@@ -1021,12 +1033,12 @@ for the results read in full the arXiv text [Q] (https://arxiv.org/abs/ID). Cand
 | 2021/334 | 2103.08140, not read | Post-Quantum Succinct Arguments: Breaking the Quantum Rewinding Barrier (Chiesa, Ma, Spooner, Zhandry) | ePrint "Preprint" [E]; venue not checked | Kilian's 4-message argument in the STANDARD model (abstract only); not about FS | collapsing hash (abstract only) |
 | 2019/262 | no | Revisiting Post-Quantum Fiat-Shamir (Liu, Zhandry) | CRYPTO 2019 [C 29891]; ePrint "Preprint" [E] | "mild conditions under which Fiat-Shamir is secure in the quantum setting" (abstract only) | not quotable from the abstract |
 | 2017/398 | no | Post-Quantum Security of Fiat-Shamir (Unruh) | ASIACRYPT 2017 [E][C 28284] | FS a zero-knowledge simulation-sound proof system "(but not a proof of knowledge!)" (abstract only) | computational zero-knowledge and statistical soundness; signatures need a "dual-mode hard instance generator" (abstract only) |
-| 2017/916 | no | A Concrete Treatment of Fiat-Shamir Signatures in the QROM (Kiltz, Lyubashevsky, Schaffner) | EUROCRYPT 2018 [E][C 28552] | tight UF-NMA to UF-CMA for deterministic signatures; UF-NMA from lossy identification (abstract only); CMA-to-NMA step later reported to have a gap (2023/246, abstract only) | "lossy" identification scheme (abstract only) |
-| 2023/245 | no | A Detailed Analysis of Fiat-Shamir with Aborts (Devevey, Fallahpour, Passelegue, Stehle, Xagawa) | CRYPTO 2023 [E][C 33185] | "errors in all existing analyses"; QROM analyses for bounded and unbounded aborts (abstract only) | a "stronger zero-knowledge property than usually considered for Sigma-protocols with aborts" (abstract only) |
-| 2023/246 | no | Fixing and Mechanizing the Security Proof of Fiat-Shamir with Aborts and Dilithium (Barbosa et al.) | CRYPTO 2023 [C 33203]; ePrint "Preprint" [E] | a gap in the CMA-to-NMA reduction of "several ROM and QROM security proofs" for FS with aborts incl. KLS18; fixed proofs, ROM and QROM (abstract only) | not quotable from the abstract |
-| 2025/985 | no | Tighter Quantum Security for Fiat-Shamir-with-Aborts and Hash-and-Sign-with-Retry Signatures (Fallahpour, Fehr, Huang) | ePrint "Preprint" [E] | improved UF-CMA-to-UF-NMA reduction in the QROM for FS-with-aborts signatures (abstract only) | "without making the zero-knowledge assumption more stringent" (abstract only) |
-| 2021/927 | no | A New Simple Technique to Bootstrap Various Lattice Zero-Knowledge Proofs to QROM Secure NIZKs (Katsumata) | CRYPTO 2021 [E][C 31108] | a NEW semi-generic transform (not plain FS) to straight-line extractable QROM NIZKs (abstract only) | "extractable linear homomorphic commitment" (abstract only) |
-| 2022/889 | no | Quantum Rewinding for Many-Round Protocols (Lai, Malavolta, Spooner) | TCC 2022 [C 32627]; ePrint "Preprint" [E] | post-quantum knowledge soundness of multi-round interactive protocols (abstract only) | "natural multi-round generalizations of special soundness and collapsing" (abstract only) |
+| 2017/916 | no; ePrint full text [F] | A Concrete Treatment of Fiat-Shamir Signatures in the QROM (Kiltz, Lyubashevsky, Schaffner) | EUROCRYPT 2018 [E][C 28552] | UF-CMA1, UF-CMA and sUF-CMA of FS-with-aborts signatures FS[ID, H, kappa_m] in the QROM, Thm. 3.1 (p. 11); CMA-to-NMA Thm. 3.2 (p. 12) and Thm. 3.3 (p. 14); lossy identification to UF-NMA, Thm. 3.4 (p. 14); Dilithium UF-NMA from MLWE and SelfTargetMSIS, Lemma 4.10 (p. 28) [F]. Thm. 3.2 and 3.3 reported flawed (2023/245 pp. 5-6; 2023/246 p. 4), see 14.2. Aborts: yes (Sec. 3.1, p. 10). Multi-round: no (3-move, Def. 2.2, p. 8). Extraction: no (signature unforgeability only; forking lemma avoided, pp. 2-3, p. 28) | canonical 3-move identification scheme, Def. 2.2 (p. 8); statistical naHVZK, Def. 2.5 (p. 9); alpha bits of min-entropy, Def. 2.6 (p. 9); for NMA lossy keys and eps_ls-lossy soundness, Def. 2.8 (p. 9); for strong unforgeability computational unique responses, Def. 2.7 (p. 9) [F] |
+| 2023/245 | no; ePrint full text [F] | A Detailed Analysis of Fiat-Shamir with Aborts (Devevey, Fallahpour, Passelegue, Stehle, Xagawa) | CRYPTO 2023 [E][C 33185] | CMA-to-NMA for FS with bounded aborts in the QROM: Thm. 7 (pp. 33-34, UF-CMA1), Thm. 8 (p. 40, sUF-CMA1), Thm. 9 (p. 42), Thm. 10 (pp. 45-46), Thm. 11 (pp. 51-52); unbounded aborts, Thm. 12 (pp. 53-54); Renyi-divergence versions, Thm. 13, 14 (pp. 56-57) [F]. Reports flaws in 2017/916 Thm. 3.2/3.3 and 2021/927 Lemma 4.6 (pp. 5-6), see 14.2. Aborts: yes (the subject). Multi-round: no (constant-round only as a remark without theorem, p. 3). Extraction: no | 3-round public-coin Sigma-protocol with aborts, Def. 1 (p. 14), p. 15; HVZK including aborting transcripts, Def. 9 (p. 20), or sc-HVZK, Def. 10 (p. 23); commitment min-entropy, Def. 5 (p. 15); (gamma, beta)-correctness, Def. 2 (p. 14), for strong and unbounded; computational unique responses, Def. 6 (p. 15), for strong; "How to obtain NMA security is beyond the scope of this work" (p. 4) [F] |
+| 2023/246 | no; ePrint full text [F] | Fixing and Mechanizing the Security Proof of Fiat-Shamir with Aborts and Dilithium (Barbosa et al.) | CRYPTO 2023 [C 33203]; ePrint "Preprint" [E] | EF-CMA from EF-NMA for FS with aborts in the QROM, Thm. 2 (p. 22); ROM, Thm. 3 (p. 22); Dilithium end-to-end only in the classical ROM, Thm. 4 (p. 30) [F]. States that the gap in 2017/916 Thm. 3.2 "potentially affects all FS-based schemes involving rejection sampling", listing LNP22 and BKP20 (Calamari/Falafl) among works that "need to be re-examined carefully" (p. 4). Aborts: yes. Multi-round: no ("three flows", p. 6). Extraction: no | 3-flow commit-challenge-response identification scheme with aborts (pp. 6-7); statistical acHVZK, Def. 1 (p. 7); an event Gamma with abort probability <= p < 1 and E[eps] <= eps over KeyGen, eps the commitment guessing probability of eq. (1) (p. 7), Thm. 2 (p. 22); ordinary unforgeability on a fresh message (p. 11; strong only in fn. 2, p. 4) [F] |
+| 2025/985 | no; ePrint full text [F] | Tighter Quantum Security for Fiat-Shamir-with-Aborts and Hash-and-Sign-with-Retry Signatures (Fallahpour, Fehr, Huang) | ePrint "Preprint" [E] | UF-CMA from UF-NMA in the QROM for the generalized FS-with-aborts scheme, Thm. 1 (pp. 9-10), average-key Cor. 1 (p. 10); strong unforgeability only in Remark 2 (p. 11) [F]. Aborts: yes (the subject). Multi-round: no (single r, y, z; p. 8). Extraction: no | the scheme is an instance of Fig. 1 (p. 7): sign repeats r <- D; y := H(r, m); z <- f(r, y) until z != bot, verify z in supp f(r, H(r, m)); statistical acHVZK, Def. 1 (p. 8); p_sk < 1 and guessing probability eps (eq. 1, 2, p. 7); the adversary "cannot influence the number of loop repetitions" (Lemma 3 proof, p. 13); NMA left to the instantiation (p. 1) [F] |
+| 2021/927 | no; ePrint full text [F] | A New Simple Technique to Bootstrap Various Lattice Zero-Knowledge Proofs to QROM Secure NIZKs (Katsumata) | CRYPTO 2021 [E][C 31108] | a NEW transform, not plain FS: the Sigma-protocol is augmented with an extractable linear homomorphic commitment (LinHC, Def. 3.1, p. 15) and then FS-compiled; straight-line PoK of the interactive protocol, Lemma 4.3 (p. 28); eu-cma of the FS signature, Lemma 4.6 (p. 30); straight-line PoK of the 5-round [BLS19] protocol, Lemma 5.3 (p. 36); 5-round NIZK sketched only (p. 39) [F]. Lemma 4.6 reported flawed (2023/245 pp. 5-6), see 14.2. Aborts: yes (responses may be bot, Def. 2.1, p. 10). Multi-round: partly (5-round concrete, Sec. 5; general multi-round only informal, p. 7 and Remark 4.5, p. 29; nothing for a growing number of rounds). Extraction: yes, straight-line; for Lyubashevsky-type protocols in a relaxed relation (Lemma 4.3, pp. 27-28) | Sigma-protocol in the CRS model with responses z = beta*e + r (p. 4; Def. 3.1, p. 16); relaxed k-special soundness, Def. 2.4 (p. 11); computational naHVZK, Def. 2.3 (p. 11); zeta-min-entropy, Def. 2.6 (p. 12); LinHC QAnaHVZK and F-almost straight-line extractable, Def. 3.3, 3.4 (pp. 16-17); MSIS, qaMLWE, qaPRF (Lemma 4.6, p. 30) [F]. Applicability to other protocols (Sec. 5.4, pp. 40-42) asserted ("it can be checked", "it is clear"), not proved; "assessment of the concrete security ... as future work" (p. 40) |
+| 2022/889 | no; ePrint full text [F] | Quantum Rewinding for Many-Round Protocols (Lai, Malavolta, Spooner) | TCC 2022 [C 32627]; ePrint "Preprint" [E] | post-quantum proof of knowledge of the INTERACTIVE (2t+1)-message protocol, Thm. 2 (p. 12); lattice Bulletproofs, Thm. 4 (p. 23) [F]. No QROM and no FS result: "We stress that all of our results concern the protocol in the interactive setting" (Remark 1, p. 7). Aborts: no (no prover abort in the paper). Multi-round: yes, interactive only. Extraction: yes, interactive only (additive inverse-polynomial loss, Def. 4, p. 11) | recursively k-special sound family, Def. 5 (p. 11); last-round collapsing at every level, Def. 6 (pp. 11-12); extractor polynomial-size only for k = O(1), t = O(log n), Lemma 4 (p. 15) [F] |
 | 2019/834 | no | Succinct Arguments in the QROM (Chiesa, Manohar, Spooner) | TCC 2019 [E] | IOP-based SNARGs "with round-by-round soundness are unconditionally secure in the quantum random oracle model" (abstract only) | round-by-round soundness of the IOP (abstract only) |
 | 2020/1270 | no | Classical vs Quantum Random Oracles (Yamakawa, Zhandry) | EUROCRYPT 2021 [E] | lifting theorems ROM to QROM for certain schemes and notions, incl. "Fiat-Shamir signatures" (abstract only) | not quotable from the abstract |
 | 2024/884 | no | Security of Fixed-Weight Repetitions of Special-Sound Multi-Round Interactive Proofs | Designs, Codes and Cryptography 2025 [E] | fixed-weight repetition of special-sound protocols is knowledge sound; the abstract does not say quantum (abstract only) | special soundness (abstract only) |
@@ -1064,17 +1076,48 @@ and 2023/334 (PKC 2023 [E], a different transform in the NPROM).
   worse extractor [Q]. 2020/282 gives quantum PoK for multi-round protocols only in a limited form:
   "q2 identification schemes" (5-round, "the second challenge is a single bit", Def. 26, p. 21) via
   q2-extractability plus collapsingness (Def. 27, Thm. 28, Cor. 29, p. 22); no general
-  k-special-soundness-to-quantum-PoK theorem is in the paper [Q]. 2022/889 (abstract only) needs
-  multi-round special soundness plus collapsing. **None of the candidate papers states a
-  collapsing-type property.**
+  k-special-soundness-to-quantum-PoK theorem is in the paper [Q]. 2022/889 needs a recursively
+  k-special sound family and last-round collapsing at every level (ePrint 2022/889 full text,
+  p. 11, Def. 5 and 6 [F]), and gives the interactive premise only (see "Interactive only" below).
+  **None of the candidate papers states a collapsing-type property.**
 - **Aborts.** 2019/190 Remark 6 (p. 8) does not require a Sigma-protocol to be statistically
   correct, which "allows us to include protocols that use rejection sampling"; its FS prover repeats
   until verification passes "(or some bound is reached)" (Sec. 3.2, p. 9) [Q]. 2020/282 does not
   address aborts: the word occurs once (p. 3, about a measurement), Def. 9 states no correctness
   requirement, and whether Remark 6 carries over is not stated [Q]. 2020/1361 excludes FS with
   aborts: "we decided not to further complicate our proof with the required modifications" (p. 5)
-  [Q]. The CMA-to-NMA step for FS with aborts is the subject of 2023/245, 2023/246 and 2025/985
-  (abstract only).
+  [Q]. The CMA-to-NMA step for FS with aborts is the subject of 2023/245, 2023/246 and 2025/985,
+  all three 3-move only (14.1).
+- **Flaws in the CMA-to-NMA step of FS with aborts.** 2023/245 locates flaw F1 in "[Lyu12, Lemma
+  5.3], [Lyu16, Lemma 4.1], [KLS18, Theorem 3.2], and [Kat21, Lemma 4.6]" and states "Flaws F2 and
+  F3 both appear in the QROM analyses of [Kat21, Lemma4.6] and [KLS18, Theorems 3.2 and 3.3]"
+  (ePrint 2023/245 full text, pp. 5-6, Sec. 2.1 [F]); KLS18 = 2017/916, Kat21 = 2021/927.
+  2023/246 reports the same gap in the proof of KLS18 Thm. 3.2 and says it "potentially affects
+  all FS-based schemes involving rejection sampling", naming LNP22 and BKP20 (Calamari/Falafl)
+  among works that "need to be re-examined carefully" (ePrint 2023/246 full text, p. 4, Sec. 1
+  [F]). The corrected QROM results are 2023/245 Thm. 7-12 (pp. 33-54), 2023/246 Thm. 2 (p. 22) and
+  2025/985 Thm. 1 (pp. 9-10) [F]. They concern the signing-oracle simulation of a single-key 3-move
+  FS-with-aborts signature, not extraction: none of them gives NMA security or a proof of
+  knowledge ("How to obtain NMA security is beyond the scope of this work", 2023/245 p. 4 [F]). A
+  candidate whose unforgeability or balance proof extracts a witness gets nothing from them for that
+  step.
+- **Interactive only.** 2022/889 proves a post-quantum proof of knowledge for interactive
+  many-round protocols (Thm. 2, p. 12; lattice Bulletproofs Thm. 4, p. 23) and leaves the FS step
+  open: "We stress that all of our results concern the protocol in the interactive setting", and
+  extending parallel repetition to the quantum setting is left open, "Note that this required to
+  establish that existing lattice-based Bulletproofs protocols can be made non-interactive in the
+  QROM via Fiat-Shamir" (ePrint 2022/889 full text, p. 7, Remark 1 [F]). No prover abort occurs in
+  the paper (14.1).
+- **Straight-line extraction by a modified protocol.** 2021/927 gives straight-line extraction
+  for 3-round (Lemma 4.3, p. 28) and 5-round (Lemma 5.3, p. 36) protocols, but only after the
+  protocol is augmented with an extractable LinHC (Def. 3.1, p. 15); plain FS of a candidate as
+  written does not meet that condition (ePrint 2021/927 full text, p. 15, Def. 3.1 [F]). It claims
+  that the range proof of [ESLL19, Theorem 1] and the one-out-of-many proofs of [ESLL19, Theorems 2
+  and 3] are compatible with extractable LinHC ("It can be checked", p. 41) and that the
+  commitment opening proof of [BDL+18] can be turned into a QROM secure NIZK ("it is clear",
+  p. 40), without proof; it leaves "assessment of the concrete security of these other protocols
+  as future work" (p. 40) and says the 5-round protocol of [ALS20, Figure 4] is "not clear if it is
+  compatible with our current formalization" (p. 42) [F: pp. 40-42].
 - **Conditions used in 14.3.** C1 structure fits (Sigma-protocol, 2019/190 Def. 4; constant-round
   public-coin proof with FS as in 2020/282 Def. 9/11); C2 superpolynomial challenge space; C3
   interactive soundness / quantum PoK against quantum provers; C4 interactive security in the
@@ -1083,36 +1126,37 @@ and 2023/334 (PKC 2023 [E], a different transform in the NPROM).
 
 ### 14.3 Level per candidate
 
-Order as in the section 8 table.
+Order as in the section 8 table. No level changed by the six full texts of the fifth pass (14.1);
+the open conditions for L2 take them into account.
 
 | Candidate | Level | Basis (location) | Open condition for L2 |
 |---|---|---|---|
 | LRCT v1.0 (2018/379) | not determinable: no full text | - | full text (PDF) |
-| LRCT v2.0 (2019/569) | L3 ROM only | NIZK defined in the ROM, Def. 4 pp. 4-5; "a Fiat-Shamir Non-Interactive Proof of Knowledge in the Random Oracle Model", Prop. 2 p. 10; forking lemma pp. 35, 38 [F] | C1: no interactive protocol whose FS is the scheme (a ring loop of hashes, p. 10); C3: quantum PoK |
-| MatRiCT (2019/1287) | L3 ROM only | QROM disclaimed, p. 1 fn. 1; 3-move FS proof, Alg. 8 and 10, pp. 12-13; k'-special soundness p. 15; classical rewinding, Lemma 5.7 p. 16 [F] | C3: quantum PoK of the 3-move protocol (2019/190 Cor. 16 premise; Thm. 25 needs quantum computationally unique responses, Def. 24), for the relaxed relation; C2 stated as a number only for the ring-signature parameters (p. 19) |
-| MatRiCT+ (2021/545) | L3 ROM only | ROM, p. 1 fn. 1; 5-move (H0, H), pp. 12-13; "standard rewinding argument", Thm. 1 p. 14; 3-transcript extractor, App. E p. 18 [F] | C3: quantum PoK of the 5-move protocol (2020/282 Cor. 15 premise; Cor. 29 needs a single-bit second challenge, which MatRiCT+ does not have); aborts in multi-round FS |
-| SMILE (2021/564) | L3 ROM only (ring signature); transaction system: no proof | multi-round FS per 2020/282 Def. 11, App. C.2 pp. 42-43; "unforgeable in the random oracle model", Thm. C.4 p. 43; rewinding p. 46; QROM not in the text [F] | C3: quantum PoK of the (m+3)-challenge protocol; the round count grows with the ring size (p. 42) against "constant-round", loss (2q+1)^(2(m+3)) by Cor. 15; aborts |
-| Gao et al. (2021/1674) | L3 ROM only (ring signature); RingCT "heuristic" | ROM, Thm. 3 p. 18 (forking lemma); (S, 3)-special soundness, Thm. 1 p. 12; "Fiat-Shamir heuristic", p. 21 [F] | C3: quantum PoK of the 5-move (S, 3)-special-sound proofs; a composed RingCT theorem, even in the ROM; aborts |
+| LRCT v2.0 (2019/569) | L3 ROM only | NIZK defined in the ROM, Def. 4 pp. 4-5; "a Fiat-Shamir Non-Interactive Proof of Knowledge in the Random Oracle Model", Prop. 2 p. 10; forking lemma pp. 35, 38 [F] | C1: no interactive protocol whose FS is the scheme (a ring loop of hashes, p. 10), and the loop is not a 3-move ID signature of the kind 2017/916 Def. 2.2 (p. 8) or 2025/985 Fig. 1 (p. 7) require [F]; C3: quantum PoK, which none of the six results of 14.1 gives for plain FS |
+| MatRiCT (2019/1287) | L3 ROM only | QROM disclaimed, p. 1 fn. 1; 3-move FS proof, Alg. 8 and 10, pp. 12-13; k'-special soundness p. 15; classical rewinding, Lemma 5.7 p. 16 [F] | C3: quantum PoK of the 3-move protocol (2019/190 Cor. 16 premise; Thm. 25 needs quantum computationally unique responses, Def. 24), for the relaxed relation; 2021/927 (p. 41) covers only a LinHC-augmented [ESLL19], MatRiCT proves "a slightly different relation" (p. 11), the claim is unproved and 2021/927 Lemma 4.6 is reported flawed (2023/245 pp. 5-6) [F]; the 3-move FS-with-aborts results do not help, balance and unforgeability are proven by extraction (Lemma 5.7 p. 16); C2 stated as a number only for the ring-signature parameters (p. 19) |
+| MatRiCT+ (2021/545) | L3 ROM only | ROM, p. 1 fn. 1; 5-move (H0, H), pp. 12-13; "standard rewinding argument", Thm. 1 p. 14; 3-transcript extractor, App. E p. 18 [F] | C3: QROM extraction for a 5-move protocol with aborts (2020/282 Cor. 15 premise; Cor. 29 needs a single-bit second challenge, which MatRiCT+ does not have); 2022/889 excludes prover aborts and is interactive only, the four FS-with-aborts results of 14.1 are 3-move only [F]; none of the six covers this |
+| SMILE (2021/564) | L3 ROM only (ring signature); transaction system: no proof | multi-round FS per 2020/282 Def. 11, App. C.2 pp. 42-43; "unforgeable in the random oracle model", Thm. C.4 p. 43; rewinding p. 46; QROM not in the text [F] | C3: QROM extraction for m+3 challenge rounds, growing with the ring size (p. 42), with aborts (restart on rejection, p. 43); against "constant-round", loss (2q+1)^(2(m+3)) by Cor. 15; 2022/889 excludes aborts and leaves FS open (p. 7), 2021/927 does not cover a growing number of rounds (p. 7, Remark 4.5 p. 29) [F]; not covered by any of the six |
+| Gao et al. (2021/1674) | L3 ROM only (ring signature); RingCT "heuristic" | ROM, Thm. 3 p. 18 (forking lemma); (S, 3)-special soundness, Thm. 1 p. 12; "Fiat-Shamir heuristic", p. 21 [F] | C3: QROM extraction for the 5-move (S, 3)-special-sound proofs with aborts (rejection sampling, Alg. 1 p. 7); 2022/889 excludes aborts, 2021/927 needs a LinHC the scheme does not use [F]; a composed RingCT theorem, even in the ROM |
 | LACT+ | not determinable: no full text | - | full text (PUB) |
-| Obscura-PQ (arXiv 2608.22645) | L3 ROM only | ROM only, QROM "future work", pp. 7-8 (B3); "In the ROM", Thm. 2 p. 36 [A] | C1: an AOS/Borromean-style challenge chain, not of the form 2019/190 Def. 4 or 2020/282 Def. 11; C3 |
-| Esgin et al. (2018/773) | not determinable: no full text | - | full text (PDF) |
-| Raptor (2018/857) | L3 ROM only | ROM, ring-signature proof omitted, p. 12; "General Forking Lemma", p. 28; QROM named only for Falcon's GPV origin, p. 9 [F] | C1: no interactive proof stated (chameleon-hash construction, p. 11); C3 |
-| Falafl (2020/646) | L3 ROM only | Sigma-protocol "in the random oracle model", Def. 2.1 p. 5; extractor may output an O-collision, p. 16; FS properties "folklore", sketch App. A.1 (p. 21) [F] | C3: quantum PoK; C4: the Sigma-protocol has an internal random oracle (2019/190 fn. 17); 2022/270's commit-and-open form does not hold (c = 0 response is not an opening, p. 15) |
+| Obscura-PQ (arXiv 2608.22645) | L3 ROM only | ROM only, QROM "future work", pp. 7-8 (B3); "In the ROM", Thm. 2 p. 36 [A] | C1: an AOS/Borromean-style challenge chain, not of the form 2019/190 Def. 4 or 2020/282 Def. 11, nor a 3-move FS-with-aborts signature (2017/916 Def. 2.2, 2025/985 Fig. 1) [F]; C3 |
+| Esgin et al. (2018/773) | not determinable: no full text | - | full text (PDF); whether it is the [ESLL19] (CRYPTO 2019) of 2021/927's reference list (p. 44), and a proof of 2021/927's compatibility claim (p. 41), which concerns a LinHC-augmented version [F] |
+| Raptor (2018/857) | L3 ROM only | ROM, ring-signature proof omitted, p. 12; "General Forking Lemma", p. 28; QROM named only for Falcon's GPV origin, p. 9 [F] | C1: no interactive proof stated (chameleon-hash construction, p. 11); the ring form "m1 xor ... xor m_l = H(...)" (p. 11) is not an instance of 2025/985 Fig. 1 (p. 7), the hash-and-sign-with-retry result [F]; C3; an NMA proof without forking (General Forking Lemma, p. 28) |
+| Falafl (2020/646) | L3 ROM only | Sigma-protocol "in the random oracle model", Def. 2.1 p. 5; extractor may output an O-collision, p. 16; FS properties "folklore", sketch App. A.1 (p. 21) [F] | C3: quantum PoK; C4: the Sigma-protocol has an internal random oracle (2019/190 fn. 17), while the FS-with-aborts results are stated for an identification scheme without one (2017/916 Def. 2.2 p. 8; 2023/246 pp. 6-7) [F]; 2022/270's commit-and-open form does not hold (c = 0 response is not an opening, p. 15); 2023/246 (p. 4) lists BKP20 among works to "be re-examined carefully" [F], so the ROM claim is also under question |
 | Calamari (2020/646) | L3 ROM only | as Falafl | as Falafl; plus about 60 quantum bits (section 2.3) |
 | Wang-Chen-Ma (2019/371) | not determinable: no full text | [E]: ROM | full text (PDF) |
 | SALRS | not determinable: no full text | - | full text (PUB) |
-| Xue et al. (2024/553) | L3 ROM only | FS "heuristic", p. 9, p. 17; knowledge soundness deferred to [42], p. 26 [F] | round-by-round soundness of the modified ethSTARK IOP for 2019/834 (abstract only); the unreferenced full version; 2019/190 and 2020/282 do not fit an IOP compiled with Merkle commitments |
+| Xue et al. (2024/553) | L3 ROM only | FS "heuristic", p. 9, p. 17; knowledge soundness deferred to [42], p. 26 [F] | round-by-round soundness of the modified ethSTARK IOP for 2019/834 (abstract only); the unreferenced full version; 2019/190 and 2020/282 do not fit an IOP compiled with Merkle commitments, nor do the six results of 14.1 [F] |
 | RingSLIP (2026/889) | not determinable: no full text | - | full text (PDF) |
 | ChipmunkRing (arXiv 2510.09617) | L3 ROM only | FS replaced, p. 7; QROM only as a bullet without theorem, p. 12; "the random oracle assumption", Thms. 3-5 pp. 11-12 [A] | C1: no FS to transfer |
-| BDLOP (2016/997) | no oracle-model proof | interactive 3-move Sigma-protocol with aborts, p. 14; relaxed special soundness, Lemma 8 p. 15; challenge set 2^256, p. 20 [F] | for an FS version: quantum computationally unique responses (2019/190 Thm. 25, Def. 24), a collapsing assumption of the Assumption 27 type that the paper does not make; the closest candidate to 2019/190 Cor. 28 |
-| LNP22 (2022/284) | L3 ROM only | App. B "Security in the Random Oracle Model", pp. 66-67; FS extractor via the classical framework of [AFK21], p. 67; nine-round, "do not appear to be special-sound", p. 66 [F] | C3: a quantum knowledge extractor for a nine-round protocol that is not special-sound (the Thm. 25 and 2022/889 routes start from special soundness); aborts in multi-round FS; loss (2q+1)^8 by Cor. 15 |
-| LaBRADOR (2022/1341) | no oracle-model proof | interactive knowledge soundness, Def. 3.3 p. 7; rewinding, Lemma 3.7 proof p. 8; FS only as a size, p. 21 [F] | C3: quantum knowledge extractor; constant-round fails in general (O(log log n) iterations, p. 5) |
+| BDLOP (2016/997) | no oracle-model proof | interactive 3-move Sigma-protocol with aborts, p. 14; relaxed special soundness, Lemma 8 p. 15; challenge set 2^256, p. 20 [F] | for an FS version: quantum computationally unique responses (2019/190 Thm. 25, Def. 24), a collapsing assumption of the Assumption 27 type that the paper does not make; or a proof of 2021/927's "[BDL+18] ... it is clear" (p. 40) for a LinHC-augmented opening proof, which 2021/927 asserts without proof [F]; the response form z = y + d*r (p. 17) fits 2021/927's z = beta*e + r; the closest candidate to 2019/190 Cor. 28 |
+| LNP22 (2022/284) | L3 ROM only | App. B "Security in the Random Oracle Model", pp. 66-67; FS extractor via the classical framework of [AFK21], p. 67; nine-round, "do not appear to be special-sound", p. 66 [F] | C3: a quantum knowledge extractor for a nine-round protocol that is not special-sound (the Thm. 25 and 2022/889 routes start from special soundness; 2022/889 also excludes aborts) [F]; aborts in multi-round FS; loss (2q+1)^8 by Cor. 15; 2023/246 (p. 4) lists LNP22 among works to "be re-examined carefully" [F] |
+| LaBRADOR (2022/1341) | no oracle-model proof | interactive knowledge soundness, Def. 3.3 p. 7; rewinding, Lemma 3.7 proof p. 8; FS only as a size, p. 21 [F] | C3: quantum knowledge extractor; recursive k-special soundness and last-round collapsing (2022/889 Def. 5, 6, pp. 11-12) not shown [F]; FS for a growing number of rounds open (2022/889 p. 7), constant-round fails in general (O(log log n) iterations, p. 5) |
 | LaZer (2024/1846) | no oracle-model proof | no theorem in the paper [F] | inherits LNP22 and LaBRADOR |
 | STARK (2018/046) | not determinable: no full text | - | full text (PDF); 2019/834 full text |
 | Aurora (2018/828) | not determinable: no full text | - | full text (PDF); 2019/834 full text |
 | Ligero (2022/1608) | not determinable: no full text | [E]: ROM | full text (PDF); 2019/834 full text |
 | PQ SAP (2025/112) | no oracle-model proof | no security theorem; Thm. 1 p. 12 is a correctness bound [A] | a security theorem |
-| SPIRIT (2023/1148) | L3 ROM only | ROM, Sec. 6.1 p. 20; QROM "highly likely", argued not proven, App. A p. 29; forking lemma avoided, p. 20 [F] | full texts of 2017/916 (Sec. 4.5) and 2020/1270 (Thms. 1.1, 1.2), which the paper names, with each condition argued; the FS-with-aborts CMA-to-NMA step (2023/245, 2023/246); 2020/1361 does not cover aborts |
+| SPIRIT (2023/1148) | L3 ROM only | ROM, Sec. 6.1 p. 20; QROM "highly likely", argued not proven, App. A p. 29; forking lemma avoided, p. 20 [F] | the named route, 2017/916 Sec. 4.5, rests on Thm. 3.2/3.3, reported flawed (2023/245 pp. 5-6); for the corrected 2023/246 Thm. 2 (p. 22) / 2025/985 Thm. 1 (pp. 9-10) [F]: SPIRIT's multi-key EUFCMA w/o-ke game (Fig. 8 p. 19, p. 36) against their single key; acHVZK and commitment guessing probability for the doubled beta, gamma1, gamma2 (p. 20, p. 37); Lemma F.1 restated for a quantum adversary (p. 35); 2020/1270 (Thms. 1.1, 1.2) not read in full |
 | Maram-Xagawa (2022/1696) | L1 QROM, direct | IND-CCA, Thm. 1 p. 15, with quantum random-oracle queries; "Kyber.KEM is ANO-CCA secure in the QROM", Cor. 1 p. 27; hybrid PKE, Cor. 2 p. 29 [F] | none for the QROM claim; the object is round-3 Kyber, not FIPS 203 (section 11 item 10) |
 
 ### 14.4 Counts
@@ -1121,24 +1165,15 @@ Order as in the section 8 table.
 Gao et al., Obscura-PQ, Raptor, Falafl, Calamari, Xue et al., ChipmunkRing, LNP22, SPIRIT); **no
 oracle-model proof = 4** (BDLOP, LaBRADOR, LaZer, PQ SAP); **not determinable = 9** (LRCT v1.0,
 LACT+, Esgin et al., Wang-Chen-Ma, SALRS, RingSLIP, STARK, Aurora, Ligero). 1 + 0 + 13 + 4 + 9 = 27.
-Every L3 scheme is described as "post-quantum assumptions, classical proof".
+Every L3 scheme is described as "post-quantum assumptions, classical proof". The counts are
+unchanged by the fifth pass.
 
 ### 14.5 General results not read in full
 
 Their theorem numbers and conditions cannot be quoted until the full text is read (abstract only,
-[E]):
+[E]). The six read in full in the fifth pass (2017/916, 2021/927, 2022/889, 2023/245, 2023/246,
+2025/985) are no longer in this list:
 - 2019/262, Liu, Zhandry, "Revisiting Post-Quantum Fiat-Shamir"
-- 2017/916, Kiltz, Lyubashevsky, Schaffner, "A Concrete Treatment of Fiat-Shamir Signatures in the
-  Quantum Random-Oracle Model"
-- 2023/245, Devevey, Fallahpour, Passelegue, Stehle, Xagawa, "A Detailed Analysis of Fiat-Shamir
-  with Aborts"
-- 2023/246, Barbosa et al., "Fixing and Mechanizing the Security Proof of Fiat-Shamir with Aborts
-  and Dilithium"
-- 2025/985, Fallahpour, Fehr, Huang, "Tighter Quantum Security for Fiat-Shamir-with-Aborts and
-  Hash-and-Sign-with-Retry Signatures"
-- 2021/927, Katsumata, "A New Simple Technique to Bootstrap Various Lattice Zero-Knowledge Proofs to
-  QROM Secure NIZKs"
-- 2022/889, Lai, Malavolta, Spooner, "Quantum Rewinding for Many-Round Protocols"
 - 2017/398, Unruh, "Post-Quantum Security of Fiat-Shamir"
 - 2019/834, Chiesa, Manohar, Spooner, "Succinct Arguments in the Quantum Random Oracle Model"
 - 2020/1270, Yamakawa, Zhandry, "Classical vs Quantum Random Oracles"
@@ -1156,5 +1191,15 @@ Downloaded from arXiv, only the abstract or one definition used: 2021/280 (arXiv
   role of R; whether the scheme's reduction then still works is the scheme's own ROM argument. This
   is an argument, not a citation.
 - Open: whether 2019/190 Remark 6 (aborts allowed) carries over to 2020/282 Cor. 15; 2020/282 does
-  not say (2023/245 full text may).
+  not say. 2023/245 says its techniques "also allow to transform a constant-round public-coin
+  interactive proof system into a non-interactive one, and most of our results carry over to this
+  setup", but states no theorem for it (ePrint 2023/245 full text, p. 3, Sec. 2 [F]); its theorems
+  are for 3-round protocols (Def. 1, p. 14) and concern CMA to NMA, not extraction.
+- Assumed (fifth pass): a general result applies only to the scheme as written; a version rebuilt
+  on 2021/927's LinHC is a different scheme and does not lift the candidate. The results reported
+  flawed (2017/916 Thm. 3.2/3.3, 2021/927 Lemma 4.6) are not used as cited for L2; 2017/916 Thm. 3.4
+  (lossy identification to NMA) is not in the flaw list of 2023/245 (pp. 5-6), but no candidate
+  states lossy keys.
+- Open: whether a multi-key version of 2023/246 Thm. 2 / 2025/985 Thm. 1 exists; it is not in the
+  six full texts. That is SPIRIT's main L2 gap.
 - Open: venues of 2022/270, 2019/699 and 2021/334 (ePrint says "Preprint").

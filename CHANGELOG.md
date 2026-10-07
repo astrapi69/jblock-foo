@@ -14,6 +14,22 @@ ADDED:
   plain amounts from height 0; no behaviour changes. No scheme that hides sender or amount exists
   yet (#60)
 
+CHANGED:
+
+- ADR 0001, three rules for what the privacy block may take in: code under a licence compatible
+  with MIT, Apache-2.0 included when a NOTICE file carries its notices; copyleft code only as a
+  separate program across a process boundary; code without a licence never; and no scheme with a
+  known patent valid in the EU, or an unclear patent position, before the maintainer has clarified
+  it (#58, #65)
+- ADR 0002, how a scheme written in C is integrated: every scheme in pure Java, the authors' C code
+  only in the tests, through the Foreign Function and Memory API, as the reference for difference
+  tests, beside forgery tests and PIT on the verification logic; parameters only from the paper or
+  the reference code (#65)
+- `docs/research/pq-privacy-literature.md`, the phase A literature on hiding sender and amount, now
+  also checked against the full texts of six general results on Fiat-Shamir in the quantum random
+  oracle model. No candidate's proof-model level changes: none of them reaches a quantum random
+  oracle proof through a general result (#54, #70)
+
 Version 0.2.0
 -------------
 
