@@ -118,9 +118,26 @@ abstract class ChainCommand implements Callable<Integer>
 	 */
 	Wallet openWallet(final char[] password) throws IOException
 	{
+		return openWallet(wallet, password);
+	}
+
+	/**
+	 * Opens a wallet file with the given password and overwrites the password afterwards, on
+	 * success and on failure; for commands that name their wallet some other way
+	 *
+	 * @param file
+	 *            the wallet file
+	 * @param password
+	 *            the password, zero-filled when this returns
+	 * @return the wallet
+	 * @throws IOException
+	 *             if the wallet file cannot be read
+	 */
+	static Wallet openWallet(final Path file, final char[] password) throws IOException
+	{
 		try
 		{
-			return WalletFile.read(wallet, password);
+			return WalletFile.read(file, password);
 		}
 		finally
 		{
@@ -236,7 +253,7 @@ abstract class ChainCommand implements Callable<Integer>
 		return account.toString();
 	}
 
-	private char[] firstLineOfStandardInput() throws IOException
+	static char[] firstLineOfStandardInput() throws IOException
 	{
 		return nextLineOfStandardInput(standardInput(), "the wallet's password").toCharArray();
 	}

@@ -1,0 +1,200 @@
+/*
+ * The MIT License
+ *
+ * Copyright (C) 2015 Asterios Raptis
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+ * LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+ * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+package io.github.astrapi69.lethenon.cli;
+
+import java.io.IOException;
+import java.io.PrintStream;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+
+import io.github.astrapi69.lethenon.BlockBody;
+import io.github.astrapi69.lethenon.Blocks;
+import io.github.astrapi69.lethenon.Bytes;
+import io.github.astrapi69.lethenon.Chain;
+import io.github.astrapi69.lethenon.ChainFile;
+import io.github.astrapi69.lethenon.ChainRejected;
+import io.github.astrapi69.lethenon.Mining;
+import io.github.astrapi69.lethenon.SignatureSuite;
+import io.github.astrapi69.lethenon.transport.Bootstrap;
+import io.github.astrapi69.lethenon.transport.Miner;
+import io.github.astrapi69.lethenon.transport.Node;
+import io.github.astrapi69.lethenon.transport.PeerAddress;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.Option;
+
+/**
+ * Runs a node of the test network on a chain file (ADR 0003): it listens, connects to a fixed list
+ * of peers, relays and synchronises, and with --mine mines on its pool
+ */
+@Command(name = "node", description = "Run a node of the test network, lethenon-test-1, on a chain "
+	+ "file it keeps while it runs. With --mine it mines on its pool and pays the wallet, whose "
+	+ "password is the first line of standard input.")
+class NodeCommand implements Callable<Integer>
+{
+
+	@Option(names = "--chain", required = true,
+		description = "the chain file; empty, it is started with --mine or taken from a peer")
+	Path chain;
+
+	@Option(names = "--listen", required = true, description = "the TCP port, 0 for any free one")
+	int listen;
+
+	@Option(names = "--peer", description = "host:port of a peer; repeat for more, at most 12")
+	List<String> peers = new ArrayList<>();
+
+	@Option(names = "--mine", description = "mine on the node's pool and pay the wallet")
+	boolean mine;
+
+	@Option(names = "--wallet", description = "the wallet the mined blocks pay; needs --mine")
+	Path wallet;
+
+	@Option(names = "--pun", defaultValue = "watching is not protecting",
+		description = "the words mining varies; default: ${DEFAULT-VALUE}")
+	String pun;
+
+	@Option(names = "--for", defaultValue = "0",
+		description = "stop after this many seconds; default: run until interrupted")
+	long seconds;
+
+	/**
+	 * Creates the command; picocli instantiates it reflectively
+	 */
+	NodeCommand()
+	{
+	}
+
+	@Override
+	public Integer call()
+	{
+		try
+		{
+			return run(System.out);
+		}
+		catch (ChainRejected | IllegalArgumentException | IllegalStateException
+			| SecurityException | IOException refused)
+		{
+			System.err.println(refused.getMessage());
+			return 1;
+		}
+	}
+
+	private int run(final PrintStream out) throws IOException
+	{
+		if (mine && wallet == null)
+		{
+			throw new IllegalArgumentException("--mine pays a wallet: name it with --wallet");
+		}
+		List<PeerAddress> addresses = peers.stream().map(PeerAddress::parse).toList();
+		Bytes beneficiary = mine ? ChainCommand
+			.openWallet(wallet, ChainCommand.firstLineOfStandardInput())
+			.spendKey(SignatureSuite.ED25519) : null;
+		ChainFile file = new ChainFile(chain);
+		if (file.read().isEmpty())
+		{
+			file.write(start(addresses, beneficiary, out));
+		}
+		try (Node node = Node.serving(file))
+		{
+			int port = node.listen(listen);
+			node.connectAll(addresses);
+			out.println("node on " + Chain.TEST_IDENTIFIER + ", listening on port " + port + ", "
+				+ addresses.size() + " peer(s) configured"
+				+ (mine ? ", mining for " + ChainCommand.hex(beneficiary) : ""));
+			long minedBlocks = runUntilStopped(node, beneficiary);
+			out.println("stopped at height " + (node.chain().size() - 1) + ", mined " + minedBlocks
+				+ " block(s), " + node.pending().size() + " transfer(s) waiting");
+			node.refusals().forEach(System.err::println);
+		}
+		return 0;
+	}
+
+	/**
+	 * The genesis block of an empty chain file: mined with --mine, otherwise taken from the first
+	 * peer that answers
+	 */
+	private List<BlockBody> start(final List<PeerAddress> addresses, final Bytes beneficiary,
+		final PrintStream out) throws IOException
+	{
+		if (beneficiary != null)
+		{
+			BlockBody genesis = Blocks.mine(Mining.nextBlock(Chain.TEST_IDENTIFIER, List.of(),
+				beneficiary, List.of(), pun, System.currentTimeMillis()), 10_000_000L)
+				.orElseThrow(() -> new IllegalStateException("no pun reached the genesis difficulty"));
+			out.println("mined the genesis block of " + Chain.TEST_IDENTIFIER);
+			return List.of(genesis);
+		}
+		if (addresses.isEmpty())
+		{
+			throw new IllegalArgumentException(chain + " is empty: start a test chain with --mine, "
+				+ "or take one from a node with --peer");
+		}
+		List<String> reasons = new ArrayList<>();
+		for (PeerAddress address : addresses)
+		{
+			try
+			{
+				List<BlockBody> genesis = Bootstrap.genesisFrom(address);
+				out.println("took the genesis block from the peer at " + address);
+				return genesis;
+			}
+			catch (IOException unanswered)
+			{
+				reasons.add(unanswered.getMessage());
+			}
+		}
+		throw new IOException("no peer gave a genesis block: " + String.join("; ", reasons));
+	}
+
+	private long runUntilStopped(final Node node, final Bytes beneficiary)
+	{
+		Miner miner = beneficiary == null ? null : Miner.start(node, beneficiary, pun);
+		try
+		{
+			if (seconds > 0)
+			{
+				Thread.sleep(seconds * 1_000L);
+			}
+			else
+			{
+				new CountDownLatch(1).await();
+			}
+		}
+		catch (InterruptedException interrupted)
+		{
+			Thread.currentThread().interrupt();
+		}
+		finally
+		{
+			if (miner != null)
+			{
+				miner.close();
+			}
+		}
+		return miner == null ? 0L : miner.minedBlocks();
+	}
+}
