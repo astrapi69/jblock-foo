@@ -278,6 +278,23 @@ is the maintainer's decision, above all the allocation it carries.
     trust its peers for the genesis block starts from a chain file that has it (#94).
 - `--for` stops it after that many seconds; without it, it runs until interrupted.
 
+### A sync that stops (#107)
+
+`lethenon sync --chain <file> --peer host:port [--within <seconds>]`, and `Sync.once` in the
+library, bring a chain file up to one node's tip and stop. Between copying a file and running a
+node, this is what a wallet, a script or the desktop plugin needs.
+
+- It runs a node in memory that neither listens nor discovers peers, connects it to the one peer,
+  and synchronises as above. Every block is verified by the same replay.
+- It stops when its chain holds the tip the peer announced in its HELLO, or carries at least the
+  work the peer announced. A file ahead of the peer is left as it is.
+- The chain file is written once, at the end, and only when the chain grew. A sync that fails
+  writes nothing: the peer cannot be reached, refuses the handshake, breaks off, or has not handed
+  over its tip within the time (default 300 s). The pending file is not touched.
+- An empty file starts as a node's does, from the anchor fixed in the code or, without one, from
+  the peer's genesis block (trust on first use).
+- It reads no wallet and asks for nothing but the chain. A balance is still computed from the file.
+
 ## Toward a main chain
 
 The prerequisites are built and tested on the test chain. For the main chain they wait on

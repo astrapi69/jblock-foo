@@ -28,6 +28,12 @@ FIXED:
 
 ADDED:
 
+- a sync that stops (#107): `Sync.once` and `lethenon sync --chain FILE --peer HOST:PORT` bring a
+  chain file up to one node's tip, verify every block with the replay a node uses, write the file
+  once and only when the chain grew, and stop. A failed sync - an unreachable peer, a refused
+  handshake, a peer that breaks off, the time running out - writes nothing and names the peer, the
+  height it announced and the height reached. It reads no wallet and asks for nothing but the
+  chain. For wallets, scripts and the desktop plugin (astrapi69/mystic-crypt-ui#530)
 - a genesis block fixed in the code, the mechanism without the block, the fourth prerequisite for a
   main chain (#104): `ConsensusRules` carries per chain at most one anchor, the block's canonical
   bytes, checked when the table is built; `Replay` rejects a chain that starts elsewhere;
