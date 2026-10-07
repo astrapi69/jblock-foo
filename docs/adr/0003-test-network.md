@@ -158,6 +158,11 @@ A second transfer from the same sender with the same nonce is a double spend. It
 the first one seen stays: there is no replacement by fee. After each new tip the pool drops what
 the block carried and re-checks the rest.
 
+Admission keeps, per sender, how many transfers wait and what they spend, and checks a new one
+against that; each signature is checked once, when its transfer is offered. Re-applying a sender's
+waiting transfers on every offer took about 12.5 million signature checks to fill the pool from one
+sender (#92).
+
 Transfers to a sender that are still waiting do not count towards its balance, the same as
 `Transfers.prepare`: then a sender's waiting transfers are valid in any block that carries them in
 their order, whatever else the block carries (#82).
@@ -189,7 +194,7 @@ overwritten by the node's next write; mining on a node is `node --mine`.
 | outgoing connections | the configured peers, at most 12 | Monero's default of 12 |
 | incoming connections | at most 16 | own choice; refused above it |
 | handshake timeout | 5 s | Monero's 5000 ms |
-| idle timeout | 120 s | Monero's two-minute invoke timeout |
+| answer timeout | 120 s | Monero's two-minute invoke timeout (`P2P_DEFAULT_INVOKE_TIMEOUT`, `src/cryptonote_config.h:149`): a peer that does not answer a `GET_CHAIN` or `GET_BLOCKS` in time is disconnected; one with nothing asked of it may stay quiet (#92) |
 | blocks per `GET_BLOCKS` | at most 20 | Monero's default |
 | hashes per `CHAIN` | at most 500 | own choice |
 | pool size | at most 5,000 transfers | own choice; refused above it |

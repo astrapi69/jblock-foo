@@ -6,6 +6,9 @@ Version 0.3.0 (unreleased)
 
 FIXED:
 
+- admitting a transfer to the pool re-applied every waiting transfer of the same sender, signature
+  check included, so filling the pool with 5,000 transfers from one sender did not finish within
+  60 s. Admission now keeps per sender what is waiting and checks each signature once (#92)
 - a node that was fetching from a peer asked it again for its chain whenever that peer relayed a
   block the node could not place yet, the second answer overtook the first, and the node
   disconnected an honest peer (`BLOCKS with 20 blocks for a request of 4`). Now one
@@ -18,6 +21,12 @@ FIXED:
 
 ADDED:
 
+- a network for the test chain, sixth building block (#76, #92, ADR 0003): limits. A node opens at
+  most 12 connections and accepts at most 16, refusing above that with the reason recorded; a peer
+  that does not answer a GET_CHAIN or GET_BLOCKS within 120 s is disconnected, while one with
+  nothing asked of it may stay quiet; the pool holds at most 5,000 transfers. ADR 0003 called the
+  120 s an idle timeout, which with no keepalive message would have disconnected every honest peer
+  on a quiet network; it is the answer timeout Monero's value is
 - a network for the test chain, fifth building block (#76, #90, ADR 0003): the shared pool. A node
   serving a chain file writes every chain it adopts and every change of its pool to `<chain>` and
   `<chain>.pending`, and at start offers each waiting transfer again, so a double spend in the file

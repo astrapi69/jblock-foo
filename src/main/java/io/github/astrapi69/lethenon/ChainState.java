@@ -134,6 +134,25 @@ public final class ChainState
 	}
 
 	/**
+	 * Takes what an account's waiting transfers will spend off its balance and moves its nonce past
+	 * them, so that a further transfer can be tried on top without applying them again
+	 *
+	 * @param account
+	 *            the sender
+	 * @param spent
+	 *            what its waiting transfers spend, amounts and fees
+	 * @param transfers
+	 *            how many are waiting; they were admitted against this state, so the balance
+	 *            covers what they spend, and {@link Amount#minus} refuses a negative balance if it
+	 *            ever did not
+	 */
+	void reserve(final Bytes account, final Amount spent, final long transfers)
+	{
+		balances.put(account, balanceOf(account).minus(spent));
+		nonces.put(account, Math.addExact(nextNonceOf(account), transfers));
+	}
+
+	/**
 	 * Puts the genesis allocation in place: half the supply into the mining pool, half to the
 	 * account the genesis block names as its beneficiary
 	 *
