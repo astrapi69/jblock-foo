@@ -373,7 +373,7 @@ public final class Node implements AutoCloseable
 			return null;
 		}
 		socket.setSoTimeout(0);
-		return new Peer(socket, in, out, theirs, answerMillis);
+		return new Peer(socket, in, out, theirs, answerMillis, refusals::add);
 	}
 
 	private Optional<String> refusalOf(final Hello theirs)

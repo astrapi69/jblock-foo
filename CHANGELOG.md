@@ -6,6 +6,9 @@ Version 0.3.0 (unreleased)
 
 FIXED:
 
+- a connection that ended because a frame could not be written, or because a peer let its queue of
+  1,024 frames fill up, ended without a reason on either side. The node's refusals now name the
+  peer and the cause (#101)
 - a block the node's own miner built could be too large to fetch: the miner capped blocks at 500
   transfers by count, and 500 ML-DSA-65 transfers make 2,692,122 bytes, so two such blocks did not
   fit in a 4 MiB BLOCKS frame and a node behind never caught up. Blocks are now bounded in bytes,
