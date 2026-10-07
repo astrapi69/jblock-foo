@@ -60,6 +60,9 @@ import picocli.CommandLine.Option;
 class NodeCommand implements Callable<Integer>
 {
 
+	/** How many peers the anonymity zone takes unless --tx-proxy says otherwise: Monero's example */
+	static final int DEFAULT_ANONYMITY_PEERS = 10;
+
 	@Option(names = "--chain", required = true,
 		description = "the chain file; empty, it is started with --mine or taken from a peer")
 	Path chain;
@@ -74,6 +77,12 @@ class NodeCommand implements Callable<Integer>
 		+ "127.0.0.1:9050; every outgoing connection goes through it, and the node listens on "
 		+ "127.0.0.1 unless --bind says otherwise (ADR 0004)")
 	String proxy;
+
+	@Option(names = "--tx-proxy", description = "tor,host:port[,max]: an anonymity zone through "
+		+ "Tor's SOCKS proxy; onion peers given with --peer join it, at most max of them "
+		+ "(default 10), and a transfer that originates on this node goes only there, or waits "
+		+ "for one, never in the clear (ADR 0004)")
+	String txProxy;
 
 	@Option(names = "--bind", description = "the local address to listen on; default: every "
 		+ "interface, or 127.0.0.1 with --proxy")
@@ -138,20 +147,56 @@ class NodeCommand implements Callable<Integer>
 		}
 		try (Node node = Node.serving(file).discoverPeers(!noDiscovery).dialingThrough(outbound))
 		{
+			String zone = txProxy == null ? "" : startTheZone(node, txProxy);
 			int port = bind == null ? node.listen(listen)
 				: node.listen(InetAddress.getByName(bind), listen);
 			node.connectAll(addresses);
 			out.println("node on " + Chain.TEST_IDENTIFIER + ", listening on "
 				+ node.listeningOn().getHostAddress() + " port " + port + ", "
-				+ addresses.size() + " peer(s) configured, connecting " + outbound
+				+ addresses.size() + " peer(s) configured, connecting " + outbound + zone
 				+ (mine ? ", mining for " + ChainCommand.hex(beneficiary) : ""));
 			long minedBlocks = runUntilStopped(node, beneficiary);
 			out.println("stopped at height " + (node.chain().size() - 1) + ", mined " + minedBlocks
 				+ " block(s), " + node.pending().size() + " transfer(s) waiting, "
-				+ node.peers().size() + " peer(s) connected");
+				+ node.peers().size() + " peer(s) connected"
+				+ (txProxy == null ? "" : ", " + node.anonymousPeers().size()
+					+ " anonymity peer(s)"));
 			node.refusals().forEach(System.err::println);
 		}
 		return 0;
+	}
+
+	/**
+	 * Reads tor,host:port[,max] and turns the anonymity zone on
+	 *
+	 * @return what the start line says about it
+	 */
+	private static String startTheZone(final Node node, final String value)
+	{
+		String[] parts = value.split(",", -1);
+		if (parts.length < 2 || parts.length > 3)
+		{
+			throw new IllegalArgumentException(
+				"--tx-proxy is tor,host:port[,max], not '" + value + "'");
+		}
+		if (!"tor".equals(parts[0]))
+		{
+			throw new IllegalArgumentException("--tx-proxy knows one network, tor, not '"
+				+ parts[0] + "' (ADR 0004)");
+		}
+		int maximum;
+		try
+		{
+			maximum = parts.length == 3 ? Integer.parseInt(parts[2]) : DEFAULT_ANONYMITY_PEERS;
+		}
+		catch (NumberFormatException notANumber)
+		{
+			throw new IllegalArgumentException(
+				"--tx-proxy is tor,host:port[,max], not '" + value + "'");
+		}
+		Outbound route = Outbound.through(PeerAddress.parse(parts[1]));
+		node.anonymityZone(route, maximum);
+		return ", anonymity zone " + route + ", at most " + maximum + " peer(s)";
 	}
 
 	/**

@@ -59,6 +59,8 @@ final class Gossip
 
 	private final Discovery discovery;
 
+	private volatile AnonymityZone zone;
+
 	/**
 	 * @param local
 	 *            the node's chain and pool
@@ -79,6 +81,14 @@ final class Gossip
 		this.file = file;
 		this.peers = peers;
 		this.refusals = refusals;
+	}
+
+	/**
+	 * Sends the node's own transfers through the given zone from now on (ADR 0004, step 2)
+	 */
+	void anonymityZone(final AnonymityZone anonymous)
+	{
+		this.zone = anonymous;
 	}
 
 	/**
@@ -132,6 +142,25 @@ final class Gossip
 		}
 	}
 
+	/**
+	 * What a node does with a frame from a peer of its anonymity zone: a transfer is offered to the
+	 * pool, a block the peer relays is passed over, since the zone carries no chain, and anything
+	 * else disconnects
+	 */
+	void handleAnonymous(final Peer peer, final Frame frame) throws ProtocolViolation
+	{
+		switch (frame.type())
+		{
+			case TRANSFER -> admit(decodeTransfer(frame.payload()), peer);
+			case BLOCK -> {
+				// a node that does not know it is in an anonymity zone relays its blocks to every
+				// peer; the zone does not take part in the chain, so the block is passed over
+			}
+			default -> throw new ProtocolViolation(frame.type()
+				+ " in the anonymity zone, which carries transfers only (ADR 0004)");
+		}
+	}
+
 	private void onBlock(final Peer peer, final Frame frame) throws ProtocolViolation
 	{
 		List<BlockBody> blocks = decodeBlocks(frame.payload());
@@ -174,7 +203,19 @@ final class Gossip
 		if (admission.outcome() == Outcome.ADMITTED)
 		{
 			writePool();
-			relay(new Frame(MessageType.TRANSFER, CanonicalEncoding.encode(transfer)), source);
+			AnonymityZone anonymous = zone;
+			if (anonymous != null && originatesHere(source, anonymous))
+			{
+				if (!anonymous.send(transfer))
+				{
+					refusals.add("an own transfer waits for an anonymity peer and is not sent in "
+						+ "the clear (ADR 0004)");
+				}
+			}
+			else
+			{
+				relay(new Frame(MessageType.TRANSFER, CanonicalEncoding.encode(transfer)), source);
+			}
 		}
 		else if (admission.outcome() == Outcome.REFUSED)
 		{
@@ -182,6 +223,16 @@ final class Gossip
 				+ " transfer that was refused: " + admission.reason());
 		}
 		return admission;
+	}
+
+	/**
+	 * Whether a transfer is the node's own: submitted on the node, or handed over by a command, a
+	 * caller without a node identity, as {@link Handover} is; a node always draws one, whether it
+	 * listens or not. A transfer from the anonymity zone is not, it came from there.
+	 */
+	private static boolean originatesHere(final Peer source, final AnonymityZone anonymous)
+	{
+		return source == null || !anonymous.isMember(source) && source.hello().nodeId() == 0L;
 	}
 
 	private void onChain(final Peer peer, final ChainEntry entry) throws ProtocolViolation
