@@ -16,6 +16,15 @@ CHANGED:
 
 FIXED:
 
+- two nodes could hold two connections to each other: a node did not notice that a peer was a
+  node it was already connected to, so two nodes that dialled each other kept both connections,
+  relayed everything twice and used two of their slots for one neighbour. It showed as a red CI
+  run of `PeerExchangeTest` on a slow runner. Now a second connection to a node identity that is
+  already a peer is closed, and both ends close the same one: the connection kept is the one
+  dialled by the node with the smaller identity, decided from each connection's own direction.
+  Behind it was a gap in peer exchange as well: an address left the list of addresses being
+  dialled once its socket was open, before its handshake ended, and could be dialled again in
+  between. It now counts as busy until the handshake ends (#117)
 - a connection that ended because a frame could not be written, or because a peer let its queue of
   1,024 frames fill up, ended without a reason on either side. The node's refusals now name the
   peer and the cause (#101)
