@@ -53,6 +53,10 @@ FIXED:
 
 ADDED:
 
+- `docs/tor.md`, the runbook for the first run of the Tor transport against a real Tor: one Tor
+  daemon, two onion services per node (the zone's, and one for the chain, since the zone carries
+  none), an onion node that mines and a second node in its zone, an own transfer that travels only
+  through the zone, and what to record. It has not been run yet; the README says so (#124)
 - Tor, step 2 of ADR 0004 (#116): `node --tx-proxy tor,host:port[,max]` turns on an anonymity zone.
   Onion peers given with `--peer` are reached through Tor and carry transfers only, and a transfer
   that originates on the node - submitted on it, or handed over by a command such as
