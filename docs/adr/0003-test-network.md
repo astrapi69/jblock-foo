@@ -240,6 +240,25 @@ overwritten by the node's next write; mining on a node is `node --mine`.
 A peer that sends a frame above the limit, an unknown message type, bytes that do not decode, or a
 block that does not verify is disconnected.
 
+### A genesis block fixed in the code (#104)
+
+The mechanism a main chain needs, built and tested on the test chain; the main chain's block itself
+is the maintainer's decision, above all the allocation it carries.
+
+- `ConsensusRules` carries an anchor table: per chain at most one genesis block, as its canonical
+  bytes (`GenesisAnchor`). Monero fixes its genesis the same way, `GENESIS_TX` and `GENESIS_NONCE`
+  (`src/cryptonote_config.h:239-240`).
+- An anchor is checked when the table is built: exactly one block, at height 0, of the chain it is
+  filed under, verifying on its own. A table that fails this is not built.
+- `Replay` rejects a chain whose genesis block is not its chain's anchor, naming both hashes.
+- `Genesis.start` gives the anchor for an anchored chain and mines a new genesis block otherwise;
+  `mine` and `node` start chains through it. A node with an empty file on an anchored chain starts
+  from the anchor, with no trust in a peer for its first block.
+- `lethenon genesis [--testnet] --wallet <file>` mines a candidate, prints its hash and canonical
+  bytes, and writes nothing.
+- `ConsensusRules.LETHENON` carries no anchor for either chain.
+
+
 ### The node command
 
 `lethenon node --chain <file> --listen <port> [--peer host:port ...] [--mine --wallet <file>] [--for <seconds>]`
@@ -258,6 +277,24 @@ block that does not verify is disconnected.
     chain. Everything after the genesis block is verified as on any node. A node that should not
     trust its peers for the genesis block starts from a chain file that has it (#94).
 - `--for` stops it after that many seconds; without it, it runs until interrupted.
+
+## Toward a main chain
+
+The prerequisites are built and tested on the test chain. For the main chain they wait on
+decisions, not on code:
+
+| Prerequisite | State on `lethenon-test-1` | What the main chain needs |
+|---|---|---|
+| bound on future timestamps | two hours, from height 0 (#96) | a `BlockLimits` line for `lethenon-1` |
+| block size limit | 300,000 bytes, from height 0 (#99) | the same line |
+| peer exchange | protocol version 2 (#102) | nothing chain-specific; a node still runs only on the test chain |
+| genesis block in the code | the mechanism, no anchor (#104) | the block: its content and above all its allocation, decided by the maintainer, then filed as a `GenesisAnchor` |
+
+Applying the limits to `lethenon-1` from height 0 changes nothing for chains mined so far, as long
+as none carries a block larger than 300,000 bytes or one more than two hours ahead of the clock.
+Whether existing main-chain files are kept at all depends on the anchor: once one is filed, a main
+chain that starts elsewhere does not verify. A node on the main chain is a further decision, and
+Tor comes before it.
 
 ## Consequences
 
