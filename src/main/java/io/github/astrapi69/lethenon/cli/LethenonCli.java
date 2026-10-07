@@ -45,7 +45,7 @@ import picocli.CommandLine.Command;
 	description = "A protest chain against the politics of surveillance.",
 	subcommands = { WalletCommand.class, MineCommand.class, SendCommand.class,
 			FaucetCommand.class, BalanceCommand.class, SweepCommand.class,
-			NodeCommand.class })
+			NodeCommand.class, GenesisCommand.class })
 public class LethenonCli
 {
 

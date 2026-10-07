@@ -25,6 +25,13 @@ FIXED:
 
 ADDED:
 
+- a genesis block fixed in the code, the mechanism without the block, the fourth prerequisite for a
+  main chain (#104): `ConsensusRules` carries per chain at most one anchor, the block's canonical
+  bytes, checked when the table is built; `Replay` rejects a chain that starts elsewhere;
+  `Genesis.start` gives the anchor instead of mining one, and `mine` and `node` start chains
+  through it; `lethenon genesis` prints a candidate's hash and bytes and writes nothing. No chain
+  has an anchor yet: the main chain's block, and the allocation it carries, is the maintainer's
+  decision
 - a consensus limit on block size, the second prerequisite for a main chain (#99): on
   `lethenon-test-1` a block larger than 300,000 bytes does not verify, Monero's full reward zone
   taken as a hard limit; `CanonicalEncoding.blockSize` counts it. Mining carries the longest

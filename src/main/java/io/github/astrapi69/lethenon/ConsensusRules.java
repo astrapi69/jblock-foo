@@ -24,7 +24,9 @@
  */
 package io.github.astrapi69.lethenon;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -61,6 +63,8 @@ public final class ConsensusRules
 
 	private final List<BlockLimits> limits;
 
+	private final Map<String, BlockBody> anchors;
+
 	/**
 	 * A rule made of the given lines
 	 *
@@ -88,6 +92,25 @@ public final class ConsensusRules
 	 */
 	public ConsensusRules(final List<SchemeActivation> activations, final List<BlockLimits> limits)
 	{
+		this(activations, limits, List.of());
+	}
+
+	/**
+	 * A rule made of the given lines, block limits and genesis anchors (#104)
+	 *
+	 * @param activations
+	 *            at most one line per chain and scheme
+	 * @param limits
+	 *            at most one set of block limits per chain
+	 * @param anchors
+	 *            at most one genesis block fixed in the code per chain
+	 * @throws IllegalArgumentException
+	 *             when anything appears twice for a chain, or an anchor is not a genesis block of
+	 *             its chain that verifies on its own
+	 */
+	public ConsensusRules(final List<SchemeActivation> activations, final List<BlockLimits> limits,
+		final List<GenesisAnchor> anchors)
+	{
 		Set<String> chains = new HashSet<>();
 		for (BlockLimits each : limits)
 		{
@@ -110,6 +133,84 @@ public final class ConsensusRules
 			}
 		}
 		this.activations = List.copyOf(activations);
+		this.anchors = decoded(anchors, new ConsensusRules(this.activations, this.limits, Map.of()));
+	}
+
+	private ConsensusRules(final List<SchemeActivation> activations,
+		final List<BlockLimits> limits, final Map<String, BlockBody> anchors)
+	{
+		this.activations = activations;
+		this.limits = limits;
+		this.anchors = anchors;
+	}
+
+	/**
+	 * The anchors as blocks, each checked: exactly one block, at height 0, of the chain it is filed
+	 * under, verifying on its own under the same rule without anchors
+	 */
+	private static Map<String, BlockBody> decoded(final List<GenesisAnchor> anchors,
+		final ConsensusRules unanchored)
+	{
+		Map<String, BlockBody> blocks = new HashMap<>();
+		for (GenesisAnchor anchor : anchors)
+		{
+			BlockBody genesis = genesisOf(anchor, unanchored);
+			if (blocks.put(anchor.chainIdentifier(), genesis) != null)
+			{
+				throw new IllegalArgumentException(
+					"chain '" + anchor.chainIdentifier() + "' has two genesis anchors");
+			}
+		}
+		return Map.copyOf(blocks);
+	}
+
+	private static BlockBody genesisOf(final GenesisAnchor anchor,
+		final ConsensusRules unanchored)
+	{
+		String chain = anchor.chainIdentifier();
+		List<BlockBody> blocks;
+		try
+		{
+			blocks = CanonicalEncoding.readChain(Bytes.ofHex(anchor.canonicalHex()).toByteArray());
+		}
+		catch (IllegalArgumentException undecodable)
+		{
+			throw new IllegalArgumentException("the genesis anchor of chain '" + chain
+				+ "' does not decode: " + undecodable.getMessage(), undecodable);
+		}
+		if (blocks.size() != 1)
+		{
+			throw new IllegalArgumentException("the genesis anchor of chain '" + chain + "' holds "
+				+ blocks.size() + " blocks, and an anchor is exactly one block");
+		}
+		BlockBody genesis = blocks.getFirst();
+		if (!chain.equals(genesis.chainIdentifier()))
+		{
+			throw new IllegalArgumentException("the genesis anchor filed under chain '" + chain
+				+ "' is a block of chain '" + genesis.chainIdentifier() + "'");
+		}
+		try
+		{
+			Replay.verify(blocks, unanchored, genesis.timestamp());
+		}
+		catch (ChainRejected rejected)
+		{
+			throw new IllegalArgumentException("the genesis anchor of chain '" + chain
+				+ "' does not verify: " + rejected.getMessage(), rejected);
+		}
+		return genesis;
+	}
+
+	/**
+	 * The genesis block fixed in the code for a chain
+	 *
+	 * @param chainIdentifier
+	 *            the chain
+	 * @return its anchored genesis block, empty for a chain that has none
+	 */
+	public Optional<BlockBody> anchorFor(final String chainIdentifier)
+	{
+		return Optional.ofNullable(anchors.get(chainIdentifier));
 	}
 
 	/**

@@ -204,6 +204,25 @@ overwritten by the node's next write; mining on a node is `node --mine`.
 A peer that sends a frame above the limit, an unknown message type, bytes that do not decode, or a
 block that does not verify is disconnected.
 
+### A genesis block fixed in the code (#104)
+
+The mechanism a main chain needs, built and tested on the test chain; the main chain's block itself
+is the maintainer's decision, above all the allocation it carries.
+
+- `ConsensusRules` carries an anchor table: per chain at most one genesis block, as its canonical
+  bytes (`GenesisAnchor`). Monero fixes its genesis the same way, `GENESIS_TX` and `GENESIS_NONCE`
+  (`src/cryptonote_config.h:239-240`).
+- An anchor is checked when the table is built: exactly one block, at height 0, of the chain it is
+  filed under, verifying on its own. A table that fails this is not built.
+- `Replay` rejects a chain whose genesis block is not its chain's anchor, naming both hashes.
+- `Genesis.start` gives the anchor for an anchored chain and mines a new genesis block otherwise;
+  `mine` and `node` start chains through it. A node with an empty file on an anchored chain starts
+  from the anchor, with no trust in a peer for its first block.
+- `lethenon genesis [--testnet] --wallet <file>` mines a candidate, prints its hash and canonical
+  bytes, and writes nothing.
+- `ConsensusRules.LETHENON` carries no anchor for either chain.
+
+
 ### The node command
 
 `lethenon node --chain <file> --listen <port> [--peer host:port ...] [--mine --wallet <file>] [--for <seconds>]`
