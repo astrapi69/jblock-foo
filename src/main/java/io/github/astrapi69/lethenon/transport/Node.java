@@ -43,6 +43,7 @@ import io.github.astrapi69.lethenon.BlockBody;
 import io.github.astrapi69.lethenon.Blocks;
 import io.github.astrapi69.lethenon.CanonicalEncoding;
 import io.github.astrapi69.lethenon.Chain;
+import io.github.astrapi69.lethenon.ChainFile;
 import io.github.astrapi69.lethenon.ChainRejected;
 import io.github.astrapi69.lethenon.ChainWork;
 import io.github.astrapi69.lethenon.Replay;
@@ -80,11 +81,16 @@ public final class Node implements AutoCloseable
 
 	private final LocalChain local;
 
+	private final ChainFile file;
+
+	private final Object writing = new Object();
+
 	private ServerSocket server;
 
-	private Node(final List<BlockBody> chain, final Replay replay)
+	private Node(final List<BlockBody> chain, final Replay replay, final ChainFile file)
 	{
 		this.local = new LocalChain(chain, replay);
+		this.file = file;
 	}
 
 	/**
@@ -100,6 +106,43 @@ public final class Node implements AutoCloseable
 	 */
 	public static Node on(final List<BlockBody> chain)
 	{
+		requireTestChain(chain);
+		return new Node(chain, Replay.verify(chain), null);
+	}
+
+	/**
+	 * A node that serves a chain file: it starts from the chain and the pool in it, and writes
+	 * every chain it adopts and every change of its pool back, in the formats every command reads.
+	 * Each waiting transfer is offered to the pool again at start, so a double spend or a transfer
+	 * that no longer fits is dropped, with the reason in {@link #refusals()}, and the file
+	 * rewritten.
+	 *
+	 * @param file
+	 *            the chain file, on {@link Chain#TEST_IDENTIFIER}; it belongs to the node while the
+	 *            node runs
+	 * @return the node, not yet listening or connected
+	 * @throws IOException
+	 *             when the file cannot be read or written
+	 * @throws IllegalArgumentException
+	 *             for an empty chain or one that is not the test chain
+	 * @throws ChainRejected
+	 *             when the chain does not verify
+	 */
+	public static Node serving(final ChainFile file) throws IOException
+	{
+		List<BlockBody> chain = file.require();
+		requireTestChain(chain);
+		Node node = new Node(chain, Replay.verify(chain), file);
+		for (SignedTransaction waiting : file.readPending())
+		{
+			node.admit(waiting, null);
+		}
+		node.writePool();
+		return node;
+	}
+
+	private static void requireTestChain(final List<BlockBody> chain)
+	{
 		if (chain.isEmpty())
 		{
 			throw new IllegalArgumentException("a node needs a chain with a genesis block");
@@ -110,7 +153,6 @@ public final class Node implements AutoCloseable
 			throw new IllegalArgumentException("a node runs only on '" + Chain.TEST_IDENTIFIER
 				+ "', and this chain is '" + identifier + "' (ADR 0003)");
 		}
-		return new Node(chain, Replay.verify(chain));
 	}
 
 	/**
@@ -413,6 +455,7 @@ public final class Node implements AutoCloseable
 		{
 			return false;
 		}
+		writeChain();
 		relay(new Frame(MessageType.BLOCK, CanonicalEncoding.encodeChain(List.of(block))), source);
 		return true;
 	}
@@ -422,6 +465,7 @@ public final class Node implements AutoCloseable
 		Admission admission = local.pool().offer(transfer);
 		if (admission.outcome() == Outcome.ADMITTED)
 		{
+			writePool();
 			relay(new Frame(MessageType.TRANSFER, CanonicalEncoding.encode(transfer)), source);
 		}
 		else if (admission.outcome() == Outcome.REFUSED)
@@ -482,6 +526,7 @@ public final class Node implements AutoCloseable
 			case LocalChain.Outcome.Stale stale -> endSynchronising(peer);
 			case LocalChain.Outcome.Waiting waiting -> continueFetching(peer, waiting.fetch());
 			case LocalChain.Outcome.Switched switched -> {
+				writeChain();
 				relay(new Frame(MessageType.BLOCK,
 					CanonicalEncoding.encodeChain(List.of(local.blocks().getLast()))), peer);
 				continueFetching(peer, switched.rest());
@@ -534,6 +579,49 @@ public final class Node implements AutoCloseable
 		if (peer.endSynchronising())
 		{
 			peer.send(new Frame(MessageType.GET_CHAIN, local.locator().encode()));
+		}
+	}
+
+	/**
+	 * Writes the chain and the pool to the served file; the snapshot is taken under the same lock
+	 * as the write, so the last write always carries the latest state
+	 */
+	private void writeChain()
+	{
+		if (file == null)
+		{
+			return;
+		}
+		synchronized (writing)
+		{
+			try
+			{
+				file.write(local.blocks());
+				file.writePending(local.pool().waiting());
+			}
+			catch (IOException unwritable)
+			{
+				refusals.add("the chain could not be written: " + unwritable.getMessage());
+			}
+		}
+	}
+
+	private void writePool()
+	{
+		if (file == null)
+		{
+			return;
+		}
+		synchronized (writing)
+		{
+			try
+			{
+				file.writePending(local.pool().waiting());
+			}
+			catch (IOException unwritable)
+			{
+				refusals.add("the pool could not be written: " + unwritable.getMessage());
+			}
 		}
 	}
 

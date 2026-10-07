@@ -18,6 +18,12 @@ FIXED:
 
 ADDED:
 
+- a network for the test chain, fifth building block (#76, #90, ADR 0003): the shared pool. A node
+  serving a chain file writes every chain it adopts and every change of its pool to `<chain>` and
+  `<chain>.pending`, and at start offers each waiting transfer again, so a double spend in the file
+  is dropped and the file rewritten. `send` and `faucet` take `--node host:port`: the transfer is
+  handed to the node over a handshake and one TRANSFER frame, and the command fails unless the
+  node's pool file then carries it
 - a network for the test chain, fourth building block (#76, #88, ADR 0003): a node follows a fork.
   A peer's chain that leaves the node's below its tip is fetched from the fork point; the node
   switches when the candidate's cumulative work is strictly greater and it verifies whole, and keeps

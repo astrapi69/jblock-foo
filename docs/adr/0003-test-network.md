@@ -162,9 +162,24 @@ Transfers to a sender that are still waiting do not count towards its balance, t
 `Transfers.prepare`: then a sender's waiting transfers are valid in any block that carries them in
 their order, whatever else the block carries (#82).
 
-A node keeps its pool in `<chain>.pending`, in the existing format, so `mine` and `balance` keep
-working on a node's files. `send` and `faucet` can hand a transfer to a running node with
-`--node host:port` instead of writing the file.
+A node keeps its chain in `<chain>` and its pool in `<chain>.pending`, in the existing formats, so
+`balance` and the other readers keep working on a node's files. At start it offers every waiting
+transfer to the pool again, so a double spend or a transfer that no longer fits is dropped there
+and the file rewritten (#90).
+
+`send` and `faucet` hand a transfer to a running node with `--node host:port` instead of writing
+the file (#90):
+- The transfer is prepared against the chain and pool in the file named by `--chain`, which has to
+  be the file the node serves.
+- The handover is a handshake, one `TRANSFER` frame, then the command closes its direction and reads
+  until the node closes the other. A node handles frames in order, so it has then admitted or
+  refused the transfer.
+- The command then reads the node's pool file. If the transfer is not there, it fails with a
+  message. A node on another machine or another file keeps a pool the command cannot see, and that
+  case fails closed rather than reporting a success it could not check.
+
+A file a node serves belongs to the node while it runs. `mine` and `sweep` on it would be
+overwritten by the node's next write; mining on a node is `node --mine`.
 
 ### Limits
 
