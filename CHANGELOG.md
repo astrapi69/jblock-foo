@@ -13,6 +13,16 @@ FIXED:
 
 ADDED:
 
+- a network for the test chain, second building block (#76, #82, ADR 0003): `TransactionPool`
+  admits a transfer only if the next block could carry it - chain and schemes admitted, signature,
+  nonce exactly the sender's next counting its waiting transfers, balance after them - refuses a
+  second transfer with the same sender and nonce as a double spend, keeps the first one seen, and
+  re-checks itself on every new tip. Nodes relay blocks and transfers they accept to every peer but
+  the sender; a block with an unknown parent makes a node ask for the peer's chain with a locator
+  built as Monero's and fetch the missing blocks in batches of at most 20, each extended chain
+  checked whole with `Replay.verify`. A peer sending bytes that do not decode, a message out of
+  place or a block that does not verify is disconnected. Frames to a peer go through a queue of at
+  most 1,024 with a writer thread of its own. A fork below the tip is recorded and not yet followed
 - a network for the test chain, first building block (#76, #78, ADR 0003): the package
   `lethenon.transport` speaks TCP in frames of a 4-byte length, a type byte and a payload, at most
   4 MiB, checked before anything is allocated. Nodes connect to a fixed list of peers and shake

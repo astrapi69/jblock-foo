@@ -110,6 +110,11 @@ A peer with more cumulative work is asked for its chain at once.
 - **An unknown parent.** A received block whose parent the node does not know is not a fault: the
   node sends `GET_CHAIN` to that peer and synchronises.
 
+Frames to a peer are written by a thread of that peer's own, from a bounded queue. A node handles a
+frame on the thread that read it, and that thread may have to send to other peers; writing to their
+sockets directly could leave two nodes that relay to each other waiting for each other to read
+(#82).
+
 Full blocks are relayed, not Monero's compact "fluffy" blocks. Blocks here are small, and that
 optimisation can come later.
 
@@ -149,6 +154,10 @@ A second transfer from the same sender with the same nonce is a double spend. It
 the first one seen stays: there is no replacement by fee. After each new tip the pool drops what
 the block carried and re-checks the rest.
 
+Transfers to a sender that are still waiting do not count towards its balance, the same as
+`Transfers.prepare`: then a sender's waiting transfers are valid in any block that carries them in
+their order, whatever else the block carries (#82).
+
 A node keeps its pool in `<chain>.pending`, in the existing format, so `mine` and `balance` keep
 working on a node's files. `send` and `faucet` can hand a transfer to a running node with
 `--node host:port` instead of writing the file.
@@ -165,6 +174,7 @@ working on a node's files. `send` and `faucet` can hand a transfer to a running 
 | blocks per `GET_BLOCKS` | at most 20 | Monero's default |
 | hashes per `CHAIN` | at most 500 | own choice |
 | pool size | at most 5,000 transfers | own choice; refused above it |
+| frames waiting for one peer | at most 1,024 | own choice; a peer that does not read them is disconnected (#82) |
 | transfers per mined block | at most 500 | keeps the largest block well inside a frame: an ML-DSA-65 transfer carries its signature and public key, a few kilobytes |
 
 A peer that sends a frame above the limit, an unknown message type, bytes that do not decode, or a

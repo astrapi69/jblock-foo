@@ -33,6 +33,7 @@ import io.github.astrapi69.lethenon.BlockBody;
 import io.github.astrapi69.lethenon.Blocks;
 import io.github.astrapi69.lethenon.Bytes;
 import io.github.astrapi69.lethenon.Chain;
+import io.github.astrapi69.lethenon.DifficultyRule;
 import io.github.astrapi69.lethenon.Mining;
 import io.github.astrapi69.lethenon.SignedTransaction;
 
@@ -64,14 +65,16 @@ final class Networks
 	}
 
 	/**
-	 * The chain extended by one mined block carrying the given transfers
+	 * The chain extended by one mined block carrying the given transfers, at the target block
+	 * time after the one before, so that a long chain keeps the minimum difficulty
 	 */
 	static List<BlockBody> extended(final List<BlockBody> chain, final Bytes miner,
 		final List<SignedTransaction> transfers)
 	{
 		List<BlockBody> extended = new ArrayList<>(chain);
 		extended.add(Blocks.mine(Mining.nextBlock(chain, miner, transfers, "block " + chain.size(),
-			GENESIS_TIME + 60_000L * chain.size()), 1_000_000L).orElseThrow());
+			GENESIS_TIME + DifficultyRule.TARGET_BLOCK_MILLIS * chain.size()), 1_000_000L)
+			.orElseThrow());
 		return List.copyOf(extended);
 	}
 

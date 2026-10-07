@@ -71,13 +71,6 @@ public final class ChainState
 	}
 
 	/**
-	 * The balance of an account, zero when it has never been paid
-	 *
-	 * @param account
-	 *            the account key
-	 * @return its balance
-	 */
-	/**
 	 * The chain this state belongs to, as its genesis block named it
 	 *
 	 * @return the chain identifier, or {@link Chain#IDENTIFIER} before a genesis block was applied
@@ -87,6 +80,13 @@ public final class ChainState
 		return chainIdentifier;
 	}
 
+	/**
+	 * The balance of an account, zero when it has never been paid
+	 *
+	 * @param account
+	 *            the account key
+	 * @return its balance
+	 */
 	public Amount balanceOf(final Bytes account)
 	{
 		return balances.getOrDefault(account, Amount.ZERO);
@@ -117,6 +117,20 @@ public final class ChainState
 			total = total.plus(balance);
 		}
 		return total;
+	}
+
+	/**
+	 * A copy that can be changed without changing this state, for trying transfers on top of it
+	 *
+	 * @return the copy, under the same rule
+	 */
+	ChainState copy()
+	{
+		ChainState copy = new ChainState(rules);
+		copy.balances.putAll(balances);
+		copy.nonces.putAll(nonces);
+		copy.chainIdentifier = chainIdentifier;
+		return copy;
 	}
 
 	/**
@@ -156,7 +170,17 @@ public final class ChainState
 		}
 	}
 
-	private void applyTransfer(final SignedTransaction transaction, final long height)
+	/**
+	 * Applies one transfer as the block at the given height would, without the block's reward
+	 *
+	 * @param transaction
+	 *            the transfer
+	 * @param height
+	 *            the height of the block that would carry it, which decides the admitted schemes
+	 * @throws ChainRejected
+	 *             if any rule is broken; the state is then not to be used further
+	 */
+	void applyTransfer(final SignedTransaction transaction, final long height)
 	{
 		TransactionBody body = transaction.body();
 		if (!chainIdentifier.equals(body.chainIdentifier()))
