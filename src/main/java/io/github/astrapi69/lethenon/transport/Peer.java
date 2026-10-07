@@ -34,6 +34,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.function.Consumer;
 
 /**
  * One connection to another node after a successful handshake: the socket, the peer's HELLO, the
@@ -70,14 +71,22 @@ final class Peer implements Closeable
 
 	private final int answerMillis;
 
+	private final Consumer<String> report;
+
+	/**
+	 * @param report
+	 *            where the reason goes when this side ends the connection because a frame could
+	 *            not be written or the queue is full (#101)
+	 */
 	Peer(final Socket socket, final DataInputStream in, final DataOutputStream out,
-		final Hello hello, final int answerMillis)
+		final Hello hello, final int answerMillis, final Consumer<String> report)
 	{
 		this.socket = socket;
 		this.in = in;
 		this.out = out;
 		this.hello = hello;
 		this.answerMillis = answerMillis;
+		this.report = report;
 	}
 
 	/**
@@ -179,6 +188,8 @@ final class Peer implements Closeable
 	{
 		if (!outgoing.offer(frame))
 		{
+			report.accept(address() + " was disconnected: " + QUEUE_LIMIT
+				+ " frames waited for it, and it does not read them");
 			closeQuietly();
 		}
 	}
@@ -198,6 +209,11 @@ final class Peer implements Closeable
 		}
 		catch (IOException broken)
 		{
+			if (!socket.isClosed())
+			{
+				report.accept(address() + " was disconnected: a frame could not be written: "
+					+ broken.getMessage());
+			}
 			closeQuietly();
 		}
 	}
