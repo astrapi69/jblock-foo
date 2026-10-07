@@ -24,27 +24,46 @@
  */
 package io.github.astrapi69.lethenon.transport;
 
+import java.util.ArrayList;
 import java.util.List;
 
+import io.github.astrapi69.lethenon.BlockBody;
 import io.github.astrapi69.lethenon.Bytes;
 
 /**
- * What a node is fetching from one peer: the hashes it still expects, from which height, and
- * whether the peer's answer was full, so that there may be more after them
+ * What a node is fetching from one peer: from which block of its own chain the peer's chain goes
+ * on, the blocks fetched so far, the hashes still expected, and whether the peer's answer was full
+ * <p>
+ * The fetched blocks are a candidate on top of the base block. They wait here until the candidate
+ * carries more work than the node's chain; a fork may need several batches before it does.
  *
+ * @param base
+ *            the height of the last block both chains share
+ * @param baseHash
+ *            its hash, so that a fetch whose base the node no longer has is recognised
  * @param expected
  *            the hashes of the blocks still to fetch, oldest first
- * @param nextHeight
- *            the height of the first of them
+ * @param fetched
+ *            the blocks fetched after the base and not yet adopted, oldest first
  * @param more
  *            whether the peer's CHAIN answer was full and a further GET_CHAIN is due after them
  */
-record Fetch(List<Bytes> expected, long nextHeight, boolean more)
+record Fetch(long base, Bytes baseHash, List<Bytes> expected, List<BlockBody> fetched,
+	boolean more)
 {
 
 	Fetch
 	{
 		expected = List.copyOf(expected);
+		fetched = List.copyOf(fetched);
+	}
+
+	/**
+	 * The height of the next block to fetch
+	 */
+	long nextHeight()
+	{
+		return base + 1 + fetched.size();
 	}
 
 	/**
@@ -52,14 +71,25 @@ record Fetch(List<Bytes> expected, long nextHeight, boolean more)
 	 */
 	BlockRequest nextRequest()
 	{
-		return new BlockRequest(nextHeight, Math.min(BlockRequest.LIMIT, expected.size()));
+		return new BlockRequest(nextHeight(), Math.min(BlockRequest.LIMIT, expected.size()));
 	}
 
 	/**
-	 * What is left after the given number of blocks arrived
+	 * The fetch after the given blocks arrived, in the order they were expected
 	 */
-	Fetch after(final int arrived)
+	Fetch with(final List<BlockBody> arrived)
 	{
-		return new Fetch(expected.subList(arrived, expected.size()), nextHeight + arrived, more);
+		List<BlockBody> all = new ArrayList<>(fetched);
+		all.addAll(arrived);
+		return new Fetch(base, baseHash, expected.subList(arrived.size(), expected.size()), all,
+			more);
+	}
+
+	/**
+	 * The rest of the fetch after the node adopted everything fetched so far
+	 */
+	Fetch rebasedOn(final long newBase, final Bytes newBaseHash)
+	{
+		return new Fetch(newBase, newBaseHash, expected, List.of(), more);
 	}
 }

@@ -33,7 +33,9 @@ import io.github.astrapi69.lethenon.BlockBody;
 import io.github.astrapi69.lethenon.Blocks;
 import io.github.astrapi69.lethenon.Bytes;
 import io.github.astrapi69.lethenon.ChainRejected;
+import io.github.astrapi69.lethenon.ChainWork;
 import io.github.astrapi69.lethenon.Replay;
+import io.github.astrapi69.lethenon.SignedTransaction;
 import io.github.astrapi69.lethenon.TransactionPool;
 
 /**
@@ -57,13 +59,29 @@ final class LocalChain
 		{
 		}
 
-		/** the peer's chain leaves this one below its tip, at the given height */
-		record Fork(long height) implements Plan
+		/** the peer's chain goes on from a block of this one: fetch these blocks */
+		record Fetching(Fetch fetch) implements Plan
+		{
+		}
+	}
+
+	/**
+	 * What became of fetched blocks
+	 */
+	sealed interface Outcome
+	{
+		/** this chain no longer has the block the fetch goes on from */
+		record Stale() implements Outcome
 		{
 		}
 
-		/** the peer's chain extends this one: fetch these blocks */
-		record Fetching(Fetch fetch) implements Plan
+		/** the candidate carries no more work than this chain yet; the blocks wait in the fetch */
+		record Waiting(Fetch fetch) implements Outcome
+		{
+		}
+
+		/** the candidate carried more work and is this chain now; the rest of the fetch goes on */
+		record Switched(Fetch rest) implements Outcome
 		{
 		}
 	}
@@ -132,22 +150,42 @@ final class LocalChain
 	}
 
 	/**
-	 * Adopts fetched blocks that start at the given height, if that is still the next one and the
-	 * chain then verifies
+	 * Considers the blocks fetched so far: the candidate is this chain up to the fetch's base, then
+	 * the fetched blocks, and it becomes this chain if its cumulative work is strictly greater and
+	 * it verifies. On equal work the chain seen first stays (ADR 0003). The blocks this chain drops
+	 * give their transfers back to the pool, ahead of the waiting ones, if they still fit.
 	 *
-	 * @return whether they were adopted; false when the chain moved while they were on their way
 	 * @throws ProtocolViolation
-	 *             when the chain with them does not verify
+	 *             when the candidate carries more work and does not verify; the chain stays as it
+	 *             was
 	 */
-	synchronized boolean extendWith(final List<BlockBody> blocks, final long first)
-		throws ProtocolViolation
+	synchronized Outcome consider(final Fetch fetch) throws ProtocolViolation
 	{
-		if (first != chain.size())
+		int base = (int)fetch.base();
+		if (base >= hashes.size() || !hashes.get(base).equals(fetch.baseHash()))
 		{
-			return false;
+			return new Outcome.Stale();
 		}
-		adopt(blocks);
-		return true;
+		List<BlockBody> candidate = new ArrayList<>(chain.subList(0, base + 1));
+		candidate.addAll(fetch.fetched());
+		if (ChainWork.of(candidate).compareTo(ChainWork.of(chain)) <= 0)
+		{
+			return new Outcome.Waiting(fetch);
+		}
+		Replay replay = verified(candidate);
+		List<SignedTransaction> rolledBack = new ArrayList<>();
+		for (BlockBody dropped : chain.subList(base + 1, chain.size()))
+		{
+			rolledBack.addAll(dropped.transactions());
+		}
+		forgetAbove(base);
+		for (BlockBody block : fetch.fetched())
+		{
+			remember(Blocks.hashOf(block));
+		}
+		chain = List.copyOf(candidate);
+		pool.advanceTo(replay, rolledBack);
+		return new Outcome.Switched(fetch.rebasedOn(chain.size() - 1L, hashes.getLast()));
 	}
 
 	/**
@@ -182,8 +220,8 @@ final class LocalChain
 	}
 
 	/**
-	 * What a peer's answer to this chain's locator means: nothing to fetch, a fork below the tip,
-	 * or blocks that extend the tip
+	 * What a peer's answer to this chain's locator means: nothing to fetch, or blocks that go on
+	 * from a block of this chain, its tip or one below it
 	 *
 	 * @throws ProtocolViolation
 	 *             when the answer shares a height this chain does not have
@@ -207,12 +245,8 @@ final class LocalChain
 		{
 			return new Plan.Nothing();
 		}
-		if (shared + 1 < chain.size())
-		{
-			return new Plan.Fork(shared + 1);
-		}
-		return new Plan.Fetching(
-			new Fetch(after, shared + 1, entry.hashes().size() == ChainEntry.LIMIT));
+		return new Plan.Fetching(new Fetch(shared, hashes.get((int)shared), after, List.of(),
+			entry.hashes().size() == ChainEntry.LIMIT));
 	}
 
 	/**
@@ -226,21 +260,32 @@ final class LocalChain
 	{
 		List<BlockBody> candidate = new ArrayList<>(chain);
 		candidate.addAll(blocks);
-		Replay replay;
-		try
-		{
-			replay = Replay.verify(candidate);
-		}
-		catch (ChainRejected rejected)
-		{
-			throw new ProtocolViolation("a block that does not verify: " + rejected.getMessage());
-		}
+		Replay replay = verified(candidate);
 		for (BlockBody block : blocks)
 		{
 			remember(Blocks.hashOf(block));
 		}
 		chain = List.copyOf(candidate);
 		pool.advanceTo(replay);
+	}
+
+	private static Replay verified(final List<BlockBody> candidate) throws ProtocolViolation
+	{
+		try
+		{
+			return Replay.verify(candidate);
+		}
+		catch (ChainRejected rejected)
+		{
+			throw new ProtocolViolation("a block that does not verify: " + rejected.getMessage());
+		}
+	}
+
+	private void forgetAbove(final int base)
+	{
+		List<Bytes> above = hashes.subList(base + 1, hashes.size());
+		above.forEach(heights::remove);
+		above.clear();
 	}
 
 	private void remember(final Bytes hash)

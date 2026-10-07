@@ -243,26 +243,6 @@ class RelayTest
 		}
 	}
 
-	@Test
-	@DisplayName("a peer on a fork below the tip is recorded and not followed, until fork choice")
-	void aPeerOnAFork_isRecordedAndNotFollowed() throws IOException
-	{
-		List<BlockBody> ours = extended(genesis, MINER, List.of());
-		List<BlockBody> theirs = extended(genesis, Bytes.of(new byte[] { 8 }), List.of());
-		List<BlockBody> theirsLonger = extended(theirs, MINER, List.of());
-		try (Node a = Node.on(theirs); Node b = Node.on(ours))
-		{
-			b.connect("127.0.0.1", a.listen(0));
-			await("the handshake", () -> a.peers().size() == 1);
-
-			a.submitBlock(theirsLonger.getLast());
-
-			await("the fork recorded",
-				() -> b.refusals().stream().anyMatch(reason -> reason.contains("fork")));
-			assertEquals(ours, b.chain());
-		}
-	}
-
 	private List<BlockBody> chainOf(final int blocks)
 	{
 		List<BlockBody> chain = genesis;

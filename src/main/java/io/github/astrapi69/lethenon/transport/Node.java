@@ -441,13 +441,6 @@ public final class Node implements AutoCloseable
 		switch (local.plan(entry))
 		{
 			case LocalChain.Plan.Nothing nothing -> endSynchronising(peer);
-			case LocalChain.Plan.Fork fork -> {
-				// following a fork below the tip needs fork choice and rolling back, which is its
-				// own building block of ADR 0003
-				refusals.add(peer.address() + " is on a fork from height " + fork.height()
-					+ ", which this node does not follow yet");
-				endSynchronising(peer);
-			}
 			case LocalChain.Plan.Fetching fetching -> {
 				peer.fetch(fetching.fetch());
 				peer.send(new Frame(MessageType.GET_BLOCKS,
@@ -483,15 +476,17 @@ public final class Node implements AutoCloseable
 					+ " a block whose hash the peer did not announce");
 			}
 		}
-		if (!local.extendWith(blocks, asked.first()))
+		switch (local.consider(fetch.with(blocks)))
 		{
-			// the chain moved while the blocks were on their way, by a block from elsewhere
-			endSynchronising(peer);
-			return;
+			// the chain moved while the blocks were on their way, and the fork point went with it
+			case LocalChain.Outcome.Stale stale -> endSynchronising(peer);
+			case LocalChain.Outcome.Waiting waiting -> continueFetching(peer, waiting.fetch());
+			case LocalChain.Outcome.Switched switched -> {
+				relay(new Frame(MessageType.BLOCK,
+					CanonicalEncoding.encodeChain(List.of(local.blocks().getLast()))), peer);
+				continueFetching(peer, switched.rest());
+			}
 		}
-		relay(new Frame(MessageType.BLOCK, CanonicalEncoding.encodeChain(List.of(blocks.getLast()))),
-			peer);
-		continueFetching(peer, fetch.after(blocks.size()));
 	}
 
 	private void continueFetching(final Peer peer, final Fetch rest)
@@ -500,6 +495,16 @@ public final class Node implements AutoCloseable
 		{
 			peer.fetch(rest);
 			peer.send(new Frame(MessageType.GET_BLOCKS, rest.nextRequest().encode()));
+		}
+		else if (!rest.fetched().isEmpty())
+		{
+			// the candidate never carried more work: on equal work the first chain seen stays,
+			// and a fork that has not overtaken within one CHAIN answer is not followed, so that a
+			// peer cannot make this node hold more than that many blocks (ADR 0003)
+			refusals.add(peer.address() + "'s fork from height " + (rest.base() + 1) + " was not "
+				+ "followed: " + rest.fetched().size() + " blocks carry no more work"
+				+ (rest.more() ? " within one CHAIN answer" : ""));
+			endSynchronising(peer);
 		}
 		else if (rest.more())
 		{

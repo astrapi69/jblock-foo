@@ -139,7 +139,11 @@ a later optimisation.
   that of its own chain. On equal work it keeps the chain it had, the first seen.
 - **Rolling back.** Switching drops the node's blocks above the fork point. Their transfers go back
   into the pool if they are still valid on the new chain; the rest are dropped.
-- **No depth limit.** There is none, as a test-chain choice, and it is listed below as a risk.
+- **Depth.** The blocks of a fork are held until the fork carries more work. A fork is followed
+  only if it overtakes within one `CHAIN` answer, 500 blocks after the fork point; a deeper one is
+  recorded and not followed. That bounds what a peer can make a node hold, and it is in effect a
+  limit on how deep a reorganisation can be. Lifting it needs a fetch across several `CHAIN`
+  answers that keeps the held blocks bounded some other way (#88).
 
 ### The pool of waiting transfers
 
@@ -198,7 +202,9 @@ block that does not verify is disconnected.
 - **No limit on future timestamps.** The replay checks timestamps only against the median of the
   blocks before, so a miner can put a block's time in the future and influence the difficulty.
   Bounding that is a consensus change as well and is left open.
-- **No reorg depth limit** on the test chain.
+- **A reorganisation is at most one `CHAIN` answer deep.** A heavier fork whose advantage only
+  shows after more than 500 blocks is not followed, and two nodes on such forks stay apart. On a
+  test chain that is a choice; it is not one for a chain with value (#88).
 - **No peer exchange.** Peers come from the command line; Monero shares up to 250 peers in its
   handshake (`P2P_DEFAULT_PEERS_IN_HANDSHAKE 250`, `src/cryptonote_config.h:144`), and lethenon
   does not, for now.
