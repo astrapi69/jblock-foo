@@ -55,16 +55,39 @@ import io.github.astrapi69.lethenon.ChainWork;
  *            the cumulative work of its chain ({@link ChainWork})
  */
 public record Hello(int protocolVersion, String chainIdentifier, Bytes genesisHash,
-	long bestHeight, Bytes bestHash, BigInteger work)
+	long bestHeight, Bytes bestHash, BigInteger work, int listenPort, long nodeId)
 {
 
 	/** The bytes every HELLO starts with */
 	public static final String MAGIC = "LETHENON";
 
 	/** The protocol this build speaks */
-	public static final int PROTOCOL_VERSION = 1;
+	public static final int PROTOCOL_VERSION = 2;
 
 	private static final byte[] MAGIC_BYTES = MAGIC.getBytes(StandardCharsets.US_ASCII);
+
+	/**
+	 * @throws IllegalArgumentException
+	 *             for a listening port outside 0 to 65535
+	 */
+	public Hello
+	{
+		if (listenPort < 0 || listenPort > 65_535)
+		{
+			throw new IllegalArgumentException(
+				"a listening port is 0 (none) to 65535, not " + listenPort);
+		}
+	}
+
+	/**
+	 * The HELLO of a caller that does not listen and has no node identity: a command handing over
+	 * a transfer, a node taking its genesis block, a test
+	 */
+	public Hello(final int protocolVersion, final String chainIdentifier, final Bytes genesisHash,
+		final long bestHeight, final Bytes bestHash, final BigInteger work)
+	{
+		this(protocolVersion, chainIdentifier, genesisHash, bestHeight, bestHash, work, 0, 0L);
+	}
 
 	/**
 	 * The HELLO a node on the given chain sends
@@ -75,9 +98,28 @@ public record Hello(int protocolVersion, String chainIdentifier, Bytes genesisHa
 	 */
 	public static Hello of(final List<BlockBody> chain)
 	{
+		return of(chain, 0, 0L);
+	}
+
+	/**
+	 * The HELLO a node sends: its chain, the port it listens on and its identity, so that a peer
+	 * can pass its address on and a node can tell a connection to itself (Monero's
+	 * {@code my_port} and {@code peer_id}, {@code src/p2p/p2p_protocol_defs.h:152-155})
+	 *
+	 * @param chain
+	 *            the chain, genesis first, not empty
+	 * @param listenPort
+	 *            the port the node listens on, 0 for none
+	 * @param nodeId
+	 *            a random number the node drew at start, 0 for none
+	 * @return the message
+	 */
+	public static Hello of(final List<BlockBody> chain, final int listenPort, final long nodeId)
+	{
 		BlockBody tip = chain.getLast();
 		return new Hello(PROTOCOL_VERSION, chain.getFirst().chainIdentifier(),
-			Blocks.hashOf(chain.getFirst()), tip.height(), Blocks.hashOf(tip), ChainWork.of(chain));
+			Blocks.hashOf(chain.getFirst()), tip.height(), Blocks.hashOf(tip), ChainWork.of(chain),
+			listenPort, nodeId);
 	}
 
 	/**
@@ -95,6 +137,8 @@ public record Hello(int protocolVersion, String chainIdentifier, Bytes genesisHa
 		Wire.writeLong(out, bestHeight);
 		Wire.writeBytes(out, bestHash.toByteArray());
 		Wire.writeBytes(out, work.toByteArray());
+		Wire.writeInt(out, listenPort);
+		Wire.writeLong(out, nodeId);
 		return out.toByteArray();
 	}
 
@@ -122,7 +166,16 @@ public record Hello(int protocolVersion, String chainIdentifier, Bytes genesisHa
 		long height = Wire.readLong(in);
 		Bytes best = Wire.readHash(in, "the best hash");
 		BigInteger work = new BigInteger(1, Wire.readBytes(in, 64, "the work"));
+		int listenPort = Wire.readInt(in);
+		long nodeId = Wire.readLong(in);
 		Wire.requireEnd(in, "a HELLO");
-		return new Hello(version, chain, genesis, height, best, work);
+		try
+		{
+			return new Hello(version, chain, genesis, height, best, work, listenPort, nodeId);
+		}
+		catch (IllegalArgumentException outOfRange)
+		{
+			throw new ProtocolViolation("a HELLO: " + outOfRange.getMessage());
+		}
 	}
 }

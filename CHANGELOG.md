@@ -28,6 +28,13 @@ FIXED:
 
 ADDED:
 
+- peer exchange, the third prerequisite for a main chain (#102): HELLO carries the listening port
+  and a random node identity (protocol version 2), after Monero's `my_port` and `peer_id`. A node
+  asks listening peers with GET_PEERS, passes on at most 250 addresses of nodes it has itself been
+  connected to, keeps Monero's confirmed and heard-of lists (1,000 and 5,000), and dials learnt
+  addresses while it has room for outgoing connections. A caller that does not listen is never
+  passed on; a connection to the node itself is recognised and that address never dialled again.
+  `node --no-discovery` stays with the given peers
 - a consensus limit on block size, the second prerequisite for a main chain (#99): on
   `lethenon-test-1` a block larger than 300,000 bytes does not verify, Monero's full reward zone
   taken as a hard limit; `CanonicalEncoding.blockSize` counts it. Mining carries the longest

@@ -30,6 +30,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketException;
+import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -73,6 +74,10 @@ final class Peer implements Closeable
 
 	private final Consumer<String> report;
 
+	private final Optional<PeerAddress> listening;
+
+	private boolean peersExpected;
+
 	/**
 	 * @param report
 	 *            where the reason goes when this side ends the connection because a frame could
@@ -81,6 +86,18 @@ final class Peer implements Closeable
 	Peer(final Socket socket, final DataInputStream in, final DataOutputStream out,
 		final Hello hello, final int answerMillis, final Consumer<String> report)
 	{
+		this(socket, in, out, hello, answerMillis, report, Optional.empty());
+	}
+
+	/**
+	 * @param listening
+	 *            the address this peer listens on, as far as it said so, for peer exchange
+	 */
+	Peer(final Socket socket, final DataInputStream in, final DataOutputStream out,
+		final Hello hello, final int answerMillis, final Consumer<String> report,
+		final Optional<PeerAddress> listening)
+	{
+		this.listening = listening;
 		this.socket = socket;
 		this.in = in;
 		this.out = out;
@@ -100,6 +117,26 @@ final class Peer implements Closeable
 	Hello hello()
 	{
 		return hello;
+	}
+
+	Optional<PeerAddress> listening()
+	{
+		return listening;
+	}
+
+	synchronized void expectPeers()
+	{
+		peersExpected = true;
+	}
+
+	/**
+	 * Whether a PEERS answer was asked for; it is taken, so a second one was not
+	 */
+	synchronized boolean takeExpectedPeers()
+	{
+		boolean expected = peersExpected;
+		peersExpected = false;
+		return expected;
 	}
 
 	DataInputStream in()

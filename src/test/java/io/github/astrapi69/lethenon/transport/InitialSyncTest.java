@@ -95,7 +95,9 @@ class InitialSyncTest
 	@DisplayName("the far end of a line of three catches up through the middle")
 	void theFarEndOfALine_catchesUpThroughTheMiddle() throws IOException
 	{
-		try (Node a = Node.on(ahead); Node b = Node.on(genesis); Node c = Node.on(genesis))
+		try (Node a = Node.on(ahead).discoverPeers(false);
+			Node b = Node.on(genesis).discoverPeers(false);
+			Node c = Node.on(genesis).discoverPeers(false))
 		{
 			int portOfB = b.listen(0);
 			c.connect("127.0.0.1", portOfB);
