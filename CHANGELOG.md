@@ -6,6 +6,11 @@ Version 0.3.0 (unreleased)
 
 FIXED:
 
+- a node that was fetching from a peer asked it again for its chain whenever that peer relayed a
+  block the node could not place yet, the second answer overtook the first, and the node
+  disconnected an honest peer (`BLOCKS with 20 blocks for a request of 4`). Now one
+  synchronisation runs per peer, an unknown parent during it asks once more when it ends, and a
+  CHAIN nobody asked for disconnects (#85)
 - decoding a block, chain or transfer no longer trusts a length prefix: a negative length, or one
   larger than the bytes left, is refused before anything is allocated, and bytes that end early are
   refused as such instead of escaping as BufferUnderflowException. Before, one crafted field asked

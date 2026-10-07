@@ -381,7 +381,7 @@ public final class Node implements AutoCloseable
 		}
 		if (!acceptBlock(blocks.getFirst(), peer) && !local.knows(blocks.getFirst()))
 		{
-			peer.send(new Frame(MessageType.GET_CHAIN, local.locator().encode()));
+			synchroniseWith(peer);
 		}
 	}
 
@@ -420,15 +420,19 @@ public final class Node implements AutoCloseable
 
 	private void onChain(final Peer peer, final ChainEntry entry) throws ProtocolViolation
 	{
+		if (!peer.synchronising())
+		{
+			throw new ProtocolViolation("a CHAIN answer nobody asked for");
+		}
 		switch (local.plan(entry))
 		{
-			case LocalChain.Plan.Nothing nothing -> peer.fetch(null);
+			case LocalChain.Plan.Nothing nothing -> endSynchronising(peer);
 			case LocalChain.Plan.Fork fork -> {
 				// following a fork below the tip needs fork choice and rolling back, which is its
 				// own building block of ADR 0003
 				refusals.add(peer.address() + " is on a fork from height " + fork.height()
 					+ ", which this node does not follow yet");
-				peer.fetch(null);
+				endSynchronising(peer);
 			}
 			case LocalChain.Plan.Fetching fetching -> {
 				peer.fetch(fetching.fetch());
@@ -447,8 +451,8 @@ public final class Node implements AutoCloseable
 		}
 		if (blocks.isEmpty())
 		{
-			// the peer no longer has what it announced; the next unknown parent asks again
-			peer.fetch(null);
+			// the peer no longer has what it announced
+			endSynchronising(peer);
 			return;
 		}
 		BlockRequest asked = fetch.nextRequest();
@@ -467,9 +471,8 @@ public final class Node implements AutoCloseable
 		}
 		if (!local.extendWith(blocks, asked.first()))
 		{
-			// the chain moved while the blocks were on their way, by a relayed block: the next
-			// block with an unknown parent starts the fetch again from the new tip
-			peer.fetch(null);
+			// the chain moved while the blocks were on their way, by a block from elsewhere
+			endSynchronising(peer);
 			return;
 		}
 		relay(new Frame(MessageType.BLOCK, CanonicalEncoding.encodeChain(List.of(blocks.getLast()))),
@@ -484,13 +487,34 @@ public final class Node implements AutoCloseable
 			peer.fetch(rest);
 			peer.send(new Frame(MessageType.GET_BLOCKS, rest.nextRequest().encode()));
 		}
-		else
+		else if (rest.more())
 		{
 			peer.fetch(null);
-			if (rest.more())
-			{
-				peer.send(new Frame(MessageType.GET_CHAIN, local.locator().encode()));
-			}
+			peer.send(new Frame(MessageType.GET_CHAIN, local.locator().encode()));
+		}
+		else
+		{
+			endSynchronising(peer);
+		}
+	}
+
+	/**
+	 * Asks a peer for its chain, unless a synchronisation with it is in flight; then one more
+	 * follows when that one ends (#85)
+	 */
+	private void synchroniseWith(final Peer peer)
+	{
+		if (peer.startSynchronising())
+		{
+			peer.send(new Frame(MessageType.GET_CHAIN, local.locator().encode()));
+		}
+	}
+
+	private void endSynchronising(final Peer peer)
+	{
+		if (peer.endSynchronising())
+		{
+			peer.send(new Frame(MessageType.GET_CHAIN, local.locator().encode()));
 		}
 	}
 

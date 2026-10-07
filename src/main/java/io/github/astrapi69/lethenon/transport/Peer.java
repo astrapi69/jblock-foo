@@ -63,6 +63,10 @@ final class Peer implements Closeable
 
 	private volatile Fetch fetch;
 
+	private boolean synchronising;
+
+	private boolean askAgain;
+
 	Peer(final Socket socket, final DataInputStream in, final DataOutputStream out,
 		final Hello hello)
 	{
@@ -103,6 +107,46 @@ final class Peer implements Closeable
 	void fetch(final Fetch next)
 	{
 		fetch = next;
+	}
+
+	/**
+	 * Starts a synchronisation with this peer unless one is in flight; one that is in flight is
+	 * asked to be followed by another when it ends (#85)
+	 *
+	 * @return whether the caller is to send GET_CHAIN now
+	 */
+	synchronized boolean startSynchronising()
+	{
+		if (synchronising)
+		{
+			askAgain = true;
+			return false;
+		}
+		synchronising = true;
+		return true;
+	}
+
+	synchronized boolean synchronising()
+	{
+		return synchronising;
+	}
+
+	/**
+	 * Ends the synchronisation in flight
+	 *
+	 * @return whether another was asked for meanwhile, so that the caller is to send GET_CHAIN
+	 *         again now
+	 */
+	synchronized boolean endSynchronising()
+	{
+		fetch = null;
+		if (askAgain)
+		{
+			askAgain = false;
+			return true;
+		}
+		synchronising = false;
+		return false;
 	}
 
 	/**
