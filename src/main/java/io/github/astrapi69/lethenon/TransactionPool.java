@@ -147,9 +147,27 @@ public final class TransactionPool
 	 *            the replay of the new chain
 	 * @return the dropped transfers, in their former order
 	 */
-	public synchronized List<SignedTransaction> advanceTo(final Replay replay)
+	public List<SignedTransaction> advanceTo(final Replay replay)
 	{
-		List<SignedTransaction> before = List.copyOf(waiting);
+		return advanceTo(replay, List.of());
+	}
+
+	/**
+	 * Moves the pool onto a new tip after a switch to another chain: the transfers of the blocks
+	 * that were rolled back are offered first, in their order, then the waiting ones; what the new
+	 * chain carried already or no longer fits is dropped
+	 *
+	 * @param replay
+	 *            the replay of the new chain
+	 * @param rolledBack
+	 *            the transfers of the dropped blocks, oldest first
+	 * @return the dropped transfers, rolled back ones first
+	 */
+	public synchronized List<SignedTransaction> advanceTo(final Replay replay,
+		final List<SignedTransaction> rolledBack)
+	{
+		List<SignedTransaction> before = new ArrayList<>(rolledBack);
+		before.addAll(waiting);
 		waiting.clear();
 		tip = replay.finalState();
 		nextHeight = replay.blocks();

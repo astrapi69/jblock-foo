@@ -198,4 +198,20 @@ class TransactionPoolTest
 			"the waiting transfer lost the race; the next one now takes its nonce");
 		assertEquals(List.of(after), pool.waiting());
 	}
+
+	@Test
+	void rolledBackTransfers_comeBackAheadOfTheWaitingOnes()
+	{
+		SignedTransaction first = transfer(0L, Amount.ofLeth(3L), "first");
+		SignedTransaction second = transfer(1L, Amount.ofLeth(4L), "second");
+		TransactionPool afterFirst = new TransactionPool(
+			Replay.verify(TestChains.chainWith(account, first)));
+		afterFirst.offer(second);
+
+		List<SignedTransaction> dropped = afterFirst.advanceTo(Replay.verify(chain),
+			List.of(first));
+
+		assertEquals(List.of(), dropped);
+		assertEquals(List.of(first, second), afterFirst.waiting());
+	}
 }

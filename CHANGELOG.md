@@ -18,6 +18,13 @@ FIXED:
 
 ADDED:
 
+- a network for the test chain, fourth building block (#76, #88, ADR 0003): a node follows a fork.
+  A peer's chain that leaves the node's below its tip is fetched from the fork point; the node
+  switches when the candidate's cumulative work is strictly greater and it verifies whole, and keeps
+  its chain on equal work. The transfers of the dropped blocks go back into the pool ahead of the
+  waiting ones if they still fit. A fork is followed only if it overtakes within one CHAIN answer,
+  500 blocks after the fork point; a deeper one is recorded and not followed, which ADR 0003 now
+  states as a reorganisation depth limit
 - a network for the test chain, third building block (#76, #84, ADR 0003): a node whose peer
   announces more cumulative work in its HELLO asks for that peer's chain right after the handshake,
   instead of waiting for the next block, and fetches it like any other, each extended chain checked
