@@ -153,8 +153,8 @@ public record Replay(long blocks, long transactions, long signatures, ChainState
 
 	/**
 	 * The block limits of the chain, if it has any: a timestamp at most the future limit after
-	 * this node's clock (#96). The clock only moves on, so a chain that met this once meets it
-	 * from then on.
+	 * this node's clock (#96) - the clock only moves on, so a chain that met this once meets it
+	 * from then on - and a size at most the chain's maximum (#99)
 	 */
 	private static void requireLimits(final Optional<BlockLimits> limits, final BlockBody block,
 		final long now)
@@ -167,6 +167,9 @@ public record Replay(long blocks, long transactions, long signatures, ChainState
 		requireThat(block.timestamp() <= latest, "block " + block.height() + " has timestamp "
 			+ block.timestamp() + ", " + (block.timestamp() - now) + " ms in the future, and the "
 			+ "chain allows " + limits.get().futureMillis() + " ms after this node's clock");
+		int size = CanonicalEncoding.blockSize(block);
+		requireThat(size <= limits.get().maximumBytes(), "block " + block.height() + " is "
+			+ size + " bytes, and the chain allows " + limits.get().maximumBytes());
 	}
 
 	private static void requireThat(final boolean held, final String reason)

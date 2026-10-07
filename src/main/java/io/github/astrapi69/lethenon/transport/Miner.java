@@ -25,7 +25,6 @@
 package io.github.astrapi69.lethenon.transport;
 
 import java.time.Duration;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -35,7 +34,6 @@ import io.github.astrapi69.lethenon.Blocks;
 import io.github.astrapi69.lethenon.Bytes;
 import io.github.astrapi69.lethenon.Chain;
 import io.github.astrapi69.lethenon.Mining;
-import io.github.astrapi69.lethenon.SignedTransaction;
 
 /**
  * Mines on a node: the next block on the node's tip, carrying the node's waiting transfers, paid to
@@ -46,9 +44,6 @@ import io.github.astrapi69.lethenon.SignedTransaction;
  */
 public final class Miner implements AutoCloseable
 {
-
-	/** The most transfers a mined block carries (ADR 0003, limits) */
-	public static final int TRANSFERS_PER_BLOCK = 500;
 
 	/** How many puns one round tries before the tip is looked at again */
 	static final long ATTEMPTS_PER_ROUND = 100_000L;
@@ -83,19 +78,6 @@ public final class Miner implements AutoCloseable
 	}
 
 	/**
-	 * The waiting transfers a block carries: the first {@link #TRANSFERS_PER_BLOCK}, in the
-	 * order the pool admitted them
-	 *
-	 * @param waiting
-	 *            the pool's transfers
-	 * @return at most that many
-	 */
-	static List<SignedTransaction> carried(final List<SignedTransaction> waiting)
-	{
-		return List.copyOf(waiting.subList(0, Math.min(TRANSFERS_PER_BLOCK, waiting.size())));
-	}
-
-	/**
 	 * How many blocks this miner found that the node adopted
 	 *
 	 * @return the count
@@ -110,7 +92,7 @@ public final class Miner implements AutoCloseable
 		while (running.get())
 		{
 			BlockBody next = Mining.nextBlock(Chain.TEST_IDENTIFIER, node.chain(), beneficiary,
-				carried(node.pending()), pun, System.currentTimeMillis());
+				node.pending(), pun, System.currentTimeMillis());
 			Optional<BlockBody> found = Blocks.mine(next, ATTEMPTS_PER_ROUND);
 			if (found.isPresent() && node.submitBlock(found.get()))
 			{

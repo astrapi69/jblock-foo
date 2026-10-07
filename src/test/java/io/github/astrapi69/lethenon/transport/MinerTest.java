@@ -29,7 +29,6 @@ import static io.github.astrapi69.lethenon.transport.Networks.testGenesis;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
@@ -91,16 +90,5 @@ class MinerTest
 			assertEquals(1L, Replay.verify(chain).transactions());
 			assertEquals(MINER, chain.getLast().beneficiary());
 		}
-	}
-
-	@Test
-	@DisplayName("a mined block carries at most 500 waiting transfers")
-	void aMinedBlock_carriesAtMost500Transfers()
-	{
-		List<SignedTransaction> waiting = Collections.nCopies(Miner.TRANSFERS_PER_BLOCK + 1,
-			transfer(0L));
-
-		assertEquals(Miner.TRANSFERS_PER_BLOCK, Miner.carried(waiting).size());
-		assertEquals(1, Miner.carried(waiting.subList(0, 1)).size());
 	}
 }

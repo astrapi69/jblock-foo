@@ -26,7 +26,7 @@ package io.github.astrapi69.lethenon;
 
 /**
  * The limits a chain puts on each block beyond the scheme activations: how far its timestamp may
- * run ahead of the verifying node's clock
+ * run ahead of the verifying node's clock, and how large it may be
  *
  * @param chainIdentifier
  *            the chain the limits belong to
@@ -34,12 +34,21 @@ package io.github.astrapi69.lethenon;
  *            how many milliseconds a block's timestamp may lie after the verifying node's clock;
  *            Monero's {@code CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT} is two hours
  *            ({@code src/cryptonote_config.h:47}, #96)
+ * @param maximumBytes
+ *            the largest a block may be, as {@link CanonicalEncoding#blockSize} counts it
  */
-public record BlockLimits(String chainIdentifier, long futureMillis)
+public record BlockLimits(String chainIdentifier, long futureMillis, int maximumBytes)
 {
 
 	/** Two hours, Monero's value, at the same two-minute target block time */
 	public static final long TWO_HOURS = 2L * 60L * 60L * 1_000L;
+
+	/**
+	 * 300,000 bytes: Monero's {@code CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5}
+	 * ({@code src/cryptonote_config.h:60}), taken as a hard limit; lethenon has no reward penalty
+	 * for a dynamic one to act on (#99)
+	 */
+	public static final int MAXIMUM_BLOCK_BYTES = 300_000;
 
 	/**
 	 * @throws IllegalArgumentException
@@ -51,6 +60,11 @@ public record BlockLimits(String chainIdentifier, long futureMillis)
 		{
 			throw new IllegalArgumentException(
 				"a future limit of " + futureMillis + " ms; it is 0 or more");
+		}
+		if (maximumBytes < 1)
+		{
+			throw new IllegalArgumentException(
+				"a block size limit of " + maximumBytes + " bytes; it is 1 or more");
 		}
 	}
 }

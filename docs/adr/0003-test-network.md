@@ -190,16 +190,16 @@ overwritten by the node's next write; mining on a node is `node --mine`.
 
 | Limit | Value | Basis |
 |---|---|---|
-| frame size | 4 MiB | below Monero's 50,000,000 bytes; the largest message here is `BLOCKS`, at most 20 blocks |
+| frame size | 4 MiB | below Monero's 50,000,000 bytes; the largest message here is `BLOCKS` |
 | outgoing connections | the configured peers, at most 12 | Monero's default of 12 |
 | incoming connections | at most 16 | own choice; refused above it |
 | handshake timeout | 5 s | Monero's 5000 ms |
 | answer timeout | 120 s | Monero's two-minute invoke timeout (`P2P_DEFAULT_INVOKE_TIMEOUT`, `src/cryptonote_config.h:149`): a peer that does not answer a `GET_CHAIN` or `GET_BLOCKS` in time is disconnected; one with nothing asked of it may stay quiet (#92) |
-| blocks per `GET_BLOCKS` | at most 20 | Monero's default |
+| blocks per `GET_BLOCKS` | at most 20, and an answer carries only as many as fit in one frame | Monero's default; the asker takes fewer and asks for the rest (#98) |
 | hashes per `CHAIN` | at most 500 | own choice |
 | pool size | at most 5,000 transfers | own choice; refused above it |
 | frames waiting for one peer | at most 1,024 | own choice; a peer that does not read them is disconnected (#82) |
-| transfers per mined block | at most 500 | keeps the largest block well inside a frame: an ML-DSA-65 transfer carries its signature and public key, a few kilobytes |
+| block size | at most 300,000 bytes, a consensus rule on the test chain | Monero's `CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5`, `src/cryptonote_config.h:60`, taken as a hard limit (#99). Measured: an Ed25519 transfer is 199 bytes, an ML-DSA-65 transfer 5,376, so a block holds about 55 ML-DSA-65 transfers. The former cap of 500 transfers per mined block made a block of 500 ML-DSA-65 transfers 2,692,122 bytes, and two of them no longer fit in a frame (#98) |
 
 A peer that sends a frame above the limit, an unknown message type, bytes that do not decode, or a
 block that does not verify is disconnected.
@@ -209,9 +209,10 @@ block that does not verify is disconnected.
 `lethenon node --chain <file> --listen <port> [--peer host:port ...] [--mine --wallet <file>] [--for <seconds>]`
 - It serves the chain file and relays.
 - With `--mine` it mines on its pool and pays the wallet. If the chain file is empty, it starts a
-  test chain, which is the same as `mine --testnet`. A block carries at most 500 waiting
-  transfers. Mining runs in rounds of 100,000 attempts; between rounds the node looks at its tip,
-  so a block from a peer stops work on a tip that is no longer the tip (#94).
+  test chain, which is the same as `mine --testnet`. A block carries the longest prefix of the
+  waiting transfers that fits the block size limit (#99). Mining runs in rounds of 100,000
+  attempts; between rounds the node looks at its tip, so a block from a peer stops work on a tip
+  that is no longer the tip (#94).
 - Without `--mine`, a node with an empty chain file takes the genesis block from the first
   configured peer that answers, then synchronises.
   - It reads the peer's HELLO, shakes hands on the genesis hash announced there, asks for block 0,
@@ -226,9 +227,13 @@ block that does not verify is disconnected.
 
 - The chain package stays unable to reach a network. Everything that talks lives in `transport`.
 - A wallet asks no node for its balance. There is no message to do so.
-- **No consensus limit on block size.** The node's miner caps the transfers per block, but a block
-  mined elsewhere that is larger than a frame cannot be received. A consensus limit would be a change
-  of the chain's rules and is left open.
+- **Block size is bounded on the test chain (#99).** A block larger than 300,000 bytes, as
+  `CanonicalEncoding.blockSize` counts it, does not verify. Monero has no fixed maximum; it uses a
+  block weight median and a reward penalty above its full reward zone of 300,000 bytes. lethenon
+  pays its reward from a pre-minted pool and has no penalty for a dynamic scheme to act on, so
+  Monero's baseline is taken as a hard limit. Mining carries the longest prefix of the waiting
+  transfers that fits, and `mine` keeps the rest waiting. The main chain has no limit in the
+  table yet.
 - **Future timestamps are bounded on the test chain (#96).** A block whose timestamp lies more than
   two hours after the verifying node's clock does not verify. This is Monero's
   `CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT 60*60*2` (`src/cryptonote_config.h:47`), checked against the

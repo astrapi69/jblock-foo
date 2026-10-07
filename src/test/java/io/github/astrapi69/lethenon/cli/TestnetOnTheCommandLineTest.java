@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -40,7 +41,16 @@ import org.junit.jupiter.api.io.TempDir;
 import io.github.astrapi69.lethenon.BlockBody;
 import io.github.astrapi69.lethenon.CanonicalEncoding;
 import io.github.astrapi69.lethenon.Chain;
+import io.github.astrapi69.lethenon.Amount;
+import io.github.astrapi69.lethenon.Bytes;
+import io.github.astrapi69.lethenon.ChainFile;
+import io.github.astrapi69.lethenon.Destination;
 import io.github.astrapi69.lethenon.Replay;
+import io.github.astrapi69.lethenon.SignatureSuite;
+import io.github.astrapi69.lethenon.SignedTransaction;
+import io.github.astrapi69.lethenon.Transfers;
+import io.github.astrapi69.lethenon.Wallet;
+import io.github.astrapi69.lethenon.WalletFile;
 
 /**
  * {@code mine --testnet} on the command line (lethenon#50): the flag chooses the test chain when the
@@ -118,5 +128,36 @@ class TestnetOnTheCommandLineTest extends AbstractCliTest
 		assertTrue(err.contains("'" + Chain.IDENTIFIER + "'"), err);
 		assertTrue(err.contains("'" + Chain.TEST_IDENTIFIER + "'"), err);
 		assertArrayEquals(before, Files.readAllBytes(chain));
+	}
+
+	@Test
+	@DisplayName("mine on the test chain carries what fits and keeps the rest waiting")
+	void mine_carriesWhatFits_andKeepsTheRestWaiting() throws Exception
+	{
+		assertEquals(0, run(password, "mine", "--testnet", "--chain", chain.toString(), "--wallet",
+			wallet), err);
+		Wallet opened = WalletFile.read(Path.of(wallet), password.toCharArray());
+		Bytes postQuantum = opened.spendKey(SignatureSuite.ML_DSA_65);
+		assertEquals(0, run(password, "send", "--chain", chain.toString(), "--wallet", wallet,
+			"--to", postQuantum.toString(), "--amount", "100"), err);
+		assertEquals(0, run(password, "mine", "--chain", chain.toString(), "--wallet", wallet),
+			err);
+		ChainFile file = new ChainFile(chain);
+		List<SignedTransaction> waiting = new ArrayList<>();
+		for (int index = 0; index < 60; index++)
+		{
+			waiting.add(Transfers.prepare(opened, SignatureSuite.ML_DSA_65, file.require(), waiting,
+				Destination.direct(Bytes.of(new byte[] { 7 })), Amount.ofLethe(1L), Amount.ZERO,
+				""));
+		}
+		file.writePending(waiting);
+
+		assertEquals(0, run(password, "mine", "--chain", chain.toString(), "--wallet", wallet),
+			err);
+
+		int carried = file.require().getLast().transactions().size();
+		assertTrue(carried > 0 && carried < 60, carried + " carried");
+		assertEquals(waiting.subList(carried, 60), file.readPending());
+		assertTrue(out.contains((60 - carried) + " did not fit"), out);
 	}
 }

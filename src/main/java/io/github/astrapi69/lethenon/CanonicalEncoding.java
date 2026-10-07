@@ -139,14 +139,46 @@ public final class CanonicalEncoding
 		writeLong(bytes, chain.size());
 		for (BlockBody block : chain)
 		{
-			writeBytes(bytes, Bytes.of(encode(block, Blocks.merkleRoot(block))));
-			writeLong(bytes, block.transactions().size());
-			for (SignedTransaction transaction : block.transactions())
-			{
-				writeBytes(bytes, Bytes.of(encode(transaction)));
-			}
+			writeBlock(bytes, block);
 		}
 		return bytes.toByteArray();
+	}
+
+	/**
+	 * The size of a block: the bytes it takes in {@link #encodeChain(List)}, its header, its
+	 * transfer count and every transfer; what the consensus block size limit counts (#99)
+	 *
+	 * @param block
+	 *            the block
+	 * @return its size in bytes
+	 */
+	public static int blockSize(final BlockBody block)
+	{
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+		writeBlock(bytes, block);
+		return bytes.size();
+	}
+
+	/**
+	 * The bytes one transfer adds to a block's size: its encoding and the length in front of it
+	 *
+	 * @param transaction
+	 *            the signed transfer
+	 * @return its size in a block
+	 */
+	public static int sizeInBlock(final SignedTransaction transaction)
+	{
+		return Integer.BYTES + encode(transaction).length;
+	}
+
+	private static void writeBlock(final ByteArrayOutputStream bytes, final BlockBody block)
+	{
+		writeBytes(bytes, Bytes.of(encode(block, Blocks.merkleRoot(block))));
+		writeLong(bytes, block.transactions().size());
+		for (SignedTransaction transaction : block.transactions())
+		{
+			writeBytes(bytes, Bytes.of(encode(transaction)));
+		}
 	}
 
 	/**
