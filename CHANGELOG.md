@@ -28,6 +28,16 @@ FIXED:
 
 ADDED:
 
+- Tor, step 1 of ADR 0004 (#114): `node --proxy host:port` and `sync --proxy host:port` send every
+  outgoing connection through a SOCKS5 proxy such as a Tor daemon, with the peer's host handed over
+  unresolved, so nothing about a peer reaches the local DNS. Peers learnt by peer exchange go the
+  same way, and so does the genesis bootstrap. Nothing is dialled around a proxy that is given. A
+  node with a proxy listens on 127.0.0.1 unless `--bind` says otherwise. v3 onion addresses (56
+  base32 characters and `.onion`) are recognised, other names ending in `.onion` are refused, and
+  an onion address without a proxy is refused before anything touches the network. In the library:
+  `Outbound`, `Node.dialingThrough`, `Node.listen(InetAddress, int)` and overloads of `Sync.once`,
+  `Handover.send` and `Bootstrap.genesisFrom` that take the route. Tested against a SOCKS5 server in
+  the test sources; a run against a real Tor is ahead (#112)
 - a sync that stops (#107): `Sync.once` and `lethenon sync --chain FILE --peer HOST:PORT` bring a
   chain file up to one node's tip, verify every block with the replay a node uses, write the file
   once and only when the chain grew, and stop. A failed sync - an unreachable peer, a refused

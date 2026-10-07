@@ -26,6 +26,7 @@ package io.github.astrapi69.lethenon.cli;
 
 import java.io.IOException;
 import java.io.PrintStream;
+import java.net.InetAddress;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,6 +45,7 @@ import io.github.astrapi69.lethenon.SignatureSuite;
 import io.github.astrapi69.lethenon.transport.Bootstrap;
 import io.github.astrapi69.lethenon.transport.Miner;
 import io.github.astrapi69.lethenon.transport.Node;
+import io.github.astrapi69.lethenon.transport.Outbound;
 import io.github.astrapi69.lethenon.transport.PeerAddress;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -67,6 +69,15 @@ class NodeCommand implements Callable<Integer>
 
 	@Option(names = "--peer", description = "host:port of a peer; repeat for more, at most 12")
 	List<String> peers = new ArrayList<>();
+
+	@Option(names = "--proxy", description = "host:port of a SOCKS5 proxy, for Tor usually "
+		+ "127.0.0.1:9050; every outgoing connection goes through it, and the node listens on "
+		+ "127.0.0.1 unless --bind says otherwise (ADR 0004)")
+	String proxy;
+
+	@Option(names = "--bind", description = "the local address to listen on; default: every "
+		+ "interface, or 127.0.0.1 with --proxy")
+	String bind;
 
 	@Option(names = "--no-discovery", description = "stay with the peers given by --peer and do "
 		+ "not connect to addresses learnt from them; the node still passes on what it knows")
@@ -115,20 +126,24 @@ class NodeCommand implements Callable<Integer>
 			throw new IllegalArgumentException("--mine pays a wallet: name it with --wallet");
 		}
 		List<PeerAddress> addresses = peers.stream().map(PeerAddress::parse).toList();
+		Outbound outbound = proxy == null ? Outbound.DIRECT
+			: Outbound.through(PeerAddress.parse(proxy));
 		Bytes beneficiary = mine ? ChainCommand
 			.openWallet(wallet, ChainCommand.firstLineOfStandardInput())
 			.spendKey(SignatureSuite.ED25519) : null;
 		ChainFile file = new ChainFile(chain);
 		if (file.read().isEmpty())
 		{
-			file.write(start(addresses, beneficiary, out));
+			file.write(start(addresses, beneficiary, outbound, out));
 		}
-		try (Node node = Node.serving(file).discoverPeers(!noDiscovery))
+		try (Node node = Node.serving(file).discoverPeers(!noDiscovery).dialingThrough(outbound))
 		{
-			int port = node.listen(listen);
+			int port = bind == null ? node.listen(listen)
+				: node.listen(InetAddress.getByName(bind), listen);
 			node.connectAll(addresses);
-			out.println("node on " + Chain.TEST_IDENTIFIER + ", listening on port " + port + ", "
-				+ addresses.size() + " peer(s) configured"
+			out.println("node on " + Chain.TEST_IDENTIFIER + ", listening on "
+				+ node.listeningOn().getHostAddress() + " port " + port + ", "
+				+ addresses.size() + " peer(s) configured, connecting " + outbound
 				+ (mine ? ", mining for " + ChainCommand.hex(beneficiary) : ""));
 			long minedBlocks = runUntilStopped(node, beneficiary);
 			out.println("stopped at height " + (node.chain().size() - 1) + ", mined " + minedBlocks
@@ -144,7 +159,7 @@ class NodeCommand implements Callable<Integer>
 	 * peer that answers
 	 */
 	private List<BlockBody> start(final List<PeerAddress> addresses, final Bytes beneficiary,
-		final PrintStream out) throws IOException
+		final Outbound outbound, final PrintStream out) throws IOException
 	{
 		Optional<BlockBody> anchored = ConsensusRules.LETHENON.anchorFor(Chain.TEST_IDENTIFIER);
 		if (anchored.isPresent())
@@ -170,7 +185,7 @@ class NodeCommand implements Callable<Integer>
 		{
 			try
 			{
-				List<BlockBody> genesis = Bootstrap.genesisFrom(address);
+				List<BlockBody> genesis = Bootstrap.genesisFrom(address, outbound);
 				out.println("took the genesis block from the peer at " + address);
 				return genesis;
 			}
