@@ -478,4 +478,23 @@ class RelayTest
 			}
 		}
 	}
+
+	@Test
+	@DisplayName("a block more than two hours ahead of the node's clock is refused")
+	void aBlockFromTheFuture_isRefused()
+	{
+		long now = System.currentTimeMillis();
+		List<BlockBody> recent = List.of(Blocks.mine(Mining.nextBlock(
+			genesis.getFirst().chainIdentifier(), List.of(), MINER, List.of(), "now", now),
+			1_000_000L).orElseThrow());
+		BlockBody ahead = Blocks.mine(Mining.nextBlock(recent, MINER, List.of(), "ahead",
+			now + 3L * 60L * 60L * 1_000L), 1_000_000L).orElseThrow();
+		try (Node node = Node.on(recent))
+		{
+			assertEquals(false, node.submitBlock(ahead));
+			assertEquals(recent, node.chain());
+			assertTrue(node.refusals().getLast().contains("in the future"),
+				node.refusals().toString());
+		}
+	}
 }

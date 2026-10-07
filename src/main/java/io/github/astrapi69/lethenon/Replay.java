@@ -25,6 +25,7 @@
 package io.github.astrapi69.lethenon;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Replays a chain from genesis and says what it checked.
@@ -67,19 +68,29 @@ public record Replay(long blocks, long transactions, long signatures, ChainState
 	}
 
 	/**
-	 * Replays a chain under a given consensus rule; the public entry runs
+	 * Replays a chain under a given consensus rule against this node's clock
+	 */
+	static Replay verify(final List<BlockBody> chain, final ConsensusRules rules)
+	{
+		return verify(chain, rules, System.currentTimeMillis());
+	}
+
+	/**
+	 * Replays a chain under a given consensus rule and a given clock; the public entry runs
 	 * {@link ConsensusRules#LETHENON}, and this one exists so that the rule can be shown to bite
 	 * with a table that admits less
 	 *
 	 * @param chain
 	 *            the blocks, genesis first
 	 * @param rules
-	 *            which schemes the chain admits at which height
+	 *            which schemes the chain admits at which height, and its block limits
+	 * @param now
+	 *            this node's clock, milliseconds since the epoch
 	 * @return what was verified
 	 * @throws ChainRejected
 	 *             with the reason, at the first thing that does not hold
 	 */
-	static Replay verify(final List<BlockBody> chain, final ConsensusRules rules)
+	static Replay verify(final List<BlockBody> chain, final ConsensusRules rules, final long now)
 	{
 		if (chain.isEmpty())
 		{
@@ -106,6 +117,7 @@ public record Replay(long blocks, long transactions, long signatures, ChainState
 				+ " names " + block.previousHash() + " as the previous hash, and the block before "
 				+ "it hashes to " + previousHash);
 			requireRules(chain.subList(0, height), block);
+			requireLimits(rules.limitsFor(genesis.chainIdentifier()), block, now);
 			requireThat(Blocks.isMined(block), "block " + height + " is not mined: its hash carries "
 				+ Blocks.leadingZeroBits(Blocks.hashOf(block).toByteArray())
 				+ " leading zero bits and its difficulty asks for " + block.difficulty());
@@ -137,6 +149,24 @@ public record Replay(long blocks, long transactions, long signatures, ChainState
 				+ block.timestamp() + ", which is not after the median "
 				+ DifficultyRule.medianTimePast(before) + " of the timestamps before it");
 		}
+	}
+
+	/**
+	 * The block limits of the chain, if it has any: a timestamp at most the future limit after
+	 * this node's clock (#96). The clock only moves on, so a chain that met this once meets it
+	 * from then on.
+	 */
+	private static void requireLimits(final Optional<BlockLimits> limits, final BlockBody block,
+		final long now)
+	{
+		if (limits.isEmpty())
+		{
+			return;
+		}
+		long latest = now + limits.get().futureMillis();
+		requireThat(block.timestamp() <= latest, "block " + block.height() + " has timestamp "
+			+ block.timestamp() + ", " + (block.timestamp() - now) + " ms in the future, and the "
+			+ "chain allows " + limits.get().futureMillis() + " ms after this node's clock");
 	}
 
 	private static void requireThat(final boolean held, final String reason)

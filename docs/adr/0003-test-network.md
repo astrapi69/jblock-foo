@@ -229,9 +229,14 @@ block that does not verify is disconnected.
 - **No consensus limit on block size.** The node's miner caps the transfers per block, but a block
   mined elsewhere that is larger than a frame cannot be received. A consensus limit would be a change
   of the chain's rules and is left open.
-- **No limit on future timestamps.** The replay checks timestamps only against the median of the
-  blocks before, so a miner can put a block's time in the future and influence the difficulty.
-  Bounding that is a consensus change as well and is left open.
+- **Future timestamps are bounded on the test chain (#96).** A block whose timestamp lies more than
+  two hours after the verifying node's clock does not verify. This is Monero's
+  `CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT 60*60*2` (`src/cryptonote_config.h:47`), checked against the
+  local clock as Monero does in `Blockchain::check_block_timestamp`
+  (`src/cryptonote_core/blockchain.cpp:3813`), at the same two-minute target block time. The
+  rule lives in `ConsensusRules` as the chain's `BlockLimits` and is checked by `Replay`. The
+  clock only moves on, so a chain that verified once keeps verifying. The main chain has no
+  limits in the table yet; they are switched on with the decision that starts it.
 - **A reorganisation is at most one `CHAIN` answer deep.** A heavier fork whose advantage only
   shows after more than 500 blocks is not followed, and two nodes on such forks stay apart. On a
   test chain that is a choice; it is not one for a chain with value (#88).
