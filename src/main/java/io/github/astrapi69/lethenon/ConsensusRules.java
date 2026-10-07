@@ -53,9 +53,12 @@ public final class ConsensusRules
 		SchemeActivation.from(Chain.TEST_IDENTIFIER, SignatureSuite.ML_DSA_65, 0L),
 		SchemeActivation.from(Chain.TEST_IDENTIFIER, AddressScheme.DIRECT, 0L),
 		SchemeActivation.from(Chain.TEST_IDENTIFIER, AddressScheme.STEALTH_V2, 0L),
-		SchemeActivation.from(Chain.TEST_IDENTIFIER, AmountScheme.PLAIN, 0L)));
+		SchemeActivation.from(Chain.TEST_IDENTIFIER, AmountScheme.PLAIN, 0L)),
+		List.of(new BlockLimits(Chain.TEST_IDENTIFIER, BlockLimits.TWO_HOURS)));
 
 	private final List<SchemeActivation> activations;
+
+	private final List<BlockLimits> limits;
 
 	/**
 	 * A rule made of the given lines
@@ -68,6 +71,32 @@ public final class ConsensusRules
 	 */
 	public ConsensusRules(final List<SchemeActivation> activations)
 	{
+		this(activations, List.of());
+	}
+
+	/**
+	 * A rule made of the given lines and per-chain block limits; a chain without limits gets none
+	 * of them, which is where the main chain stands until the decision that starts it (#96)
+	 *
+	 * @param activations
+	 *            at most one line per chain and scheme
+	 * @param limits
+	 *            at most one set of block limits per chain
+	 * @throws IllegalArgumentException
+	 *             when a chain and scheme, or a chain's limits, appear twice
+	 */
+	public ConsensusRules(final List<SchemeActivation> activations, final List<BlockLimits> limits)
+	{
+		Set<String> chains = new HashSet<>();
+		for (BlockLimits each : limits)
+		{
+			if (!chains.add(each.chainIdentifier()))
+			{
+				throw new IllegalArgumentException(
+					"chain '" + each.chainIdentifier() + "' has block limits twice");
+			}
+		}
+		this.limits = List.copyOf(limits);
 		Set<String> seen = new HashSet<>();
 		for (SchemeActivation activation : activations)
 		{
@@ -80,6 +109,19 @@ public final class ConsensusRules
 			}
 		}
 		this.activations = List.copyOf(activations);
+	}
+
+	/**
+	 * The block limits of a chain
+	 *
+	 * @param chainIdentifier
+	 *            the chain
+	 * @return its limits, empty for a chain that has none
+	 */
+	public Optional<BlockLimits> limitsFor(final String chainIdentifier)
+	{
+		return limits.stream().filter(each -> each.chainIdentifier().equals(chainIdentifier))
+			.findFirst();
 	}
 
 	/**

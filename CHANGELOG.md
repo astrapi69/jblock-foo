@@ -21,6 +21,11 @@ FIXED:
 
 ADDED:
 
+- a consensus bound on timestamps in the future, the first prerequisite for a main chain (#96):
+  on `lethenon-test-1` a block whose timestamp lies more than two hours after the verifying
+  node's clock does not verify, Monero's `CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT`. The limit sits in
+  `ConsensusRules` as the chain's `BlockLimits`; the main chain has none until the decision that
+  starts it
 - a network for the test chain, seventh building block (#76, #94, ADR 0003): `lethenon node
   --chain <file> --listen <port> [--peer host:port ...] [--mine --wallet <file>] [--for <seconds>]`.
   It serves the chain file, relays and synchronises; with `--mine` it mines on its pool, at most
