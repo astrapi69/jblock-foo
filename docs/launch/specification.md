@@ -8,8 +8,9 @@ brings the whole of Title II with it (Regulation (EU) 2023/1114, Article 4(8); s
 [regulatory-overview.md](regulatory-overview.md)). It describes how the software works. It is not
 an offer and says nothing about value.
 
-It describes `develop` as of 2026-10-08 - lethenon 0.3.0 and the 0.4.0 cycle - and points to the
-code, the tests and the decision records instead of copying them. Where this text and the code
+It describes `develop` as of 2026-10-08 - lethenon 0.3.0 and the 0.4.0 cycle, with the consensus
+break of 0.4.0 that the integration branch `consensus/lethenon-2` collects (#138) - and points to
+the code, the tests and the decision records instead of copying them. Where this text and the code
 differ, the code is right, and this text is the one to fix.
 
 ## 1. What lethenon is
@@ -27,21 +28,23 @@ issues [#1](https://github.com/astrapi69/lethenon/issues/1) (reasoning) and
 | | | where |
 |---|---|---|
 | unit | 1 LETH = 10^8 lethe; all arithmetic in integer lethe | `Amount` |
-| supply | 1,984,000,000 LETH, held at the start in the mining pool | `Emission.TOTAL_SUPPLY`, `Emission.MINING_POOL` |
-| block reward | 1,984 LETH out of the pool, for every block including the genesis block | `Emission.BLOCK_REWARD`, `GenesisAllocationTest` |
+| genesis supply | 1,984,000,000 LETH, held at the start in the mining pool | `Emission.GENESIS_SUPPLY`, `Emission.MINING_POOL` |
+| block reward | a millionth of the pool, for every block including the genesis block: 1,984 LETH first, then declining; half the pool is paid out after about 2.6 years | `Emission.EMISSION_DIVISOR`, `Emission.rewardFor`, `EmissionTest` |
+| tail | never less than 66 LETH a block; where the pool's share is smaller, the difference is minted, from block 3,403,214, after about 12.9 years. 0.8748 % of the genesis supply a year, against Monero's 0.8702 % at the start of its tail (#133) | `Emission.TAIL_REWARD`, `EmissionSchedule`, `TailEmissionTest` |
 | pre-allocation | none: nobody holds anything before the first block is mined (#111) | `GenesisAllocationTest` |
-| invariant | the balances add up to the supply after every block | `ChainState`, `ReplayTest` |
+| invariant | the balances add up to the genesis supply plus what was minted, after every block | `ChainState.supply`, `ChainState.minted`, `TailEmissionTest` |
 
-The emission changes in the next consensus break: a reward that declines with the pool, with a
-tail of 66 LETH per block (#133). It is built on the integration branch `consensus/lethenon-2` and
-released together with the new chain identifiers (section 8); until then this table is the rule.
+The supply is not fixed: the tail adds at most 66 LETH a block, so a 64-bit integer of lethe lasts at
+least 5,200 years (`Amount`). The calculation, with its script, is in #133. Years here are 365.25
+days of two-minute blocks, 262,980 blocks.
 
 ## 3. Accounts and transfers
 
 An account model with a nonce per account, not UTXO: one signature per transfer instead of one per
 input, which is what makes post-quantum signatures affordable (README, "The planned shape"). A
 transfer names its chain, its nonce, its sender, its recipient, its amount, its fee and a memo, and
-the memo is signed with it (`TransactionBody`, `Transfers`). Fees go into the pool. Waiting
+the memo is signed with it (`TransactionBody`, `Transfers`). Fees go into the pool, so a fee reaches
+the miners of the following blocks a share at a time, and in the tail lowers what is minted. Waiting
 transfers are kept in a bounded pool of at most 5,000 (`TransactionPool.LIMIT`).
 
 ## 4. Signatures
@@ -89,7 +92,8 @@ One table per chain (`ConsensusRules`): which scheme is admitted from which heig
 ADR 0001 and [ADR 0002](../adr/0002-privacy-building-blocks.md)), the block limits - at most
 300,000 bytes per block and timestamps at most two hours ahead of the verifying node's clock, on both
 chains from height 0 (`BlockLimits`, #96, #99, #109) - and at most one genesis block fixed in the
-code per chain (`GenesisAnchor`, #104). New cryptography enters only under the rules of
+code per chain (`GenesisAnchor`, #104) - and the emission schedule, the same on both chains
+(`EmissionSchedule`, section 2). New cryptography enters only under the rules of
 [ADR 0001](../adr/0001-new-cryptographic-constructions.md): a peer-reviewed publication with its
 proof, the authors' test vectors, the test chain first, the main chain after an external review.
 Evidence: `ConsensusRulesTest`, `BlockSizeTest`, `FutureTimestampTest`, `GenesisAnchorTest`.
@@ -98,10 +102,10 @@ Evidence: `ConsensusRulesTest`, `BlockSizeTest`, `FutureTimestampTest`, `Genesis
 
 Two chains, the main chain and the test chain, and the identifier is inside every block and every
 signed transfer, so nothing signed for one is accepted on the other (`Chain`, `ChainIdentifierTest`,
-#50). On `develop` they are `lethenon-1` and `lethenon-test-1`. In the next consensus break they
-become `lethenon-2` and `lethenon-test-2`, and a chain under the old identifiers is refused with the
-reason that it was started before the rules of 0.3.0 (#137, already on `consensus/lethenon-2`). The
-main chain gets its genesis block fixed in the code in the same break.
+#50). They are `lethenon-2` and `lethenon-test-2`, and a chain under the identifiers before them,
+`lethenon-1` or `lethenon-test-1`, is refused with the reason that it was started under the rules
+before 0.4.0 (#137). The main chain gets its genesis block fixed in the code in the same break, as
+the last change onto the integration branch.
 
 ## 9. Encoding and files
 

@@ -41,12 +41,15 @@ Three changes ship together, in one release, and none of them alone. They are co
 integration branch `consensus/lethenon-2` (#138), which carries develop's required checks.
 
 - [ ] **New chain identifiers** `lethenon-2` and `lethenon-test-2`. A chain under `lethenon-1` or
-  `lethenon-test-1` is refused, with a message that it was started before the rules of 0.3.0
-  (#137; built in #140, on the integration branch).
+  `lethenon-test-1` is refused, with a message that it was started under the rules before 0.4.0
+  (#137; built in #140, on the integration branch; the message moved from 0.3.0 to 0.4.0 once the
+  tail joined the same break).
 - [ ] **The emission curve** of #133, variant (c): the reward is the pool divided by 1,000,000,
-  never less than a tail of 66 LETH per block. The tail starts at block 3,403,214, about 12.95
-  years after the genesis block, and adds 17,344,800 LETH a year, 0.874 % of the supply at that
-  point (the figures and the script that computed them are in #133).
+  never less than a tail of 66 LETH per block. The tail starts at block 3,403,214, about 12.94
+  years after the genesis block (365.25-day years, 262,980 blocks), and from then on pays 17,356,680
+  LETH a year, 0.8748 % of the genesis supply. Of that, only the part the pool's share no longer
+  covers is minted: about 2.1 million LETH in the tail's first year, approaching the full amount as
+  the pool empties (the figures and the script that computed them are in #133).
 - [ ] **The main chain's genesis block, fixed in the code** (`GenesisAnchor`, the mechanism of
   #104): its beneficiary and its message decided by the maintainer, the block mined with the
   integration build, then filed - the last pull request onto the integration branch.
