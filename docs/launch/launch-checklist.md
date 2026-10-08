@@ -1,0 +1,110 @@
+Not legal advice. Last reviewed 2026-10-08. Check with a lawyer before a public launch.
+
+# Lethenon: launch checklist
+
+What has to be true before the main chain starts in public. Part 1 lists what EU law (MiCA)
+requires an authorisation for and what it does not, each line with the provision it rests on; the
+reasoning, the AML rules and the non-EU regulators are in
+[regulatory-overview.md](regulatory-overview.md). Part 2 is what the code and the project still need.
+Part 3 is the tax advisor. The list is re-checked before the start (#144).
+
+## 1. What needs an authorisation, and what does not
+
+As the provisions read; where a line combines provisions into a reading of its own, it says so.
+"Authorisation" means authorisation as a crypto-asset service provider (CASP) under Article 59 of
+Regulation (EU) 2023/1114 (MiCA).
+
+| Activity | Under MiCA | Provision | What changes it |
+|---|---|---|---|
+| Publishing the source code and the library, under the MIT licence | not one of the activities MiCA applies to: issuance, offer to the public, admission to trading, crypto-asset services | Article 2(1), Article 3(1)(16) | - |
+| Running the open test network, its faucet included | the same; nothing is sold or asked for the test chain's coins, and nothing signed for the test chain is accepted on the main chain ([ADR 0003](../adr/0003-test-network.md), `ChainIdentifierTest`) | Article 2(1) | a faucet that asks for personal data, see the last row |
+| Mining LETH on the main chain, and miners passing on what they mined | Title II (legal person, white paper, notification) does not apply to an offer of a crypto-asset "automatically created as a reward for the maintenance of the distributed ledger or the validation of transactions" | Article 4(3)(b), recital 26 | the offeror, or someone on its behalf, makes known an intention to seek admission to trading (Article 4(4)); the crypto-asset is admitted to trading (recital 26); a white paper is drawn up voluntarily (Article 4(8)) |
+| Running seed nodes, relaying blocks and transfers | a transfer service "should not include the validators, nodes or miners that might be part of confirming a transaction and updating the state of the underlying distributed ledger" | recital 93, Article 3(1)(26) | - |
+| Publishing the wallet, whose keys are made and kept on the user's own machine (`WalletFile`, `SeedPhrase`) | custody is "the safekeeping or controlling, on behalf of clients" of crypto-assets or of the means of access to them; the wallet holds nothing on anybody's behalf. This is a reading of the definition, to be confirmed with a lawyer | Article 3(1)(16)(a), Article 3(1)(17) | the project starts to hold keys, seeds or LETH for users |
+| Custody of LETH for others, or transferring it on their behalf | crypto-asset services, but the authorisation is not required for crypto-assets whose offers are exempt under Article 4(3), unless another offer of the same crypto-asset is not exempt or it is admitted to a trading platform | Article 3(1)(16)(a) and (j), Article 4(5) | admission to a trading platform, which a platform's operator can also bring about on its own initiative (Article 5(2)), outside the project's control. lethenon offers neither service; anti-money-laundering rules are in [regulatory-overview.md](regulatory-overview.md) |
+| Exchanging LETH for money or for other crypto-assets as a business; operating a trading platform; executing, receiving or transmitting orders; placing; advice; portfolio management | crypto-asset services; authorisation required, which needs a legal person with its registered office in a Member State, its place of effective management in the Union and at least one director resident in the Union | Article 3(1)(15) and (16)(b) to (i), Article 59(1) and (2) | Article 4(5) does not cover these services |
+| Seeking admission of LETH to trading, or announcing the intention to | admission needs a legal person and a white paper; announcing the intention ends the exemption of the mining row | Article 5(1), Article 4(4) | - |
+| Publishing a "white paper" about lethenon | the whole of Title II then applies, even to an exempt offer; the technical description is therefore [specification.md](specification.md) | Article 4(8) | - |
+| Offering any of the services above to people in the EU through a company outside the EU | the authorisation covers services "within the Union"; the one exception, a service at the client's "own exclusive initiative", is lost by any solicitation in the Union "regardless of the means of communication", and a disclaimer does not restore it | Article 59(1), Article 61(1) | see [regulatory-overview.md](regulatory-overview.md) |
+| Handing out LETH in exchange for an e-mail address, a sign-up or any other personal data | not "offered for free" in the sense of the free-offer exemption; the data protection rules apply to the data | Article 4(3), second subparagraph | - |
+
+The README's [What it is not](../../README.md#what-it-is-not) - no sale, no listing, no promotion -
+is the state the rows above describe as needing no authorisation. A public main chain changes its
+first sentence ("Lethenon stays private"); the rest of the section is what the conditions in the
+right-hand column are about.
+
+## 2. Before the main chain starts
+
+### One consensus break, one release (#137)
+
+Three changes ship together, in one release, and none of them alone. They are collected on the
+integration branch `consensus/lethenon-2` (#138), which carries develop's required checks.
+
+- [ ] **New chain identifiers** `lethenon-2` and `lethenon-test-2`. A chain under `lethenon-1` or
+  `lethenon-test-1` is refused, with a message that it was started before the rules of 0.3.0
+  (#137; built in #140, on the integration branch).
+- [ ] **The emission curve** of #133, variant (c): the reward is the pool divided by 1,000,000,
+  never less than a tail of 66 LETH per block. The tail starts at block 3,403,214, about 12.95
+  years after the genesis block, and adds 17,344,800 LETH a year, 0.874 % of the supply at that
+  point (the figures and the script that computed them are in #133).
+- [ ] **The main chain's genesis block, fixed in the code** (`GenesisAnchor`, the mechanism of
+  #104): its beneficiary and its message decided by the maintainer, the block mined with the
+  integration build, then filed - the last pull request onto the integration branch.
+- [ ] **Into develop**, right before the release: one pull request from the integration branch,
+  with the full gate and the compatibility measurement against 0.1.0, 0.2.0 and 0.3.0 (#137).
+
+### The network
+
+- [ ] **A node on the main chain.** Today a node runs only on the test chain, and "the main chain
+  gets a network only by a later decision" ([ADR 0003](../adr/0003-test-network.md), "Only the test
+  chain"). The same ADR puts Tor before it; Tor as a transport is built
+  ([ADR 0004](../adr/0004-tor-transport.md), [docs/tor.md](../tor.md)).
+- [ ] **The depth of a reorganisation.** A node follows a heavier fork only within one `CHAIN`
+  answer, 500 blocks; ADR 0003 calls that a choice on a test chain and "not one for a chain with
+  value" ("Consequences", #88). Decided - lifted or kept, with the reason - before the start.
+- [ ] **Open network bugs that touch seed nodes**: #128 (a configured peer is dialled once; P2),
+  #126 and #129 (P3).
+- [ ] **Seed nodes** as [infrastructure.md](infrastructure.md) describes them: at least two, at
+  different providers, sized by measurement, with an onion service each.
+
+### The documents
+
+- [ ] The five documents of `docs/launch/` re-checked against their sources, each with a new
+  "Last reviewed" date (#144).
+- [ ] A lawyer has read them, above all this checklist and
+  [regulatory-overview.md](regulatory-overview.md).
+- [ ] Every public statement follows [messaging-guide.md](messaging-guide.md).
+
+## 3. A tax advisor before the start
+
+- [ ] A tax advisor in the maintainer's country of residence has been asked, before the start and
+  not after the first block, about at least:
+  - the genesis block's reward, which goes to a beneficiary the maintainer chooses, and any LETH
+    the maintainer mines afterwards: when, if at all, it counts as income, and at what value while
+    it has no market;
+  - giving LETH away, and receiving donations for the project;
+  - the costs of the seed nodes and the website ([infrastructure.md](infrastructure.md)): whether
+    they can be set against anything;
+  - whether any of it is better done by a company, and in which country.
+
+This list asks questions. It answers none of them.
+
+## Sources
+
+Retrieved 2026-10-08.
+
+- Regulation (EU) 2023/1114 on markets in crypto-assets (MiCA): Article 2(1); Article 3(1)(15),
+  (16), (17) and (26); Article 4(3), (4), (5) and (8); Article 5(1) and (2); Article 59(1) and (2);
+  Article 61(1); recitals 26 and 93. <https://eur-lex.europa.eu/eli/reg/2023/1114/oj>
+- In the repository: [ADR 0003](../adr/0003-test-network.md),
+  [ADR 0004](../adr/0004-tor-transport.md), the README, and the issues
+  [#88](https://github.com/astrapi69/lethenon/issues/88),
+  [#104](https://github.com/astrapi69/lethenon/issues/104),
+  [#126](https://github.com/astrapi69/lethenon/issues/126),
+  [#128](https://github.com/astrapi69/lethenon/issues/128),
+  [#129](https://github.com/astrapi69/lethenon/issues/129),
+  [#133](https://github.com/astrapi69/lethenon/issues/133),
+  [#137](https://github.com/astrapi69/lethenon/issues/137),
+  [#138](https://github.com/astrapi69/lethenon/issues/138),
+  [#140](https://github.com/astrapi69/lethenon/pull/140),
+  [#144](https://github.com/astrapi69/lethenon/issues/144).
