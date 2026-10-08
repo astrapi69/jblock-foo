@@ -1,8 +1,36 @@
 ## Change log
 ----------------------
 
-Version 0.3.0 (unreleased)
+Version 0.3.0
 -------------
+
+FORMAT:
+
+- Chains (#111): lethenon 0.3.0 reads the chain files of 0.1.0 and 0.2.0 - the encoding is the
+  same, and every block replays - but under the new genesis rule, so with different balances.
+  Measured on chains each version wrote with its own command line - two blocks mined, then an
+  Ed25519 transfer, a payment to a published address, a transfer from an ML-DSA-65 account, a sweep
+  of the one-time payment, and two more blocks - on the main chain and on the test chain:
+  - a chain on which the genesis holder spent no more than its block rewards keeps opening, and
+    0.3.0 mines on it; the genesis holder holds 9,808 LETH where 0.1.0 and 0.2.0 compute
+    992,007,824 LETH, and every other account holds the same in all three versions (the recipient
+    15 LETH);
+  - a chain with a transfer of 1,000,000 LETH from the genesis holder is refused as a whole, its
+    balances and mining alike: "a transfer of 1000000.00000000 from an account holding
+    3856.00000000". Start a new chain with `mine`.
+- **In the other direction, 0.1.0 and 0.2.0 read a chain 0.3.0 wrote without an error, and compute
+  the genesis holder's balance the old way** - 992,007,824 LETH where 0.3.0 says 9,808. An older
+  version can therefore sign and mine a transfer from the genesis holder that 0.3.0 refuses. Do not
+  use 0.1.0 or 0.2.0 on a chain of 0.3.0.
+- Test chains: 0.1.0 refuses them at the genesis block, as before ("block 0 belongs to chain
+  'lethenon-test-1'"); between 0.2.0 and 0.3.0 they behave as the main chain above.
+- Main chains with a block larger than 300,000 bytes, which 0.2.0 could mine, are refused by
+  0.3.0 (#109, below).
+- Waiting transfers: a transfer `send` left waiting next to a chain is mined by the other version -
+  measured from 0.2.0 to 0.3.0, from 0.3.0 to 0.2.0 and from 0.1.0 to 0.3.0.
+- Wallets: unchanged since 0.2.0. 0.3.0 opens the wallets of 0.1.0 (`MCRYPT`) and 0.2.0
+  (`LETHWF`), 0.2.0 opens those of 0.3.0, and 0.1.0 opens neither 0.2.0's nor 0.3.0's.
+- The network is new in 0.3.0; 0.1.0 and 0.2.0 have no node.
 
 CHANGED:
 
@@ -26,6 +54,40 @@ CHANGED:
   bytes, which lethenon 0.2.0 could mine: 56 or more ML-DSA-65 transfers, or 1,515 or more
   Ed25519 transfers, in one block paying an Ed25519 miner. Mining on the main chain now carries the
   longest prefix of the waiting transfers that fits, and the rest keeps waiting
+- for a caller of the library, `CanonicalEncoding.readChain`, `readSignedTransaction` and
+  `readTransaction` refuse bytes that end early with an `IllegalArgumentException` that gives the
+  reason ("the bytes end before the structure they encode does", "a field announces 182 bytes and
+  96 are left"), where 0.2.0 let a `BufferUnderflowException` out of the buffer, without a message.
+  A caller that caught `BufferUnderflowException` catches `IllegalArgumentException` now. The
+  consumer check of this release found one: mystic-crypt-ui's lethenon plugin (#80,
+  mystic-crypt-ui#532)
+- ADR 0001, three rules for what the privacy block may take in: code under a licence compatible
+  with MIT, Apache-2.0 included when a NOTICE file carries its notices; copyleft code only as a
+  separate program across a process boundary; code without a licence never; and no scheme with a
+  known patent valid in the EU, or an unclear patent position, before the maintainer has clarified
+  it (#58, #65)
+- ADR 0002, how a scheme written in C is integrated: every scheme in pure Java, the authors' C code
+  only in the tests, through the Foreign Function and Memory API, as the reference for difference
+  tests, beside forgery tests and PIT on the verification logic; parameters only from the paper or
+  the reference code (#65)
+- `docs/research/pq-privacy-literature.md`, the phase A literature on hiding sender and amount, now
+  also checked against the full texts of six general results on Fiat-Shamir in the quantum random
+  oracle model. No candidate's proof-model level changes: none of them reaches a quantum random
+  oracle proof through a general result (#54, #70)
+- ADR 0001 rule 8: ML-KEM and ML-DSA only with the parameters of their standard, from the JDK or
+  Bouncy Castle, on the basis of NIST's licence summary; modified parameters and predecessor
+  versions such as Kyber round 3 are excluded, and Jintai Ding's 2022 statement on US 9,246,675 is
+  recorded as a known, unresolved residual risk (#72)
+- a post-quantum hidden recipient is postponed: the one-time destinations stay Ed25519 with an
+  X25519 view key. Maram and Xagawa's QROM anonymity result is for Kyber round 3, not ML-KEM, and
+  gives no one-time ML-DSA key only the recipient can spend; SPIRIT, which does, is proven in the
+  classical random oracle model only, changes Dilithium's parameters and has code without a
+  licence. Recorded in the README and in section 15 of the literature (#72)
+- hidden amounts are postponed and the account model stays: no published amount scheme meets ADR 0001
+  and fits an account model, and a combination of our own over LNP22/LaZer is not built without a
+  cryptographer's security argument. README, ADR 0002 and section 16 of the literature now say what
+  lethenon is: post-quantum in its authenticity, classical in its hidden recipient, open about
+  sender and amount (#74)
 
 FIXED:
 
@@ -190,35 +252,14 @@ ADDED:
   plain amounts from height 0; no behaviour changes. No scheme that hides sender or amount exists
   yet (#60)
 
-CHANGED:
+KNOWN AND NOT FIXED:
 
-- ADR 0001, three rules for what the privacy block may take in: code under a licence compatible
-  with MIT, Apache-2.0 included when a NOTICE file carries its notices; copyleft code only as a
-  separate program across a process boundary; code without a licence never; and no scheme with a
-  known patent valid in the EU, or an unclear patent position, before the maintainer has clarified
-  it (#58, #65)
-- ADR 0002, how a scheme written in C is integrated: every scheme in pure Java, the authors' C code
-  only in the tests, through the Foreign Function and Memory API, as the reference for difference
-  tests, beside forgery tests and PIT on the verification logic; parameters only from the paper or
-  the reference code (#65)
-- `docs/research/pq-privacy-literature.md`, the phase A literature on hiding sender and amount, now
-  also checked against the full texts of six general results on Fiat-Shamir in the quantum random
-  oracle model. No candidate's proof-model level changes: none of them reaches a quantum random
-  oracle proof through a general result (#54, #70)
-- ADR 0001 rule 8: ML-KEM and ML-DSA only with the parameters of their standard, from the JDK or
-  Bouncy Castle, on the basis of NIST's licence summary; modified parameters and predecessor
-  versions such as Kyber round 3 are excluded, and Jintai Ding's 2022 statement on US 9,246,675 is
-  recorded as a known, unresolved residual risk (#72)
-- a post-quantum hidden recipient is postponed: the one-time destinations stay Ed25519 with an
-  X25519 view key. Maram and Xagawa's QROM anonymity result is for Kyber round 3, not ML-KEM, and
-  gives no one-time ML-DSA key only the recipient can spend; SPIRIT, which does, is proven in the
-  classical random oracle model only, changes Dilithium's parameters and has code without a
-  licence. Recorded in the README and in section 15 of the literature (#72)
-- hidden amounts are postponed and the account model stays: no published amount scheme meets ADR 0001
-  and fits an account model, and a combination of our own over LNP22/LaZer is not built without a
-  cryptographer's security argument. README, ADR 0002 and section 16 of the literature now say what
-  lethenon is: post-quantum in its authenticity, classical in its hidden recipient, open about
-  sender and amount (#74)
+- a configured peer is dialled once: a node whose one dial fails - through Tor that happens, the
+  first run measured one first circuit in eight that Tor gave up on - stays without that peer until
+  it is started again, and with `--no-discovery` that may be all its peers (#128)
+- a node stopped with Ctrl-C or SIGTERM prints neither its stop line nor its refusals; with `--for`
+  it does (#129)
+- discovery forgets an address when only the node's own connection limit refused the dial (#126)
 
 Version 0.2.0
 -------------
