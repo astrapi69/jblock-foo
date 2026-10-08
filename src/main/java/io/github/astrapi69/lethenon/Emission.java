@@ -27,10 +27,11 @@ package io.github.astrapi69.lethenon;
 /**
  * The fixed numbers of the chain, as constants rather than as prose in an issue.
  * <p>
- * Nothing mints. Half of the supply is allocated at genesis, the other half is the mining pool, and
- * a block reward is a transfer out of that pool - which is why the supply stays fixed and why the
- * sum of every balance equals {@link #TOTAL_SUPPLY} at every height. When the pool is empty, after
- * exactly {@link #BLOCKS_WITH_A_REWARD} blocks, mining is paid by fees alone.
+ * Nothing mints. The genesis block puts the whole supply into the mining pool, and every block
+ * reward, the genesis block's own included, is a transfer out of that pool - which is why the supply
+ * stays fixed and why the sum of every balance equals {@link #TOTAL_SUPPLY} at every height. Nobody
+ * holds anything before a block is mined (#111). When the pool is empty, after exactly
+ * {@link #BLOCKS_WITH_A_REWARD} blocks, mining is paid by fees alone.
  */
 public final class Emission
 {
@@ -38,8 +39,8 @@ public final class Emission
 	/** 1,984,000,000 LETH. The year is the protest; the magnitude keeps balances readable */
 	public static final Amount TOTAL_SUPPLY = Amount.ofLeth(1_984_000_000L);
 
-	/** Half the supply, allocated at genesis to the pool the block reward is paid from */
-	public static final Amount MINING_POOL = Amount.ofLeth(992_000_000L);
+	/** The whole supply, allocated at genesis to the pool the block reward is paid from */
+	public static final Amount MINING_POOL = TOTAL_SUPPLY;
 
 	/** What a block pays its miner, out of {@link #MINING_POOL} */
 	public static final Amount BLOCK_REWARD = Amount.ofLeth(1_984L);

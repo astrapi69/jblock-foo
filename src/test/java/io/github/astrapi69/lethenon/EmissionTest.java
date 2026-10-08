@@ -46,14 +46,15 @@ class EmissionTest
 	}
 
 	@Test
-	@DisplayName("half of it is the mining pool, and the reward divides it exactly")
-	void thePool_isHalfTheSupply_andLastsExactlyFiveHundredThousandBlocks()
+	@DisplayName("all of it is the mining pool, and the reward divides it exactly")
+	void thePool_isTheWholeSupply_andLastsExactlyOneMillionBlocks()
 	{
-		assertEquals(Emission.TOTAL_SUPPLY.lethe(), Emission.MINING_POOL.lethe() * 2,
-			"the other half is the genesis allocation; together they are the whole supply");
-		assertEquals(500_000L, Emission.BLOCKS_WITH_A_REWARD,
-			"1,984 LETH per block out of 992,000,000 LETH is exactly 500,000 blocks - about 1.9 "
-				+ "years at two minute blocks, and then fees only");
+		assertEquals(Emission.TOTAL_SUPPLY, Emission.MINING_POOL,
+			"no share is allocated before the first block is mined (#111)");
+		assertEquals(1_000_000L, Emission.BLOCKS_WITH_A_REWARD,
+			"1,984 LETH per block out of 1,984,000,000 LETH is exactly 1,000,000 blocks, the "
+				+ "genesis block the first of them - about 3.8 years at two minute blocks, and "
+				+ "then fees only");
 		assertEquals(0L, Emission.MINING_POOL.lethe() % Emission.BLOCK_REWARD.lethe(),
 			"the pool divides without a remainder, so the last block pays the same as the first "
 				+ "and nothing is left stranded in the pool");

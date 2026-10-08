@@ -125,18 +125,19 @@ class ReplayTest
 
 		assertEquals(Emission.BLOCK_REWARD.plus(Emission.BLOCK_REWARD),
 			replay.finalState().balanceOf(minerKey()), "two blocks after genesis, two rewards");
-		assertEquals(Emission.MINING_POOL.minus(Emission.BLOCK_REWARD).minus(Emission.BLOCK_REWARD),
-			replay.finalState().balanceOf(ChainState.POOL));
+		assertEquals(Emission.MINING_POOL.minus(Emission.BLOCK_REWARD).minus(Emission.BLOCK_REWARD)
+			.minus(Emission.BLOCK_REWARD), replay.finalState().balanceOf(ChainState.POOL),
+			"three blocks, the genesis block included, three rewards out of the pool");
 	}
 
 	@Test
-	@DisplayName("the genesis block names who holds the half of the supply outside the pool")
+	@DisplayName("the genesis block names who is paid its block reward")
 	void theGenesisBlock_namesItsHolder()
 	{
 		Replay replay = Replay.verify(aChain(new ArrayList<>()));
 
-		assertEquals(Emission.TOTAL_SUPPLY.minus(Emission.MINING_POOL),
-			replay.finalState().balanceOf(holderKey()));
+		assertEquals(Emission.BLOCK_REWARD, replay.finalState().balanceOf(holderKey()),
+			"the genesis block pays the ordinary reward, and no share of the supply (#111)");
 	}
 
 	@Test

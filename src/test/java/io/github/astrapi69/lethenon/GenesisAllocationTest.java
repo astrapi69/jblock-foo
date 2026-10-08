@@ -1,0 +1,92 @@
+/*
+ * The MIT License
+ *
+ * Copyright (C) 2015 Asterios Raptis
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+ * LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+ * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+package io.github.astrapi69.lethenon;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+/**
+ * What the genesis block allocates, on both chains alike (#111): the whole supply goes into the
+ * mining pool, and the genesis block is paid the ordinary block reward out of it, like every other
+ * block. Nobody holds anything before the first block is mined.
+ */
+class GenesisAllocationTest
+{
+
+	private static final Bytes HOLDER = Bytes.of("genesis beneficiary".getBytes());
+
+	private static final Bytes MINER = Bytes.of("miner".getBytes());
+
+	private static List<BlockBody> chain(final String chainIdentifier, final int blocksAfterGenesis)
+	{
+		List<BlockBody> chain = new ArrayList<>();
+		chain.add(Blocks.mine(new BlockBody(chainIdentifier, 0L, Bytes.of(new byte[32]), HOLDER,
+			new ArrayList<>(), 1_759_000_000_000L, 8, "in the beginning was the pun"), 1_000_000L)
+			.orElseThrow());
+		for (int height = 1; height <= blocksAfterGenesis; height++)
+		{
+			BlockBody previous = chain.getLast();
+			chain.add(Blocks.mine(new BlockBody(chainIdentifier, height, Blocks.hashOf(previous),
+				MINER, List.of(), 1_759_000_000_000L + 60_000L * height, 8, "block " + height),
+				1_000_000L).orElseThrow());
+		}
+		return chain;
+	}
+
+	@ParameterizedTest(name = "on {0}")
+	@ValueSource(strings = { Chain.IDENTIFIER, Chain.TEST_IDENTIFIER })
+	void theGenesisBlock_isPaidTheOrdinaryReward_andNothingElse(final String chainIdentifier)
+	{
+		ChainState state = Replay.verify(chain(chainIdentifier, 0)).finalState();
+
+		assertEquals(Emission.BLOCK_REWARD, state.balanceOf(HOLDER),
+			"the genesis block's beneficiary holds one block reward, not a share of the supply");
+		assertEquals(Emission.TOTAL_SUPPLY.minus(Emission.BLOCK_REWARD),
+			state.balanceOf(ChainState.POOL),
+			"everything else is in the pool the rewards are paid from");
+		assertEquals(Emission.TOTAL_SUPPLY, state.total(),
+			"the sum of every balance is the supply, from the genesis block on");
+	}
+
+	@ParameterizedTest(name = "on {0}")
+	@ValueSource(strings = { Chain.IDENTIFIER, Chain.TEST_IDENTIFIER })
+	void everyBlock_includingTheGenesisBlock_takesOneRewardOutOfThePool(
+		final String chainIdentifier)
+	{
+		ChainState state = Replay.verify(chain(chainIdentifier, 2)).finalState();
+
+		assertEquals(Emission.BLOCK_REWARD, state.balanceOf(HOLDER));
+		assertEquals(Emission.BLOCK_REWARD.plus(Emission.BLOCK_REWARD), state.balanceOf(MINER));
+		assertEquals(Emission.TOTAL_SUPPLY.minus(Emission.BLOCK_REWARD)
+			.minus(Emission.BLOCK_REWARD).minus(Emission.BLOCK_REWARD),
+			state.balanceOf(ChainState.POOL), "three blocks, three rewards, nothing minted");
+		assertEquals(Emission.TOTAL_SUPPLY, state.total());
+	}
+}

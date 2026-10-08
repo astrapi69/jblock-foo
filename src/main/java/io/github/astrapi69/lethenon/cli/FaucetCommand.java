@@ -38,7 +38,8 @@ import picocli.CommandLine.Command;
  * Hands out a fixed amount from the genesis holder's account (lethenon#2, decision 7).
  * <p>
  * Not a mint and no rule of the chain: the chain sees an ordinary signed transfer from the account
- * the genesis block allocated to. Only that wallet can run it.
+ * the genesis block paid. Only that wallet can run it, and it pays out of what that account holds:
+ * the genesis block's one block reward, and whatever the account has mined since (#111).
  */
 @Command(name = "faucet", description = "Send " + FaucetCommand.AMOUNT_TEXT + " LETH from the "
 	+ "genesis holder's wallet to an account. The password is the first line of standard input.")

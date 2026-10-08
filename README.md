@@ -134,7 +134,8 @@ and that is deliberate.
 | Supply | **1,984,000,000 LETH**, fixed. 1984 is the protest in the amount itself |
 | Base unit | the **lethe**; 10^8 lethe = 1 LETH |
 | Why that magnitude | the supply is 1.984 x 10^17 base units against a 64-bit signed integer's 9.22 x 10^18 - a factor of 46 of headroom, so integer arithmetic suffices and no `BigInteger` is needed |
-| Mining reward | **1,984 LETH per block, from a pre-minted pool** of 992,000,000 - exactly 500,000 blocks, about 1.9 years at two-minute blocks, then fees only |
+| Mining reward | **1,984 LETH per block, from a pre-minted pool** holding the whole supply - exactly 1,000,000 blocks, about 3.8 years at two-minute blocks, then fees only |
+| Genesis | **no pre-allocation.** The genesis block is paid one block reward out of the pool, like every other block, on both chains ([#111](https://github.com/astrapi69/lethenon/issues/111)). Nobody holds anything before the first block is mined |
 | Inflation | none. The reward is distributed, never minted: the sum of all balances equals the supply after every block, and that is an assertion, not a promise |
 
 ## Privacy, and its honest label
