@@ -101,7 +101,7 @@ class AmountTest
 	@DisplayName("the whole supply fits into a long with room to spare")
 	void theSupply_fitsWithHeadroom()
 	{
-		long supply = Emission.TOTAL_SUPPLY.lethe();
+		long supply = Emission.GENESIS_SUPPLY.lethe();
 
 		assertTrue(supply < Long.MAX_VALUE / 40,
 			"every sum over all accounts stays far below an overflow - measured headroom is what "

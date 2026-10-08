@@ -25,33 +25,58 @@
 package io.github.astrapi69.lethenon;
 
 /**
- * The fixed numbers of the chain, as constants rather than as prose in an issue.
+ * The numbers of the chain's money, as constants rather than as prose in an issue.
  * <p>
- * Nothing mints. The genesis block puts the whole supply into the mining pool, and every block
- * reward, the genesis block's own included, is a transfer out of that pool - which is why the supply
- * stays fixed and why the sum of every balance equals {@link #TOTAL_SUPPLY} at every height. Nobody
- * holds anything before a block is mined (#111). When the pool is empty, after exactly
- * {@link #BLOCKS_WITH_A_REWARD} blocks, mining is paid by fees alone.
+ * The genesis block puts {@link #GENESIS_SUPPLY} into the mining pool, and every block reward, the
+ * genesis block's own included, comes out of that pool first (#111). A block pays one
+ * {@link #EMISSION_DIVISOR}-th of the pool, so the first reward is exactly 1,984 LETH and the
+ * reward declines from there. It never falls below {@link #TAIL_REWARD}: once the pool's share is
+ * smaller, the difference is minted, the tail emission after Monero's (#133). So the supply is
+ * {@link #GENESIS_SUPPLY} plus what has been minted, and the sum of every balance equals exactly
+ * that at every height. The tail starts at block 3,403,214, after about 12.9 years; the
+ * calculation is in #133.
  */
 public final class Emission
 {
 
-	/** 1,984,000,000 LETH. The year is the protest; the magnitude keeps balances readable */
-	public static final Amount TOTAL_SUPPLY = Amount.ofLeth(1_984_000_000L);
+	/**
+	 * 1,984,000,000 LETH, the supply the genesis block puts into the pool. The year is the protest;
+	 * the magnitude keeps balances readable. The tail emission adds to it
+	 */
+	public static final Amount GENESIS_SUPPLY = Amount.ofLeth(1_984_000_000L);
 
-	/** The whole supply, allocated at genesis to the pool the block reward is paid from */
-	public static final Amount MINING_POOL = TOTAL_SUPPLY;
+	/** The whole genesis supply, allocated at genesis to the pool the block reward is paid from */
+	public static final Amount MINING_POOL = GENESIS_SUPPLY;
 
-	/** What a block pays its miner, out of {@link #MINING_POOL} */
-	public static final Amount BLOCK_REWARD = Amount.ofLeth(1_984L);
+	/** A block pays this fraction of the pool: the first reward is exactly 1,984 LETH */
+	public static final long EMISSION_DIVISOR = 1_000_000L;
 
 	/**
-	 * How many blocks carry a reward: the pool divided by the reward, without a remainder, so the
-	 * last paid block pays the same as the first and nothing is stranded in the pool
+	 * The least a block pays. 66 LETH a block is 0.8748 % of the genesis supply a year at
+	 * two-minute blocks, against Monero's 0.8702 % at the start of its tail (#133)
 	 */
-	public static final long BLOCKS_WITH_A_REWARD = MINING_POOL.lethe() / BLOCK_REWARD.lethe();
+	public static final Amount TAIL_REWARD = Amount.ofLeth(66L);
+
+	/** The schedule both chains run */
+	public static final EmissionSchedule SCHEDULE = new EmissionSchedule(EMISSION_DIVISOR,
+		TAIL_REWARD);
+
+	/** What the genesis block pays, the largest reward there is: 1,984 LETH */
+	public static final Amount FIRST_REWARD = rewardFor(MINING_POOL).total();
 
 	private Emission()
 	{
+	}
+
+	/**
+	 * What a block pays under {@link #SCHEDULE}
+	 *
+	 * @param pool
+	 *            the pool before the reward
+	 * @return the reward
+	 */
+	public static BlockReward rewardFor(final Amount pool)
+	{
+		return SCHEDULE.rewardFor(pool);
 	}
 }

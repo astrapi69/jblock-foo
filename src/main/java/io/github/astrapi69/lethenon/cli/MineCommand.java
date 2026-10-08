@@ -54,8 +54,8 @@ import picocli.CommandLine.Option;
  * {@link DifficultyRule} (lethenon#24), which the replay checks.
  */
 @Command(name = "mine", description = "Mine the next block with every waiting transfer, paying "
-	+ "this wallet. With no chain yet, mine the genesis block: this wallet then holds the half of "
-	+ "the supply outside the mining pool.")
+	+ "this wallet. With no chain yet, mine the genesis block, which pays this wallet the first "
+	+ "block reward.")
 class MineCommand extends ChainCommand
 {
 

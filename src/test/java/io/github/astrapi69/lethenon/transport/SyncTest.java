@@ -219,7 +219,7 @@ class SyncTest
 	}
 
 	@Test
-	@DisplayName("a test chain file from before the rules of 0.3.0 is refused before anything is sent, and the reason says so")
+	@DisplayName("a test chain file from before the rules of 0.4.0 is refused before anything is sent, and the reason says so")
 	void aTestChainFileUnderTheRetiredIdentifier_isRefused() throws IOException
 	{
 		BlockBody retired = Blocks.mine(new BlockBody("lethenon-test-1", 0L,
@@ -234,7 +234,7 @@ class SyncTest
 				() -> Sync.once(file, address, WITHIN));
 
 			assertTrue(refused.getMessage().contains("'lethenon-test-1'"), refused.getMessage());
-			assertTrue(refused.getMessage().contains("started before the rules of lethenon 0.3.0"),
+			assertTrue(refused.getMessage().contains("started under the rules before lethenon 0.4.0"),
 				refused.getMessage());
 			assertTrue(refused.getMessage().contains("'" + Chain.TEST_IDENTIFIER + "'"),
 				refused.getMessage());

@@ -33,9 +33,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * What the genesis block allocates, on both chains alike (#111): the whole supply goes into the
- * mining pool, and the genesis block is paid the ordinary block reward out of it, like every other
- * block. Nobody holds anything before the first block is mined.
+ * What the genesis block allocates, on both chains alike (#111): the whole genesis supply goes into
+ * the mining pool, and the genesis block is paid the ordinary block reward out of it, like every
+ * other block. Nobody holds anything before the first block is mined.
  */
 class GenesisAllocationTest
 {
@@ -43,6 +43,10 @@ class GenesisAllocationTest
 	private static final Bytes HOLDER = Bytes.of("genesis beneficiary".getBytes());
 
 	private static final Bytes MINER = Bytes.of("miner".getBytes());
+
+	/** The rule both chains run, without the main chain's genesis anchor, so a chain can start here */
+	private static final ConsensusRules RULES = new ConsensusRules(
+		ConsensusRules.LETHENON.activations(), List.of(), List.of(), Emission.SCHEDULE);
 
 	private static List<BlockBody> chain(final String chainIdentifier, final int blocksAfterGenesis)
 	{
@@ -64,29 +68,37 @@ class GenesisAllocationTest
 	@ValueSource(strings = { Chain.IDENTIFIER, Chain.TEST_IDENTIFIER })
 	void theGenesisBlock_isPaidTheOrdinaryReward_andNothingElse(final String chainIdentifier)
 	{
-		ChainState state = Replay.verify(chain(chainIdentifier, 0)).finalState();
+		ChainState state = Replay.verify(chain(chainIdentifier, 0), RULES).finalState();
 
-		assertEquals(Emission.BLOCK_REWARD, state.balanceOf(HOLDER),
+		assertEquals(Emission.FIRST_REWARD, state.balanceOf(HOLDER),
 			"the genesis block's beneficiary holds one block reward, not a share of the supply");
-		assertEquals(Emission.TOTAL_SUPPLY.minus(Emission.BLOCK_REWARD),
+		assertEquals(Emission.GENESIS_SUPPLY.minus(Emission.FIRST_REWARD),
 			state.balanceOf(ChainState.POOL),
 			"everything else is in the pool the rewards are paid from");
-		assertEquals(Emission.TOTAL_SUPPLY, state.total(),
+		assertEquals(Emission.GENESIS_SUPPLY, state.total(),
 			"the sum of every balance is the supply, from the genesis block on");
 	}
 
 	@ParameterizedTest(name = "on {0}")
 	@ValueSource(strings = { Chain.IDENTIFIER, Chain.TEST_IDENTIFIER })
-	void everyBlock_includingTheGenesisBlock_takesOneRewardOutOfThePool(
-		final String chainIdentifier)
+	void everyBlock_includingTheGenesisBlock_takesAMillionthOfThePool(final String chainIdentifier)
 	{
-		ChainState state = Replay.verify(chain(chainIdentifier, 2)).finalState();
+		ChainState state = Replay.verify(chain(chainIdentifier, 2), RULES).finalState();
 
-		assertEquals(Emission.BLOCK_REWARD, state.balanceOf(HOLDER));
-		assertEquals(Emission.BLOCK_REWARD.plus(Emission.BLOCK_REWARD), state.balanceOf(MINER));
-		assertEquals(Emission.TOTAL_SUPPLY.minus(Emission.BLOCK_REWARD)
-			.minus(Emission.BLOCK_REWARD).minus(Emission.BLOCK_REWARD),
-			state.balanceOf(ChainState.POOL), "three blocks, three rewards, nothing minted");
-		assertEquals(Emission.TOTAL_SUPPLY, state.total());
+		Amount pool = Emission.MINING_POOL;
+		Amount first = Emission.rewardFor(pool).total();
+		pool = pool.minus(first);
+		Amount second = Emission.rewardFor(pool).total();
+		pool = pool.minus(second);
+		Amount third = Emission.rewardFor(pool).total();
+		pool = pool.minus(third);
+		assertEquals(Amount.ofLeth(1_984L), first);
+		assertEquals(Amount.ofLethe(198_399_801_600L), second, "a millionth of what was left");
+		assertEquals(first, state.balanceOf(HOLDER));
+		assertEquals(second.plus(third), state.balanceOf(MINER));
+		assertEquals(pool, state.balanceOf(ChainState.POOL),
+			"three blocks, three rewards out of the pool");
+		assertEquals(Amount.ZERO, state.minted(), "nothing is minted before the tail");
+		assertEquals(Emission.GENESIS_SUPPLY, state.total());
 	}
 }

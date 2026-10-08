@@ -34,8 +34,10 @@ import java.util.Objects;
  * throws where the plain operator would wrap around and turn a balance into its opposite, and an
  * amount is never negative - a transfer that cannot be paid is refused rather than owed.
  * <p>
- * The whole supply is 1.984 x 10^17 lethe against a long's 9.22 x 10^18, a factor of 46 of
- * headroom, which is what makes a 64 bit integer enough and {@code BigInteger} unnecessary.
+ * The genesis supply is 1.984 x 10^17 lethe against a long's 9.22 x 10^18, a factor of 46 of
+ * headroom, which is what makes a 64 bit integer enough and {@code BigInteger} unnecessary. The
+ * tail emission adds at most 66 LETH a block (#133), so the headroom lasts at least 5,200 years,
+ * and an overflow throws rather than wraps.
  */
 public final class Amount implements Comparable<Amount>
 {

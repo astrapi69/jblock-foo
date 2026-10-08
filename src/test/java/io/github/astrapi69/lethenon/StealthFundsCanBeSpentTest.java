@@ -106,7 +106,7 @@ class StealthFundsCanBeSpentTest
 		assertEquals(Amount.ofLeth(2L), replay.finalState().balanceOf(elsewhere),
 			"the money left the one-time destination, which is what #21 says it could not");
 		assertEquals(Amount.ofLeth(3L), replay.finalState().balanceOf(destination.key()));
-		assertEquals(Emission.TOTAL_SUPPLY, replay.finalState().total());
+		assertEquals(Emission.GENESIS_SUPPLY, replay.finalState().total());
 	}
 
 	@Test

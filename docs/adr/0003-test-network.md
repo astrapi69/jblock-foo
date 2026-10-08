@@ -68,7 +68,7 @@ Read from the Monero sources, commit f6a591c (2026-10-04), `git clone --depth 1 
 A node runs only on `lethenon-test-2`.
 - It refuses a chain file whose genesis block names `lethenon-2`.
 - It refuses a chain file under `lethenon-test-1` or `lethenon-1` with the reason that the chain was
-  started before the rules of 0.3.0 (#137).
+  started under the rules before 0.4.0 (#137).
 - It creates no main chain.
 - Its handshake refuses any peer that names another chain or another genesis block.
 
@@ -327,7 +327,8 @@ Tor comes before it.
 - **Block size is bounded on the test chain (#99).** A block larger than 300,000 bytes, as
   `CanonicalEncoding.blockSize` counts it, does not verify. Monero has no fixed maximum; it uses a
   block weight median and a reward penalty above its full reward zone of 300,000 bytes. lethenon
-  pays its reward from a pre-minted pool and has no penalty for a dynamic scheme to act on, so
+  pays its reward from a pre-minted pool, with a tail emission after it (#133), and has no penalty
+  for a dynamic scheme to act on, so
   Monero's baseline is taken as a hard limit. Mining carries the longest prefix of the waiting
   transfers that fits, and `mine` keeps the rest waiting. The main chain has the same limit since
   #109.

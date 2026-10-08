@@ -162,6 +162,6 @@ class OneTimeAddressesTest
 		assertEquals(Amount.ofLeth(3L), replay.finalState().balanceOf(destination.key()),
 			"the money sits at the one-time destination, which only the recipient can connect to "
 				+ "its published address");
-		assertEquals(Emission.TOTAL_SUPPLY, replay.finalState().total());
+		assertEquals(Emission.GENESIS_SUPPLY, replay.finalState().total());
 	}
 }
