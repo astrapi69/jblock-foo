@@ -29,7 +29,7 @@ buy the coin, there is no pool and no listing, and a tradeable joke is a financi
 real losers.
 
 ```groovy
-implementation "io.github.astrapi69:lethenon:0.2.0"
+implementation "io.github.astrapi69:lethenon:0.3.0"
 ```
 
 Milestone 5, the desktop plugin, lives in
