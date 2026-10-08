@@ -28,8 +28,9 @@ three hours, with a transfer every two minutes.
 
 ### How it was measured
 
-- **The software**: the lethenon 0.3.0 command line, built from the published jar from Maven Central
-  (`build/install/lethenon/bin/lethenon`).
+- **The software**: the lethenon 0.3.0 command line: `installDist` of the tag `RELEASE-0.3.0`, with
+  its `lethenon-0.3.0.jar` replaced by the one published on Maven Central (SHA-1
+  `09f2b96a6884f3d96209fb0e8470d6edbc8fb483`, the same as Central's `.sha1` file), run on JDK 25.
 - **The network**: two nodes in a network namespace of their own (`unshare -rn`), so that the
   loopback counters of `/proc/net/dev` count nothing but their traffic. A miner (`node --mine`) stands
   in for the network's miners; the seed node (`node --peer`) takes its chain from it and mines nothing.
@@ -40,13 +41,15 @@ three hours, with a transfer every two minutes.
 - **Two runs side by side**: one with the JVM's default heap, one with the seed node held to a 64 MB
   heap (`-Xmx64m -XX:+UseSerialGC`, collections logged). The first shows what a node takes when it is
   offered a lot, the second what it needs.
-- **The machine**: an x86-64 desktop with 16 hardware threads and 29 GB of memory. The figures are
-  per process, not for the machine; an ARM server is measured again on the instance (section 3).
+- **The machine**: a cloud container, x86-64, 4 hardware threads (Intel Xeon at 2.10 GHz), 16 GB of
+  memory, Ubuntu 24.04. Both runs shared it. The figures are per process, not for the machine; an ARM
+  server is measured again on the instance (section 3).
 
 The script, the chain reader and the evaluation are in
-[seed-node-measurement/](seed-node-measurement/). The two runs used the script as it is there, with
-the paths still written into it; its paths became arguments before it was committed and it was run
-once more in that form (150 seconds).
+[seed-node-measurement/](seed-node-measurement/), and both runs used the script exactly as it is
+there. A first pair of runs on a desktop was not evaluated here, and a second pair in this container
+stopped after 426 seconds when the container was restarted; the figures below are from a third pair,
+started 2026-10-08 18:26 UTC.
 
 ```
 unshare -rn bash measure-seed-node.sh <lethenon launcher> <output directory> 10800        # default heap
