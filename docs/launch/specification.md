@@ -104,8 +104,14 @@ Two chains, the main chain and the test chain, and the identifier is inside ever
 signed transfer, so nothing signed for one is accepted on the other (`Chain`, `ChainIdentifierTest`,
 #50). They are `lethenon-2` and `lethenon-test-2`, and a chain under the identifiers before them,
 `lethenon-1` or `lethenon-test-1`, is refused with the reason that it was started under the rules
-before 0.4.0 (#137). The main chain gets its genesis block fixed in the code in the same break, as
-the last change onto the integration branch.
+before 0.4.0 (#137).
+
+The main chain starts with its genesis block fixed in the code: hash
+`009cffa549366d12a7f223be0e90821b7155f215a57ee3b6eed9d1e98cd04e1f`, mined on 2026-10-08, paying its
+reward to `Genesis.NOBODY` - words, not a key, so no signature can ever spend it
+([ADR 0005](../adr/0005-main-chain-genesis.md), `MainChainGenesisTest`). `mine` on a new main chain
+writes that block; the test chain has no anchor, and a test chain is started by whoever runs
+`mine --testnet`.
 
 ## 9. Encoding and files
 
@@ -113,8 +119,8 @@ One canonical encoder for blocks (version 2) and transfers (version 1), with a r
 test (`CanonicalEncoding`, `CanonicalEncodingTest`). A decoder that is handed bytes from a file or a
 peer checks every announced length against what is left before allocating (#80,
 `UntrustedBytesTest`). A chain lives in one file and its waiting transfers next to it in
-`<chain>.pending` (`ChainFile`, `ChainFileTest`). A fixture written by an earlier process is replayed
-from its bytes alone, and a corrupted one refused (`ChainFixtureTest`).
+`<chain>.pending` (`ChainFile`, `ChainFileTest`). A fixture written by an earlier process, on the
+test chain, is replayed from its bytes alone, and a corrupted one refused (`ChainFixtureTest`).
 
 ## 10. Replay
 
@@ -153,5 +159,4 @@ shows them in use.
 
 Amount confidentiality and sender ambiguity, and a post-quantum hidden recipient: looked at and
 postponed for want of a construction that meets ADR 0001 (README, "Privacy, and its honest label";
-`docs/research/pq-privacy-literature.md`, sections 15 and 16). A network for the main chain, and the
-main chain's genesis block (section 8).
+`docs/research/pq-privacy-literature.md`, sections 15 and 16). A network for the main chain.

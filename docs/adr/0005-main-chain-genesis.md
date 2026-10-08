@@ -1,11 +1,12 @@
 # ADR 0005: The genesis block of the main chain
 
-- Status: accepted
+- Status: proposed
 - Date: 2026-10-08
 - The allocation (#111), the emission with its tail (#133) and the new identifiers (#137) were
-  decided by the maintainer; the content of the block below was chosen within that release, by the
-  reasons recorded here, without a further question to the maintainer. It can be replaced without
-  cost until a release carries it, and never after
+  decided by the maintainer. The block's beneficiary and its message are the maintainer's to decide
+  (`docs/launch/launch-checklist.md`, "The main chain's genesis block"); this record proposes both,
+  with the reasons, and becomes accepted with the maintainer's decision in #137. The block can be
+  replaced without cost until a release carries it, and never after
 
 ## Context
 

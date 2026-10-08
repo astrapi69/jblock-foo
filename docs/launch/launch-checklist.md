@@ -52,7 +52,9 @@ integration branch `consensus/lethenon-2` (#138), which carries develop's requir
   the pool empties (the figures and the script that computed them are in #133).
 - [ ] **The main chain's genesis block, fixed in the code** (`GenesisAnchor`, the mechanism of
   #104): its beneficiary and its message decided by the maintainer, the block mined with the
-  integration build, then filed - the last pull request onto the integration branch.
+  integration build, then filed - the last pull request onto the integration branch. Proposed in
+  ADR 0005: the beneficiary "nobody", words that no signature can spend, and the pun "in the
+  beginning was the pun"; the decision is asked in #137.
 - [ ] **Into develop**, right before the release: one pull request from the integration branch,
   with the full gate and the compatibility measurement against 0.1.0, 0.2.0 and 0.3.0 (#137).
 
