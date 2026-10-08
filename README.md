@@ -77,8 +77,10 @@ The test chain has a network ([ADR 0003](docs/adr/0003-test-network.md)): TCP, p
 command line and the addresses they pass on (#102), and Tor as a transport
 ([ADR 0004](docs/adr/0004-tor-transport.md)): a SOCKS5 proxy for every outgoing connection, an
 anonymity zone for a node's own transfers, and an onion service for its zone peers. The Tor
-transport is tested against a SOCKS5 server in the test sources and has not yet been run against
-a real Tor; [docs/tor.md](docs/tor.md) is the runbook for that first run. A node runs only on `lethenon-test-1` and refuses a main
+transport is tested against a SOCKS5 server in the test sources and has run against a real Tor,
+0.4.9.11, by the runbook [docs/tor.md](docs/tor.md): two nodes reached each other only through
+onion services, and an own transfer travelled only through the zone (recorded in #112). A node
+runs only on `lethenon-test-1` and refuses a main
 chain. There is no message that asks a node for a balance; a wallet still computes its own from
 a chain file.
 
@@ -153,7 +155,7 @@ payments with the view private key alone; `Wallet.oneTimeKey` blinds the spend k
 that moves such a payment, which is the additive construction Monero uses, built in mystic-crypt
 rather than here (#21); and `NoBalanceQueryTest` keeps the whole chain package unable to name a
 networking type, so the property holds for every run rather than for one captured one. The Tor
-transport is built and not yet run against a real Tor ([docs/tor.md](docs/tor.md), #112).
+transport has run against a real Tor ([docs/tor.md](docs/tor.md), #112).
 
 **Not built, and postponed:** amount confidentiality and sender ambiguity. The sender is a public
 key in the clear and the amount a plain number in every transaction. Both need constructions that

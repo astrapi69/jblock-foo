@@ -76,7 +76,8 @@ ADDED:
 - `docs/tor.md`, the runbook for the first run of the Tor transport against a real Tor: one Tor
   daemon, two onion services per node (the zone's, and one for the chain, since the zone carries
   none), an onion node that mines and a second node in its zone, an own transfer that travels only
-  through the zone, and what to record. It has not been run yet; the README says so (#124)
+  through the zone, and what to record. It ran against Tor 0.4.9.11 on 2026-10-08, recorded in
+  #112, and found #127 on the way (#124, #112)
 - Tor, step 3 of ADR 0004 (#120): `node --anonymous-inbound <onion>:<port>,127.0.0.1:<port>[,max]`
   listens on loopback for the node's onion service, where Tor's `HiddenServicePort` forwards, and
   every peer accepted there belongs to the anonymity zone; it needs `--tx-proxy`. HELLO protocol
