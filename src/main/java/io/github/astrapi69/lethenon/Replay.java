@@ -199,6 +199,7 @@ public record Replay(long blocks, long transactions, long signatures, ChainState
 	{
 		return "replayed " + blocks + " blocks, applied " + transactions + " transfers, checked "
 			+ signatures + " signatures; the sum of all balances is " + finalState.total()
-			+ " LETH, which is the supply";
+			+ " LETH, which is the supply: " + Emission.GENESIS_SUPPLY + " at genesis plus "
+			+ finalState.minted() + " minted";
 	}
 }

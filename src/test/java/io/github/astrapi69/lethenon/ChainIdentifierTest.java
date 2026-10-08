@@ -203,7 +203,7 @@ class ChainIdentifierTest
 		Replay replay = Replay.verify(minedOnto(chain, List.of(transfer)));
 
 		assertEquals(Chain.TEST_IDENTIFIER, replay.finalState().chainIdentifier());
-		assertEquals(Amount.ofLeth(3L).plus(Emission.BLOCK_REWARD),
+		assertEquals(Amount.ofLeth(3L).plus(TestChains.rewardOfBlock(1)),
 			replay.finalState().balanceOf(MINER));
 	}
 

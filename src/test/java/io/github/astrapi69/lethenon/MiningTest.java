@@ -101,7 +101,7 @@ class MiningTest
 			1_000_000L).orElseThrow());
 
 		Replay replay = Replay.verify(chain);
-		assertEquals(Amount.ofLeth(3L).plus(Emission.BLOCK_REWARD),
+		assertEquals(Amount.ofLeth(3L).plus(TestChains.rewardOfBlock(1)),
 			replay.finalState().balanceOf(MINER));
 	}
 

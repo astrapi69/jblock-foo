@@ -70,12 +70,12 @@ class ChainFixtureTest
 
 		assertEquals(List.of(holder, miner), chain.stream().map(BlockBody::beneficiary).toList(),
 			"the chain itself names who it paid - the key files only say whom to expect");
-		assertEquals(Emission.BLOCK_REWARD.minus(Amount.ofLeth(42L))
+		assertEquals(Emission.FIRST_REWARD.minus(Amount.ofLeth(42L))
 			.minus(Amount.ofLethe(100L)), replay.finalState().balanceOf(holder));
 		assertEquals(2L, replay.blocks());
 		assertEquals(1L, replay.transactions());
-		assertEquals(Emission.TOTAL_SUPPLY, replay.finalState().total());
-		assertEquals(Amount.ofLeth(42L).plus(Emission.BLOCK_REWARD),
+		assertEquals(Emission.GENESIS_SUPPLY, replay.finalState().total());
+		assertEquals(Amount.ofLeth(42L).plus(TestChains.rewardOfBlock(1)),
 			replay.finalState().balanceOf(miner),
 			"the miner holds what was transferred to it plus one block reward");
 	}

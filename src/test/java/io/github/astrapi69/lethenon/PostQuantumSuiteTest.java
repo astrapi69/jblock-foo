@@ -156,7 +156,7 @@ class PostQuantumSuiteTest
 
 		assertEquals(2L, replay.transactions());
 		assertEquals(2L, replay.signatures());
-		assertEquals(Emission.TOTAL_SUPPLY, replay.finalState().total());
+		assertEquals(Emission.GENESIS_SUPPLY, replay.finalState().total());
 		assertEquals(Amount.ofLeth(6L), replay.finalState().balanceOf(quantumKey),
 			"ten in, four out again");
 	}

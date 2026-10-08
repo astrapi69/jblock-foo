@@ -17,8 +17,9 @@ Issues [#1](https://github.com/astrapi69/lethenon/issues/1) (the reasoning) and
 [#2](https://github.com/astrapi69/lethenon/issues/2) (the cut, the numbers, the milestones) carry
 every decision. In short: account model, proof of pun, Ed25519 by default with ML-DSA-65 selectable
 per transaction and the suite named inside the signed bytes, one canonical encoder, one-time
-addresses in the format from the start, 1,984,000,000 LETH fixed with the block reward paid out of
-a pre-minted pool.
+addresses in the format from the start, 1,984,000,000 LETH at genesis, all of it in a pool the
+declining block reward is paid out of, and a tail emission of 66 LETH a block once the pool's share
+falls below it (#111, #133).
 
 **It stays private.** Nobody can buy it: no pool, no listing, no promotion. A tradeable joke is a
 financial product with real losers, and in the EU it falls under MiCA.
@@ -27,7 +28,8 @@ financial product with real losers, and in the EU it falls under MiCA.
 
 - tests first, and a counter-run that proves the test bites: break the thing on purpose, watch the
   right test fail, revert
-- integers only for money, `Math.addExact`, and the supply invariant after every block
+- integers only for money, `Math.addExact`, and the supply invariant after every block: the sum of
+  every balance is the genesis supply plus what the tail has minted
 - every number in a commit message or an issue carries the command that measured it
 - data minimisation is a rule, not a setting: no account, no identity check, no telemetry, and a
   balance is computed from the chain rather than requested from anybody (`NoBalanceQueryTest`

@@ -112,8 +112,9 @@ class ReplayTest
 		assertEquals(3L, replay.blocks());
 		assertEquals(1L, replay.transactions());
 		assertEquals(1L, replay.signatures());
-		assertEquals(Emission.TOTAL_SUPPLY, replay.finalState().total(),
-			"the sum of every balance is the supply, at every height - nothing is ever minted");
+		assertEquals(Emission.GENESIS_SUPPLY, replay.finalState().total(),
+			"the sum of every balance is the supply, at every height - and before the tail nothing "
+				+ "is minted");
 		assertTrue(replay.describe().contains("replayed 3 blocks"), replay.describe());
 	}
 
@@ -123,10 +124,11 @@ class ReplayTest
 	{
 		Replay replay = Replay.verify(aChain(new ArrayList<>()));
 
-		assertEquals(Emission.BLOCK_REWARD.plus(Emission.BLOCK_REWARD),
+		assertEquals(TestChains.rewardOfBlock(1).plus(TestChains.rewardOfBlock(2)),
 			replay.finalState().balanceOf(minerKey()), "two blocks after genesis, two rewards");
-		assertEquals(Emission.MINING_POOL.minus(Emission.BLOCK_REWARD).minus(Emission.BLOCK_REWARD)
-			.minus(Emission.BLOCK_REWARD), replay.finalState().balanceOf(ChainState.POOL),
+		assertEquals(Emission.MINING_POOL.minus(TestChains.rewardOfBlock(0))
+			.minus(TestChains.rewardOfBlock(1)).minus(TestChains.rewardOfBlock(2)),
+			replay.finalState().balanceOf(ChainState.POOL),
 			"three blocks, the genesis block included, three rewards out of the pool");
 	}
 
@@ -136,7 +138,7 @@ class ReplayTest
 	{
 		Replay replay = Replay.verify(aChain(new ArrayList<>()));
 
-		assertEquals(Emission.BLOCK_REWARD, replay.finalState().balanceOf(holderKey()),
+		assertEquals(Emission.FIRST_REWARD, replay.finalState().balanceOf(holderKey()),
 			"the genesis block pays the ordinary reward, and no share of the supply (#111)");
 	}
 
@@ -286,7 +288,7 @@ class ReplayTest
 	@DisplayName("a transfer of more than the account holds is refused")
 	void anOverdraft_isRefused()
 	{
-		List<BlockBody> chain = aChain(List.of(aTransferOf(0L, Emission.TOTAL_SUPPLY)));
+		List<BlockBody> chain = aChain(List.of(aTransferOf(0L, Emission.GENESIS_SUPPLY)));
 
 		ChainRejected refused = assertThrows(ChainRejected.class,
 			() -> Replay.verify(chain));

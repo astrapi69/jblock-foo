@@ -36,8 +36,8 @@ import java.util.List;
  * @param previousHash
  *            the hash of the block before, which is what makes this a chain
  * @param beneficiary
- *            the account this block pays: at height 0 the holder of the non-pool half of the
- *            supply, at every later height the miner who receives the reward. It is inside the
+ *            the account this block pays its reward to, the genesis block's included (#111). It is
+ *            inside the
  *            hash, so it cannot be changed without mining the block again - the chain says who was
  *            paid, not whoever replays it (lethenon#23)
  * @param transactions

@@ -33,8 +33,9 @@ import java.util.Map;
  * Every rule a transfer has to satisfy is here, and every one of them is checked on replay by
  * somebody who did not build the block: the chain it belongs to, the sender's nonce, the signature,
  * and whether the money is there. The supply invariant is asserted after every block - the sum of
- * every balance equals {@link Emission#TOTAL_SUPPLY}, because the block reward is a transfer out of
- * a pool that exists in the genesis block and nothing is ever minted.
+ * every balance equals {@link Emission#GENESIS_SUPPLY} plus what the tail emission has minted
+ * (#133), because a block reward is a transfer out of a pool that exists in the genesis block, and
+ * only the part of a reward the pool's share does not cover is minted, and counted.
  */
 public final class ChainState
 {
@@ -46,6 +47,8 @@ public final class ChainState
 	private final Map<Bytes, Amount> balances = new HashMap<>();
 
 	private final Map<Bytes, Long> nonces = new HashMap<>();
+
+	private Amount minted = Amount.ZERO;
 
 	private String chainIdentifier = Chain.IDENTIFIER;
 
@@ -120,6 +123,27 @@ public final class ChainState
 	}
 
 	/**
+	 * What the tail emission has minted so far (#133)
+	 *
+	 * @return the sum of the minted parts of every reward, zero before the tail
+	 */
+	public Amount minted()
+	{
+		return minted;
+	}
+
+	/**
+	 * The supply at this height: the genesis supply plus what has been minted, which the sum of
+	 * every balance has to equal
+	 *
+	 * @return the supply
+	 */
+	public Amount supply()
+	{
+		return Emission.GENESIS_SUPPLY.plus(minted);
+	}
+
+	/**
 	 * A copy that can be changed without changing this state, for trying transfers on top of it
 	 *
 	 * @return the copy, under the same rule
@@ -129,6 +153,7 @@ public final class ChainState
 		ChainState copy = new ChainState(rules);
 		copy.balances.putAll(balances);
 		copy.nonces.putAll(nonces);
+		copy.minted = minted;
 		copy.chainIdentifier = chainIdentifier;
 		return copy;
 	}
@@ -184,10 +209,11 @@ public final class ChainState
 			applyTransfer(transaction, block.height());
 		}
 		payTheReward(block.beneficiary());
-		if (!Emission.TOTAL_SUPPLY.equals(total()))
+		if (!supply().equals(total()))
 		{
-			throw new ChainRejected("the supply moved: " + total() + " instead of "
-				+ Emission.TOTAL_SUPPLY + " at height " + block.height());
+			throw new ChainRejected("the supply moved: " + total() + " instead of " + supply()
+				+ " (" + Emission.GENESIS_SUPPLY + " at genesis plus " + minted + " minted) at height "
+				+ block.height());
 		}
 	}
 
@@ -251,14 +277,9 @@ public final class ChainState
 
 	private void payTheReward(final Bytes miner)
 	{
-		Amount reward = Emission.BLOCK_REWARD;
-		if (balanceOf(POOL).compareTo(reward) < 0)
-		{
-			// the pool is empty: mining is paid by fees alone from here on, which is what the
-			// fixed supply means
-			return;
-		}
-		balances.put(POOL, balanceOf(POOL).minus(reward));
-		balances.put(miner, balanceOf(miner).plus(reward));
+		BlockReward reward = rules.emission().rewardFor(balanceOf(POOL));
+		balances.put(POOL, balanceOf(POOL).minus(reward.fromPool()));
+		minted = minted.plus(reward.minted());
+		balances.put(miner, balanceOf(miner).plus(reward.total()));
 	}
 }

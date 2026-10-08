@@ -42,6 +42,24 @@ final class TestChains
 	}
 
 	/**
+	 * What the block at a height pays under {@link Emission#SCHEDULE} on a chain whose blocks carry
+	 * no fees
+	 *
+	 * @param height
+	 *            the block's height, 0 for the genesis block
+	 * @return its reward
+	 */
+	static Amount rewardOfBlock(final int height)
+	{
+		Amount pool = Emission.MINING_POOL;
+		for (int before = 0; before < height; before++)
+		{
+			pool = pool.minus(Emission.rewardFor(pool).fromPool());
+		}
+		return Emission.rewardFor(pool).total();
+	}
+
+	/**
 	 * A genesis block allocating to the holder, and one mined block per transfer, each paying
 	 * {@link #MINER}
 	 *
