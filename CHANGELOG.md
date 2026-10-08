@@ -16,6 +16,13 @@ CHANGED:
 
 FIXED:
 
+- through Tor, a node gave up on an onion peer after five seconds: every connection had the time a
+  direct one gets, and for an onion service Tor answers the CONNECT only after it has built a
+  rendezvous circuit. In the first run against a real Tor, node B never reached node A's zone
+  (`Connect timed out`), and of eight first connections from a fresh Tor client to that onion service,
+  four took between 5.5 and 6.8 s. A connection through a SOCKS proxy now has 45 s to open, Monero's
+  `P2P_DEFAULT_SOCKS_CONNECT_TIMEOUT`, and a direct one keeps its five; the HELLO keeps five seconds
+  either way. This applies to `node`, `sync`, `send --node` and the genesis bootstrap (#127)
 - a node left an outgoing slot empty when a connection to a learnt address ended late: it filled
   slots only when a PEERS answer arrived, so a handshake that timed out after the last answer
   left the node below its twelve outgoing connections for good. It showed as a red CI run of

@@ -261,8 +261,9 @@ public final class Node implements AutoCloseable
 	 * @param port
 	 *            the peer's port
 	 * @throws IOException
-	 *             when the peer cannot be reached within the handshake time, or this node has
-	 *             {@link #MAXIMUM_OUTGOING} outgoing connections already
+	 *             when the peer cannot be reached within the route's connect time
+	 *             ({@link Outbound#connectMillis()}), or this node has {@link #MAXIMUM_OUTGOING}
+	 *             outgoing connections already
 	 */
 	public void connect(final String host, final int port) throws IOException
 	{
@@ -282,7 +283,7 @@ public final class Node implements AutoCloseable
 		Socket socket;
 		try
 		{
-			socket = outbound.open(dialed, HANDSHAKE_MILLIS);
+			socket = outbound.open(dialed);
 		}
 		catch (IOException unreachable)
 		{
@@ -861,7 +862,7 @@ public final class Node implements AutoCloseable
 		Socket socket;
 		try
 		{
-			socket = anonymous.route().open(dialed, HANDSHAKE_MILLIS);
+			socket = anonymous.route().open(dialed);
 		}
 		catch (IOException unreachable)
 		{
