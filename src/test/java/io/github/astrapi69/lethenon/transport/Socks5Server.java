@@ -75,6 +75,9 @@ public final class Socks5Server implements Closeable
 
 	private final List<Request> requests = new CopyOnWriteArrayList<>();
 
+	/** How long a CONNECT waits for its answer, standing in for Tor building a circuit */
+	private volatile long connectDelayMillis;
+
 	private final ExecutorService threads = Executors.newCachedThreadPool(runnable -> {
 		Thread thread = new Thread(runnable, "socks5-test-server");
 		thread.setDaemon(true);
@@ -103,6 +106,21 @@ public final class Socks5Server implements Closeable
 	public Socks5Server route(final String host, final int port, final int localPort)
 	{
 		routes.put(host.toLowerCase(java.util.Locale.ROOT) + ":" + port, localPort);
+		return this;
+	}
+
+	/**
+	 * Answers every CONNECT only after the given time, as Tor does for an onion service it has not
+	 * reached before: it fetches the service's descriptor and builds a rendezvous circuit first, which
+	 * in the first run against a real Tor took longer than five seconds (#127)
+	 *
+	 * @param delay
+	 *            how long each CONNECT waits for its answer
+	 * @return this server
+	 */
+	public Socks5Server answeringConnectsAfter(final java.time.Duration delay)
+	{
+		connectDelayMillis = delay.toMillis();
 		return this;
 	}
 
@@ -148,6 +166,18 @@ public final class Socks5Server implements Closeable
 			out.write(new byte[] { 5, 0 });
 			Request request = readRequest(in);
 			requests.add(request);
+			if (connectDelayMillis > 0)
+			{
+				try
+				{
+					Thread.sleep(connectDelayMillis);
+				}
+				catch (InterruptedException closing)
+				{
+					Thread.currentThread().interrupt();
+					return null;
+				}
+			}
 			Integer localPort = routes
 				.get(request.host().toLowerCase(java.util.Locale.ROOT) + ":" + request.port());
 			if (localPort == null)

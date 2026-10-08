@@ -63,12 +63,12 @@ final class Client implements Closeable
 	}
 
 	/**
-	 * Connects to a node over the given route and reads its HELLO, both within
-	 * {@link Node#HANDSHAKE_MILLIS}
+	 * Connects to a node over the given route within the route's connect time, and reads its HELLO
+	 * within {@link Node#HANDSHAKE_MILLIS}
 	 */
 	static Client open(final PeerAddress address, final Outbound outbound) throws IOException
 	{
-		Socket socket = outbound.open(address, Node.HANDSHAKE_MILLIS);
+		Socket socket = outbound.open(address);
 		try
 		{
 			socket.setSoTimeout(Node.HANDSHAKE_MILLIS);
