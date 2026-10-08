@@ -147,8 +147,8 @@ class ConsensusRulesTest
 
 		ChainRejected refused = assertThrows(ChainRejected.class,
 			() -> Replay.verify(minedOnto(chain, List.of(aTransfer(chain))), ed25519FromTwo));
-		assertEquals("block 1 carries a transfer whose authorization scheme 'ed25519' chain "
-			+ "'lethenon-test-1' admits from height 2", refused.getMessage());
+		assertEquals("block 1 carries a transfer whose authorization scheme 'ed25519' chain '"
+			+ Chain.TEST_IDENTIFIER + "' admits from height 2", refused.getMessage());
 
 		List<BlockBody> waited = minedOnto(chain, List.of());
 		Replay replay = Replay.verify(minedOnto(waited, List.of(aTransfer(waited))), ed25519FromTwo);
@@ -168,8 +168,8 @@ class ConsensusRulesTest
 
 		ChainRejected refused = assertThrows(ChainRejected.class,
 			() -> Replay.verify(minedOnto(early, List.of(aTransfer(early))), ed25519UntilTwo));
-		assertEquals("block 2 carries a transfer whose authorization scheme 'ed25519' chain "
-			+ "'lethenon-test-1' admitted until height 2", refused.getMessage());
+		assertEquals("block 2 carries a transfer whose authorization scheme 'ed25519' chain '"
+			+ Chain.TEST_IDENTIFIER + "' admitted until height 2", refused.getMessage());
 	}
 
 	@Test
@@ -189,8 +189,8 @@ class ConsensusRulesTest
 
 		ChainRejected refused = assertThrows(ChainRejected.class,
 			() -> Replay.verify(minedOnto(chain, List.of(toAnAddress)), withoutStealth));
-		assertEquals("block 1 carries a transfer whose recipient scheme 'stealth-v2' chain "
-			+ "'lethenon-test-1' does not admit", refused.getMessage());
+		assertEquals("block 1 carries a transfer whose recipient scheme 'stealth-v2' chain '"
+			+ Chain.TEST_IDENTIFIER + "' does not admit", refused.getMessage());
 	}
 
 	@Test
@@ -206,8 +206,8 @@ class ConsensusRulesTest
 
 		ChainRejected refused = assertThrows(ChainRejected.class,
 			() -> Replay.verify(minedOnto(chain, List.of(aTransfer(chain))), withoutPlainAmounts));
-		assertEquals("block 1 carries a transfer whose amount scheme 'plain' chain "
-			+ "'lethenon-test-1' does not admit", refused.getMessage());
+		assertEquals("block 1 carries a transfer whose amount scheme 'plain' chain '"
+			+ Chain.TEST_IDENTIFIER + "' does not admit", refused.getMessage());
 	}
 
 	@Test
@@ -233,7 +233,7 @@ class ConsensusRulesTest
 				(Runnable)() -> SchemeActivation.between(Chain.IDENTIFIER, SignatureSuite.ED25519, 5L,
 					5L)),
 			Arguments.of("a chain that does not exist",
-				(Runnable)() -> SchemeActivation.from("lethenon-2", SignatureSuite.ED25519, 0L)),
+				(Runnable)() -> SchemeActivation.from("lethenon-3", SignatureSuite.ED25519, 0L)),
 			Arguments.of("two activations of one scheme on one chain",
 				(Runnable)() -> new ConsensusRules(List.of(
 					SchemeActivation.from(Chain.IDENTIFIER, SignatureSuite.ED25519, 0L),

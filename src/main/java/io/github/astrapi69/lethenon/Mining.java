@@ -104,6 +104,11 @@ public final class Mining
 		final Bytes beneficiary, final List<SignedTransaction> waiting, final String pun,
 		final long now)
 	{
+		Optional<String> retired = Chain.retiredBecause(chainIdentifier);
+		if (retired.isPresent())
+		{
+			throw new IllegalArgumentException(retired.get());
+		}
 		if (!Chain.isKnown(chainIdentifier))
 		{
 			throw new IllegalArgumentException("'" + chainIdentifier + "' names no chain; there are '"

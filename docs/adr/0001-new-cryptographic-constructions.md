@@ -29,7 +29,7 @@ The maintainer set eight rules for any construction that is new to this project:
    with a reference implementation. Where neither exists, the record says so explicitly; that is
    a known gap, not a silent one.
 3. **Test network first.** Every scheme runs on the test chain only (#50). It reaches the main
-   chain `lethenon-1` only after an external cryptographic review that the maintainer commissions.
+   chain `lethenon-2` only after an external cryptographic review that the maintainer commissions.
    The consensus rule refuses it on the main chain until then.
 4. **No invented primitives.** This project does not design primitives of its own. Combining
    known building blocks is allowed when the security of the combination is argued and

@@ -97,6 +97,8 @@ public record Replay(long blocks, long transactions, long signatures, ChainState
 			throw new ChainRejected("an empty chain has no genesis block");
 		}
 		BlockBody genesis = chain.getFirst();
+		Optional<String> retired = Chain.retiredBecause(genesis.chainIdentifier());
+		requireThat(retired.isEmpty(), "block 0: " + retired.orElse(""));
 		requireThat(Chain.isKnown(genesis.chainIdentifier()), "block 0 belongs to chain '"
 			+ genesis.chainIdentifier() + "', which is neither '" + Chain.IDENTIFIER + "' nor '"
 			+ Chain.TEST_IDENTIFIER + "'");

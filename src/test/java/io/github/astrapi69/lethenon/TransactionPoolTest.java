@@ -133,7 +133,7 @@ class TransactionPoolTest
 				test -> test.sender.sign(new TransactionBody(Chain.TEST_IDENTIFIER, 0L,
 					test.account, SOMEONE, Amount.ofLeth(1L), Amount.ZERO, "elsewhere"),
 					SignatureSuite.ED25519),
-				"lethenon-test-1"));
+				Chain.TEST_IDENTIFIER));
 	}
 
 	private SignedTransaction tampered(final SignedTransaction signed)

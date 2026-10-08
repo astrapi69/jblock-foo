@@ -69,8 +69,9 @@ class FutureTimestampTest
 	}
 
 	@ParameterizedTest(name = "{0}, the clock {1} ms before the block time minus two hours")
-	@CsvSource({ "lethenon-test-1, 1", "lethenon-test-1, 1000", "lethenon-test-1, 3600000",
-		"lethenon-1, 1", "lethenon-1, 1000", "lethenon-1, 3600000" })
+	@CsvSource({ Chain.TEST_IDENTIFIER + ", 1", Chain.TEST_IDENTIFIER + ", 1000",
+		Chain.TEST_IDENTIFIER + ", 3600000", Chain.IDENTIFIER + ", 1", Chain.IDENTIFIER + ", 1000",
+		Chain.IDENTIFIER + ", 3600000" })
 	void aBlockMoreThanTwoHoursAhead_isRejected(final String chainIdentifier,
 		final long tooEarly)
 	{

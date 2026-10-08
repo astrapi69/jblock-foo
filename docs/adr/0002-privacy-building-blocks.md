@@ -54,12 +54,12 @@ consensus rule must not depend on the order of its lines.
 The replay checks every transfer against the table: its authorization scheme, its recipient scheme
 and its amount scheme, at the height of the block that carries it. A transfer the table does not
 admit is refused with the block, the scheme and the range in the message, for example "block 1
-carries a transfer whose authorization scheme 'ed25519' chain 'lethenon-test-1' admits from height
+carries a transfer whose authorization scheme 'ed25519' chain 'lethenon-test-2' admits from height
 2".
 
 The table is code. Every verifier runs the same one, so changing it is a fork at the height the
-change names. ADR 0001 decides what may be added: a new scheme gets a line for `lethenon-test-1`
-first, and a line for `lethenon-1` only after the external review its rules 3 and 5 require.
+change names. ADR 0001 decides what may be added: a new scheme gets a line for `lethenon-test-2`
+first, and a line for `lethenon-2` only after the external review its rules 3 and 5 require.
 
 ### The schemes of today, hooked in without a change in behaviour
 
@@ -96,7 +96,7 @@ height 2, one switched off at height 2, one missing), through a package-private
 2. A `Scheme` with a new, versioned identifier, in the block it replaces.
 3. For the amount block, and for any block whose scheme changes what a transfer carries: a new
    transaction encoding version, decided with the maintainer.
-4. One activation line for `lethenon-test-1`. A line for `lethenon-1` only after the review.
+4. One activation line for `lethenon-test-2`. A line for `lethenon-2` only after the review.
 
 ## How a scheme written in C is integrated
 

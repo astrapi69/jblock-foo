@@ -65,8 +65,10 @@ Read from the Monero sources, commit f6a591c (2026-10-04), `git clone --depth 1 
 
 ### Only the test chain
 
-A node runs only on `lethenon-test-1`.
-- It refuses a chain file whose genesis block names `lethenon-1`.
+A node runs only on `lethenon-test-2`.
+- It refuses a chain file whose genesis block names `lethenon-2`.
+- It refuses a chain file under `lethenon-test-1` or `lethenon-1` with the reason that the chain was
+  started before the rules of 0.3.0 (#137).
 - It creates no main chain.
 - Its handshake refuses any peer that names another chain or another genesis block.
 
@@ -99,7 +101,7 @@ Both sides send `HELLO` first and read the other's within the handshake timeout.
 closed, with the reason logged, when any of these hold:
 - the magic is wrong;
 - the protocol version is not this build's;
-- the chain identifier is not `lethenon-test-1`;
+- the chain identifier is not `lethenon-test-2`;
 - the genesis hash differs;
 - the node identity is this node's own: the connection leads back to itself.
 
@@ -300,14 +302,15 @@ node, this is what a wallet, a script or the desktop plugin needs.
 The prerequisites are built and tested on the test chain. For the main chain they wait on
 decisions, not on code:
 
-| Prerequisite | State on `lethenon-test-1` | What the main chain needs |
+| Prerequisite | State on `lethenon-test-2` | What the main chain needs |
 |---|---|---|
-| bound on future timestamps | two hours, from height 0 (#96) | done: two hours on `lethenon-1` too, from height 0 (#109) |
-| block size limit | 300,000 bytes, from height 0 (#99) | done: 300,000 bytes on `lethenon-1` too, from height 0 (#109) |
+| bound on future timestamps | two hours, from height 0 (#96) | done: two hours on the main chain too, from height 0 (#109) |
+| block size limit | 300,000 bytes, from height 0 (#99) | done: 300,000 bytes on the main chain too, from height 0 (#109) |
 | peer exchange | protocol version 2 (#102) | nothing chain-specific; a node still runs only on the test chain |
-| genesis block in the code | the mechanism, no anchor (#104) | the block: its content and above all its allocation, decided by the maintainer, then filed as a `GenesisAnchor` |
+| genesis block in the code | the mechanism, no anchor (#104) | the block: its beneficiary and its message, decided by the maintainer, mined with the integration build and filed as a `GenesisAnchor` under `lethenon-2` (#137) |
+| a chain identifier of the rules from 0.3.0 on | `lethenon-test-2`; `lethenon-test-1` refused as started before those rules (#137) | `lethenon-2`; `lethenon-1` refused the same way, so no version computes another chain's balances without a word (#137) |
 
-The limits apply to `lethenon-1` from height 0 since #109. For main chains mined before, the
+The limits apply to the main chain from height 0 since #109. For main chains mined before, the
 timestamp bound changes nothing, because the clock only moves on. The size limit rejects a main
 chain that carries a block over 300,000 bytes: lethenon 0.2.0 mined without a byte cap, so that is
 a block with 56 or more ML-DSA-65 transfers, or 1,515 or more Ed25519 transfers, paying an Ed25519

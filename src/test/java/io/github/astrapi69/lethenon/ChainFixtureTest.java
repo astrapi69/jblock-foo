@@ -81,6 +81,18 @@ class ChainFixtureTest
 	}
 
 	@Test
+	@DisplayName("a chain file an earlier build wrote under lethenon-1 is refused, as started before the rules of 0.3.0")
+	void aChainFileUnderTheRetiredIdentifier_isRefused() throws IOException
+	{
+		List<BlockBody> chain = CanonicalEncoding.readChain(resource("chain-lethenon-1.lethenon"));
+
+		ChainRejected refused = assertThrows(ChainRejected.class, () -> Replay.verify(chain));
+
+		ChainIdentifierTest.assertSaysStartedBefore030(refused.getMessage(), "lethenon-1",
+			Chain.IDENTIFIER);
+	}
+
+	@Test
 	@DisplayName("the corrupted chain file is refused, and the reason says what failed")
 	void theCorruptedFile_isRefused() throws IOException
 	{

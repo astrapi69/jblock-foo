@@ -64,7 +64,7 @@ class MineCommand extends ChainCommand
 	String pun;
 
 	@Option(names = "--testnet", description = "mine the genesis block of a test chain, "
-		+ "lethenon-test-1; on an existing chain its genesis block decides, and the flag on a main "
+		+ Chain.TEST_IDENTIFIER + "; on an existing chain its genesis block decides, and the flag on a main "
 		+ "chain is an error")
 	boolean testnet;
 
