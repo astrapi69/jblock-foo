@@ -5,10 +5,12 @@
 name: Java CI with Gradle
 
 on:
+  # consensus/**: an integration branch that collects one consensus break before it reaches develop
+  # (#138); it is protected like develop, so its required checks have to run on it too
   push:
-    branches: [ master, develop ]
+    branches: [ master, develop, "consensus/**" ]
   pull_request:
-    branches: [ master, develop ]
+    branches: [ master, develop, "consensus/**" ]
 
 permissions:
   contents: read
