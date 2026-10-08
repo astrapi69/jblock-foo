@@ -42,6 +42,12 @@ import java.util.Objects;
 public final class Outbound
 {
 
+	/** How long a direct connection may take to open: Monero's 5000 ms */
+	public static final int DIRECT_CONNECT_MILLIS = 5_000;
+
+	/** How long a connection through a SOCKS proxy may take to open: Monero's 45 s (#127) */
+	public static final int PROXIED_CONNECT_MILLIS = 45_000;
+
 	/** Connections go out directly, as they did before Tor */
 	public static final Outbound DIRECT = new Outbound(null);
 
@@ -107,6 +113,37 @@ public final class Outbound
 			socket.close();
 			throw unreachable;
 		}
+	}
+
+	/**
+	 * How long this route may take to open a connection.
+	 * <p>
+	 * Directly, five seconds, Monero's {@code P2P_DEFAULT_CONNECTION_TIMEOUT}. Through a SOCKS
+	 * proxy, 45 seconds, Monero's {@code P2P_DEFAULT_SOCKS_CONNECT_TIMEOUT}: for an onion service
+	 * Tor answers the CONNECT only after it has fetched the service's descriptor and built a
+	 * rendezvous circuit, and on a first connection that took longer than five seconds in the first
+	 * run against a real Tor (#127). The HELLO that follows keeps its {@link Node#HANDSHAKE_MILLIS}
+	 *
+	 * @return the connect time in milliseconds
+	 */
+	public int connectMillis()
+	{
+		return proxy == null ? DIRECT_CONNECT_MILLIS : PROXIED_CONNECT_MILLIS;
+	}
+
+	/**
+	 * Opens a connection to a peer within this route's {@link #connectMillis()}
+	 *
+	 * @param target
+	 *            the peer
+	 * @return the connected socket
+	 * @throws IOException
+	 *             when the peer, or the proxy, cannot be reached in time, or an onion address is to
+	 *             be reached without a proxy
+	 */
+	public Socket open(final PeerAddress target) throws IOException
+	{
+		return open(target, connectMillis());
 	}
 
 	@Override
