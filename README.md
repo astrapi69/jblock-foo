@@ -61,8 +61,11 @@ destination derived from it, so two payments to the same address have nothing vi
 one transfer per destination, and says out loud what that costs - the chain then shows those
 destinations and the account together. Receiving is unlinkable; spending is the moment that ends.
 
-There are two chains, `lethenon-1` and the test chain `lethenon-test-1`, and the identifier is
+There are two chains, `lethenon-2` and the test chain `lethenon-test-2`, and the identifier is
 inside every signed transfer and every block, so nothing signed for one is accepted on the other.
+A chain under the identifiers before them, `lethenon-1` or `lethenon-test-1`, was started before
+the rules of 0.3.0 and is refused with that reason: under today's rules its balances would come
+out differently (#137).
 `--testnet` chooses the test chain when `mine` writes the genesis block; from then on the genesis
 block decides, every command follows it, and `--testnet` on a main chain is refused. A new
 cryptographic scheme runs on the test chain first ([ADR 0001](docs/adr/0001-new-cryptographic-constructions.md)).
@@ -80,7 +83,7 @@ anonymity zone for a node's own transfers, and an onion service for its zone pee
 transport is tested against a SOCKS5 server in the test sources and has run against a real Tor,
 0.4.9.11, by the runbook [docs/tor.md](docs/tor.md): two nodes reached each other only through
 onion services, and an own transfer travelled only through the zone (recorded in #112). A node
-runs only on `lethenon-test-1` and refuses a main
+runs only on `lethenon-test-2` and refuses a main
 chain. There is no message that asks a node for a balance; a wallet still computes its own from
 a chain file.
 

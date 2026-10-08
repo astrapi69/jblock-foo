@@ -103,8 +103,10 @@ tasks.register('testSummary') {
 test.finalizedBy tasks.named('testSummary')
 
 /**
- * Writes src/test/resources/chain again - after an encoding change, which is the only reason the
- * fixtures change (lethenon#23). Fresh keys every run; no private key is written.
+ * Writes src/test/resources/chain again - after an encoding change (lethenon#23) or a change of the
+ * chain identifier (#137), the only reasons the fixtures change. Fresh keys every run; no private key
+ * is written. chain-lethenon-1.lethenon is not written here: it is the evidence that an earlier
+ * build's chain is refused.
  */
 tasks.register('writeChainFixtures', JavaExec) {
     description = 'Regenerates the chain fixtures in src/test/resources/chain'

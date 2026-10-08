@@ -36,12 +36,15 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * A genesis block fixed in the code: the rule table carries it as canonical bytes, a chain with
  * another genesis block does not verify, and a chain is started with it instead of a mined one
- * (#104). Built and tested on the test chain; the main chain's block is the maintainer's decision.
+ * (#104). Tested on both chains against test anchors; the main chain's real block is the
+ * maintainer's decision and comes last, onto the integration branch of #137.
  */
 class GenesisAnchorTest
 {
@@ -63,13 +66,14 @@ class GenesisAnchorTest
 
 	private static ConsensusRules anchoredTo(final BlockBody block)
 	{
-		return withAnchor(new GenesisAnchor(Chain.TEST_IDENTIFIER, hexOf(List.of(block))));
+		return withAnchor(new GenesisAnchor(block.chainIdentifier(), hexOf(List.of(block))));
 	}
 
 	private static ConsensusRules withAnchor(final GenesisAnchor anchor)
 	{
 		ConsensusRules rules = ConsensusRules.LETHENON;
 		List<BlockLimits> limits = new ArrayList<>();
+		rules.limitsFor(Chain.IDENTIFIER).ifPresent(limits::add);
 		rules.limitsFor(Chain.TEST_IDENTIFIER).ifPresent(limits::add);
 		return new ConsensusRules(rules.activations(), limits, List.of(anchor));
 	}
@@ -90,23 +94,23 @@ class GenesisAnchorTest
 		assertTrue(ConsensusRules.LETHENON.anchorFor(Chain.TEST_IDENTIFIER).isEmpty());
 	}
 
-	@Test
-	@DisplayName("a chain on the anchored genesis block verifies")
-	void aChainOnTheAnchoredGenesis_verifies()
+	@ParameterizedTest(name = "a chain on the anchored genesis block of {0} verifies")
+	@ValueSource(strings = { Chain.IDENTIFIER, Chain.TEST_IDENTIFIER })
+	void aChainOnTheAnchoredGenesis_verifies(final String chain)
 	{
-		BlockBody anchored = genesis(Chain.TEST_IDENTIFIER, HOLDER, "fixed");
+		BlockBody anchored = genesis(chain, HOLDER, "fixed");
 		ConsensusRules rules = anchoredTo(anchored);
 
-		assertEquals(anchored, rules.anchorFor(Chain.TEST_IDENTIFIER).orElseThrow());
+		assertEquals(anchored, rules.anchorFor(chain).orElseThrow());
 		assertEquals(2L, Replay.verify(extended(anchored), rules, TIME).blocks());
 	}
 
-	@Test
-	@DisplayName("a chain on any other genesis block does not verify, and both hashes are named")
-	void aChainOnAnotherGenesis_doesNotVerify()
+	@ParameterizedTest(name = "on {0}, a chain on any other genesis block does not verify, and both hashes are named")
+	@ValueSource(strings = { Chain.IDENTIFIER, Chain.TEST_IDENTIFIER })
+	void aChainOnAnotherGenesis_doesNotVerify(final String chain)
 	{
-		BlockBody anchored = genesis(Chain.TEST_IDENTIFIER, HOLDER, "fixed");
-		BlockBody other = genesis(Chain.TEST_IDENTIFIER, HOLDER, "another");
+		BlockBody anchored = genesis(chain, HOLDER, "fixed");
+		BlockBody other = genesis(chain, HOLDER, "another");
 
 		ChainRejected rejected = assertThrows(ChainRejected.class,
 			() -> Replay.verify(extended(other), anchoredTo(anchored), TIME));
@@ -117,13 +121,14 @@ class GenesisAnchorTest
 			rejected.getMessage());
 	}
 
-	@Test
-	@DisplayName("an anchor binds only its own chain")
-	void anAnchorBindsOnlyItsOwnChain()
+	@ParameterizedTest(name = "an anchor of {0} binds only its own chain, not {1}")
+	@CsvSource({ Chain.TEST_IDENTIFIER + ", " + Chain.IDENTIFIER,
+		Chain.IDENTIFIER + ", " + Chain.TEST_IDENTIFIER })
+	void anAnchorBindsOnlyItsOwnChain(final String anchoredChain, final String freeChain)
 	{
-		ConsensusRules rules = anchoredTo(genesis(Chain.TEST_IDENTIFIER, HOLDER, "fixed"));
+		ConsensusRules rules = anchoredTo(genesis(anchoredChain, HOLDER, "fixed"));
 
-		assertEquals(2L, Replay.verify(extended(genesis(Chain.IDENTIFIER, HOLDER, "free")), rules,
+		assertEquals(2L, Replay.verify(extended(genesis(freeChain, HOLDER, "free")), rules,
 			TIME).blocks());
 	}
 
@@ -143,7 +148,7 @@ class GenesisAnchorTest
 			new Malformed("no block at all", block -> hexOf(List.of()), "exactly one block"),
 			new Malformed("two blocks", block -> hexOf(extended(block)), "exactly one block"),
 			new Malformed("the genesis block of the main chain",
-				block -> hexOf(List.of(genesis(Chain.IDENTIFIER, HOLDER, "main"))), "lethenon-1"),
+				block -> hexOf(List.of(genesis(Chain.IDENTIFIER, HOLDER, "main"))), Chain.IDENTIFIER),
 			new Malformed("a block that is not mined",
 				block -> hexOf(List.of(new BlockBody(Chain.TEST_IDENTIFIER, 0L,
 					Bytes.of(new byte[32]), HOLDER, List.of(), TIME, 256, "never mined"))),
@@ -176,13 +181,13 @@ class GenesisAnchorTest
 				List.of(one, two)));
 	}
 
-	@Test
-	@DisplayName("an anchored chain starts with its anchor, whoever starts it")
-	void anAnchoredChain_startsWithItsAnchor()
+	@ParameterizedTest(name = "an anchored {0} starts with its anchor, whoever starts it")
+	@ValueSource(strings = { Chain.IDENTIFIER, Chain.TEST_IDENTIFIER })
+	void anAnchoredChain_startsWithItsAnchor(final String chain)
 	{
-		BlockBody anchored = genesis(Chain.TEST_IDENTIFIER, HOLDER, "fixed");
+		BlockBody anchored = genesis(chain, HOLDER, "fixed");
 
-		BlockBody started = Genesis.start(anchoredTo(anchored), Chain.TEST_IDENTIFIER,
+		BlockBody started = Genesis.start(anchoredTo(anchored), chain,
 			Bytes.of(new byte[] { 2 }), "whatever", TIME + 1L);
 
 		assertEquals(anchored, started);

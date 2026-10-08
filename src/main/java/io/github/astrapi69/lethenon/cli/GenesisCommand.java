@@ -52,7 +52,7 @@ class GenesisCommand implements Callable<Integer>
 	@Option(names = "--wallet", required = true, description = "the wallet the genesis allocates to")
 	Path wallet;
 
-	@Option(names = "--testnet", description = "a genesis block of lethenon-test-1")
+	@Option(names = "--testnet", description = "a genesis block of " + Chain.TEST_IDENTIFIER)
 	boolean testnet;
 
 	@Option(names = "--pun", defaultValue = "in the beginning was the pun",

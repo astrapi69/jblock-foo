@@ -6,7 +6,7 @@ real Tor, 0.4.9.11 on 2026-10-08, is recorded in #112. It found that a connectio
 needs more than the five seconds a direct one gets (#127), and the runbook below is the one that
 then ran green.
 
-Everything runs on the test network, `lethenon-test-1`. A node does not run on the main chain.
+Everything runs on the test network, `lethenon-test-2`. A node does not run on the main chain.
 
 ## What you need
 
@@ -71,8 +71,8 @@ lethenon node --chain a.lethenon --listen 18431 --mine --wallet a.wallet \
 Expect, among other things:
 
 ```text
-mined the genesis block of lethenon-test-1
-node on lethenon-test-1, listening on 0.0.0.0 port 18431, 0 peer(s) configured, connecting direct, anonymity zone through the SOCKS5 proxy at 127.0.0.1:9050, at most 10 peer(s), onion service <ZONE>:18484 on 127.0.0.1 port 18484, at most 16 peer(s), mining for <A account>
+mined the genesis block of lethenon-test-2
+node on lethenon-test-2, listening on 0.0.0.0 port 18431, 0 peer(s) configured, connecting direct, anonymity zone through the SOCKS5 proxy at 127.0.0.1:9050, at most 10 peer(s), onion service <ZONE>:18484 on 127.0.0.1 port 18484, at most 16 peer(s), mining for <A account>
 ```
 
 Let it mine a few blocks, so that A holds money to send. `--for` ends the node and prints its stop
@@ -87,7 +87,7 @@ In a second shell:
 lethenon sync --chain b.lethenon --peer $CHAIN:18431 --proxy 127.0.0.1:9050
 ```
 
-Expect `chain lethenon-test-1 from the node at <CHAIN>:18431: took N block(s), now at height
+Expect `chain lethenon-test-2 from the node at <CHAIN>:18431: took N block(s), now at height
 N-1`. The first connection to an onion service takes a few seconds while Tor fetches the service's
 descriptor and builds a rendezvous circuit: from a freshly started Tor client, the first run
 measured 3.7 to 6.8 s, and once Tor gave up after its own 120 s. A node gives a connection through

@@ -1,6 +1,25 @@
 ## Change log
 ----------------------
 
+Version 0.4.0 (unreleased)
+-------------
+
+FORMAT:
+
+- Chain identifiers (#137): the main chain is `lethenon-2` and the test chain `lethenon-test-2`, the
+  identifiers of the rules from 0.3.0 on. A chain under `lethenon-1` or `lethenon-test-1` - every
+  chain an earlier version wrote - is refused by the replay, by mining and by a node, with the
+  reason that it was started before the rules of 0.3.0 and the identifier that took its place:
+  "block 0: chain 'lethenon-1' was started before the rules of lethenon 0.3.0; under them the main
+  chain is 'lethenon-2'". The earlier versions refuse a `lethenon-2` chain at block 0 in turn -
+  measured with 0.1.0, 0.2.0 and 0.3.0 in #137 - so no version computes another one's chain without
+  a word. To be measured again against the release, for both new identifiers.
+
+CHANGED:
+
+- the command line's help names the test chain through the constant: `genesis --testnet`,
+  `mine --testnet` and `node` say `lethenon-test-2` (#137)
+
 Version 0.3.0
 -------------
 

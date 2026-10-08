@@ -139,7 +139,7 @@ class HandshakeTest
 			Arguments.of("the main chain",
 				new Hello(Hello.PROTOCOL_VERSION, Chain.IDENTIFIER, right.genesisHash(),
 					right.bestHeight(), right.bestHash(), right.work()),
-				"lethenon-1"),
+				Chain.IDENTIFIER),
 			Arguments.of("another protocol version",
 				new Hello(Hello.PROTOCOL_VERSION + 1, right.chainIdentifier(), right.genesisHash(),
 					right.bestHeight(), right.bestHash(), right.work()),

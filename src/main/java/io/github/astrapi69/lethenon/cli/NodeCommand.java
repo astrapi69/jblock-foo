@@ -54,7 +54,8 @@ import picocli.CommandLine.Option;
  * Runs a node of the test network on a chain file (ADR 0003): it listens, connects to a fixed list
  * of peers, relays and synchronises, and with --mine mines on its pool
  */
-@Command(name = "node", description = "Run a node of the test network, lethenon-test-1, on a chain "
+@Command(name = "node", description = "Run a node of the test network, "
+	+ Chain.TEST_IDENTIFIER + ", on a chain "
 	+ "file it keeps while it runs. With --mine it mines on its pool and pays the wallet, whose "
 	+ "password is the first line of standard input.")
 class NodeCommand implements Callable<Integer>

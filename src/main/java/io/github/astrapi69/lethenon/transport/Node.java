@@ -229,6 +229,11 @@ public final class Node implements AutoCloseable
 			throw new IllegalArgumentException("a node needs a chain with a genesis block");
 		}
 		String identifier = chain.getFirst().chainIdentifier();
+		Optional<String> retired = Chain.retiredBecause(identifier);
+		if (retired.isPresent())
+		{
+			throw new IllegalArgumentException(retired.get());
+		}
 		if (!Chain.TEST_IDENTIFIER.equals(identifier))
 		{
 			throw new IllegalArgumentException("a node runs only on '" + Chain.TEST_IDENTIFIER
