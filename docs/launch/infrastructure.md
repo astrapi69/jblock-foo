@@ -60,11 +60,55 @@ python3 -I analyse.py <output directory> chain.csv
 
 ### What it measured
 
-{{RESULT_TABLE}}
+Both runs: 10,800 seconds each, 355 samples, both nodes ended with exit status 0 (`pids.txt`). Figures
+from `python3 -I analyse.py <run> <chain.csv>` after `ChainStats.java`, and from `gc.log`. CPU is the
+seed node's share of one core over each 30-second sample.
+
+| | default heap | 64 MB heap |
+|---|---|---|
+| CPU, whole run: mean / p95 / max | 0.07 / 0.23 / 1.90 % | 0.09 / 0.37 / 3.20 % |
+| CPU, last hour: mean / p95 / max | 0.03 / 0.07 / 0.07 % (no new blocks, see below) | 0.06 / 0.27 / 0.60 % |
+| resident memory, max / high-water mark | 245,224 / 245,124 kB | 122,356 / 125,388 kB |
+| threads | 24 to 29 | 16 to 21 |
+| traffic of the namespace, whole run | 1.5 MB a day (17.4 B/s) | 1.7 MB a day (20.1 B/s) |
+| traffic, last hour | 1.1 MB a day | 1.5 MB a day |
+| chain file growth, whole run | 0.303 MB a day | 0.477 MB a day |
+| blocks, height | 300, 299 | 354, 353 |
+| the chain's last hour | 29 blocks, 119.6 s apart | 24 blocks, 151.2 s apart |
+| bytes per block: all / without a transfer / with one | 253.9 / 212.3 / 755.1 | 276.3 / 212.4 / 683.9 |
+| transfers handed over / carried | 88 / 48 | 88 / 87 |
+| garbage collection | not logged | 71 young collections, no full one, at most 5 MB live after a collection, longest pause 85 ms (at the start) |
+| OutOfMemoryError in `seed.err` | none | none |
+
+The difficulty rose by 2 bits every 30 blocks from 8 to 26 and stayed at 26, where the blocks came
+116.7 s (64 MB run, 84 blocks) and 171.6 s (default run, 30 blocks) apart, close to the two-minute
+target. In the default run the miner then stopped finding blocks: its last block came 6,046 s after
+the genesis block, and nothing followed for the rest of the run while transfers piled up (40 waiting
+at the end), although the next block needed the same 26 bits (`DifficultyRule.requiredFor` on the
+chain file). That is a defect of the miner, not of the seed node, and is #151. So the default run's
+last hour shows a seed node with nothing to relay; the 64 MB run carried blocks to its end and is the
+one the per-block and traffic figures below rest on.
 
 ### What follows from it
 
-{{CONCLUSIONS}}
+- **CPU is not what a seed node needs.** At most 0.37 % of one core at the 95th percentile, over three
+  hours with a block every two minutes. One vCPU is plenty, and even Oracle's E2.1.Micro with 1/8 of
+  an OCPU (section 3) would carry this load; the proof of pun costs the miners, not the seed.
+- **Memory is set by the JVM, not by the node.** After a collection at most 5 MB of the heap were
+  alive. Offered the default heap, a quarter of this machine's 16 GB, the JVM grew to 245 MB; held to
+  64 MB it stayed at 122 MB, without a full collection and without an OutOfMemoryError. So
+  `-Xmx64m`: twelve times the live heap measured. The node keeps its whole chain in memory (below),
+  so the heap is looked at again when the chain file passes some tens of MB - at the measured block
+  size that is years away.
+- **`MemoryMax=256M`** for the service: about twice the resident memory measured with the 64 MB heap,
+  so a growing chain hits a warning from the monitoring (section 7) long before the limit.
+- **Disk**: at the measured 254 to 276 bytes per block and 720 blocks a day, about 0.2 MB a day and
+  some 70 MB a year; the ceiling from the block limit below is far higher.
+- **Traffic**: 1.5 to 1.7 MB a day with one peer. Even 27 peers, the most a node keeps, would be
+  below 50 MB a day, plus every new node's first download of the chain; every plan in section 11
+  includes at least 1 TB a month.
+- **The minimum, in short: 1 vCPU, 512 MB of memory, 10 GB of disk** - room for the operating system,
+  Tor and the node's 122 MB.
 
 ### What it does not measure
 
@@ -80,7 +124,7 @@ python3 -I analyse.py <output directory> chain.csv
   per block (`LocalChain.java`, fields `chain`, `hashes`, `heights`).
 - **Disk**: a block is at most 300,000 bytes (`BlockLimits`). At the two-minute target that is at most
   300,000 × 720 = 216,000,000 bytes a day, about 78.8 GB in a year of 262,800 blocks - a ceiling, far
-  above the {{BYTES_PER_BLOCK}} bytes per block measured.
+  above the 254 to 276 bytes per block measured.
 - **Traffic**: a node relays every block to every peer except the one it came from (ADR 0003,
   "Relaying"). Full blocks to 27 peers would be about 5.8 GB a day, plus every new node that
   downloads the whole chain from this one. Every plan in section 11 includes at least 1 TB a month.
@@ -116,11 +160,16 @@ bare metal compute instances as idle if, during a 7-day period, the following ar
 utilization for the 95th percentile is less than 20%", "Network utilization is less than 20%",
 "Memory utilization is less than 20% (applies to A1 shapes only)" (Oracle, Always Free Resources).
 
-{{IDLE_TABLE}}
+| Oracle's criterion, each below 20 % | measured, the higher of the two runs | share |
+|---|---|---|
+| CPU, 95th percentile | 0.37 % of one core (64 MB run, whole run); 0.27 % in its last hour | about 0.4 % of one OCPU, which is one hardware thread; half that of a 2-OCPU instance |
+| network | 20.1 B/s, 0.16 kbit/s (64 MB run, whole run) | 0.000008 % of the 2 Gbit/s of a 2-OCPU A1 instance |
+| memory (A1 only) | 245 MB with the default heap; 122 MB with `-Xmx64m` | 2.04 % and 1.02 % of 12 GB |
 
 All three stay far below 20 %. By the rule as written, a seed node of the test network on an A1
-instance is idle and may be reclaimed. Seven days were not measured, but the margin is a factor of
-{{IDLE_MARGIN}} and more, and nothing in a seed node's work grows with the days except the chain.
+instance is idle and may be reclaimed. Seven days were not measured, but the smallest margin is a
+factor of about 10 (memory with the default heap; 20 with the 64 MB heap, more than 50 for CPU), and
+nothing in a seed node's work grows with the days except the chain.
 
 What that means for the plan:
 
@@ -204,11 +253,11 @@ it is not a permission.
 
   [Service]
   User=lethenon
-  Environment=LETHENON_OPTS=-Xmx{{HEAP}}
+  Environment=LETHENON_OPTS=-Xmx64m
   ExecStart=/opt/lethenon/bin/lethenon node --chain /var/lib/lethenon/chain.lethenon --listen 18480 --peer <the other seed node>:18480
   Restart=on-failure
   RestartSec=10
-  MemoryMax={{MEMORY_MAX}}
+  MemoryMax=256M
   NoNewPrivileges=true
   ProtectSystem=strict
   ReadWritePaths=/var/lib/lethenon
@@ -309,7 +358,7 @@ it is not a permission.
 
 ## 11. Costs
 
-From the measured need ({{MINIMUM}}), the smallest plan of each provider that meets it, as its own
+From the measured need (1 vCPU, 512 MB of memory, 10 GB of disk), the smallest plan of each provider that meets it, as its own
 pages showed it on 2026-10-08. Prices change; each is the provider's figure on that day.
 
 | Provider | Plan | vCPU / RAM / disk | Traffic | Per month | Tax | Term, locations |
