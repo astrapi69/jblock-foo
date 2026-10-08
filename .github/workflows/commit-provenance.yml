@@ -9,7 +9,7 @@ name: Commit provenance
 
 on:
   pull_request:
-    branches: [ master, develop ]
+    branches: [ master, develop, "consensus/**" ]
 
 jobs:
   no-non-human-co-authors:
