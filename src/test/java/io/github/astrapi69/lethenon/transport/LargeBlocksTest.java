@@ -98,7 +98,7 @@ class LargeBlocksTest
 		Bytes postQuantum = holder.spendKey(SignatureSuite.ML_DSA_65);
 		Destination someone = Destination.direct(Bytes.of(new byte[] { 7 }));
 		SignedTransaction funding = holder.sign(new TransactionBody(Chain.TEST_IDENTIFIER, 0L,
-			classical, Destination.direct(postQuantum), Amount.ofLeth(1_000_000L), Amount.ZERO,
+			classical, Destination.direct(postQuantum), Amount.ofLeth(1_000L), Amount.ZERO,
 			"funding"), SignatureSuite.ED25519);
 		List<BlockBody> chain = extended(genesis, MINER, List.of(funding));
 		long nonce = 0L;

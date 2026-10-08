@@ -165,7 +165,7 @@ class LethenonCliTest extends AbstractCliTest
 			holderWallet), err);
 
 		assertTrue(out.contains(
-			"account (ed25519): " + holderAccount + " holds 992000000.00000000 LETH"), out);
+			"account (ed25519): " + holderAccount + " holds 1984.00000000 LETH"), out);
 		assertTrue(out.contains("replayed 1 blocks"), out);
 	}
 

@@ -46,7 +46,7 @@ final class TestChains
 	 * {@link #MINER}
 	 *
 	 * @param holder
-	 *            the account the genesis block allocates the non-pool half of the supply to
+	 *            the account the genesis block pays its block reward to
 	 * @param transfers
 	 *            the transfers, in chain order
 	 * @return the blocks, genesis first

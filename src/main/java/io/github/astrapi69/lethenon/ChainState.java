@@ -153,8 +153,10 @@ public final class ChainState
 	}
 
 	/**
-	 * Puts the genesis allocation in place: half the supply into the mining pool, half to the
-	 * account the genesis block names as its beneficiary
+	 * Puts the genesis allocation in place: the whole supply into the mining pool, and out of it the
+	 * ordinary block reward to the account the genesis block names as its beneficiary, as every
+	 * later block pays its miner. The same on both chains, so the test chain tests the main chain's
+	 * rule (#111)
 	 *
 	 * @param genesis
 	 *            the genesis block
@@ -163,7 +165,7 @@ public final class ChainState
 	{
 		chainIdentifier = genesis.chainIdentifier();
 		balances.put(POOL, Emission.MINING_POOL);
-		balances.put(genesis.beneficiary(), Emission.TOTAL_SUPPLY.minus(Emission.MINING_POOL));
+		payTheReward(genesis.beneficiary());
 	}
 
 	/**

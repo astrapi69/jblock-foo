@@ -6,6 +6,19 @@ Version 0.3.0 (unreleased)
 
 CHANGED:
 
+- the genesis block allocates nothing outside the mining pool (#111). The whole supply,
+  1,984,000,000 LETH, goes into the pool, and the genesis block is paid the ordinary block reward
+  of 1,984 LETH out of it, like every other block. Before, half the supply went to the genesis
+  block's beneficiary and the genesis block paid no reward. The same rule holds on `lethenon-1`
+  and `lethenon-test-1`, so the test chain tests what the main chain does. The pool now lasts
+  exactly 1,000,000 rewarded blocks, the genesis block the first of them, about 3.8 years at
+  two-minute blocks (`python3 -c "print(1_984_000_000 // 1_984, 1_000_000 * 2 / (365.25 * 24 * 60))"`).
+  This is a consensus change, and **every existing chain, test chain or main chain, is invalid
+  under it**: the blocks still replay, but the genesis holder's balance is 1,984 LETH instead of
+  992,000,000, so the first transfer that spends more than that from the genesis holder is
+  refused, and the balances of every chain differ from what lethenon 0.2.0 computed. Start a new
+  chain with `mine`. The faucet still hands out 1,984 LETH from the genesis holder's account, so it
+  can pay once after the genesis block and then as often as that account mines
 - the main chain, `lethenon-1`, runs the same block limits as the test chain, from height 0 (#109):
   a block's timestamp at most two hours after the verifying node's clock, a block at most 300,000
   bytes. This is a consensus change. The timestamp bound rejects no chain that verified before,
