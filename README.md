@@ -45,9 +45,9 @@ never an argument; it is the first line of standard input.
 ```
 lethenon wallet create  --wallet holder.wallet          # prints the account and the 24 words
 lethenon wallet restore --wallet again.wallet           # stdin: the 24 words, then a new password
-lethenon mine    --chain chain.lethenon --wallet holder.wallet   # first run: the genesis block
-lethenon mine    --testnet --chain test.lethenon --wallet holder.wallet   # genesis of a test chain
-lethenon faucet  --chain chain.lethenon --wallet holder.wallet --to <account>
+lethenon mine    --chain chain.lethenon --wallet holder.wallet   # first run: the main chain's anchored genesis block
+lethenon mine    --testnet --chain test.lethenon --wallet holder.wallet   # genesis of a test chain, paying this wallet
+lethenon faucet  --chain test.lethenon --wallet holder.wallet --to <account>   # pays from the test chain's genesis holder
 lethenon send    --chain chain.lethenon --wallet w.wallet --to <account> --amount 12.5 --memo "..."
 lethenon send    --chain chain.lethenon --wallet w.wallet --to-address <view:spend> --amount 12.5
 lethenon sweep   --chain chain.lethenon --wallet w.wallet       # one-time payments onto the account
