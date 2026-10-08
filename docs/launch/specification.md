@@ -1,0 +1,153 @@
+Not legal advice. Last reviewed 2026-10-08. Check with a lawyer before a public launch.
+
+# Lethenon: technical specification
+
+This document is called a specification, not a white paper, on purpose: under MiCA a crypto-asset
+white paper that is drawn up voluntarily for an offer exempt from the obligation to publish one
+brings the whole of Title II with it (Regulation (EU) 2023/1114, Article 4(8); see
+[regulatory-overview.md](regulatory-overview.md)). It describes how the software works. It is not
+an offer and says nothing about value.
+
+It describes `develop` as of 2026-10-08 - lethenon 0.3.0 and the 0.4.0 cycle - and points to the
+code, the tests and the decision records instead of copying them. Where this text and the code
+differ, the code is right, and this text is the one to fix.
+
+## 1. What lethenon is
+
+A protest chain against the politics of surveillance: a joke currency whose point is a working
+demonstration of verification without an observer, post-quantum signatures from the first block,
+recovery without custody, and a memo signed into every transaction ([README](../../README.md),
+"What it demonstrates"). The library is published to Maven Central; the chain is private, and
+nothing about it is sold ([README](../../README.md), "What it is not"). The decisions behind it are
+issues [#1](https://github.com/astrapi69/lethenon/issues/1) (reasoning) and
+[#2](https://github.com/astrapi69/lethenon/issues/2) (milestones).
+
+## 2. Units and supply
+
+| | | where |
+|---|---|---|
+| unit | 1 LETH = 10^8 lethe; all arithmetic in integer lethe | `Amount` |
+| supply | 1,984,000,000 LETH, held at the start in the mining pool | `Emission.TOTAL_SUPPLY`, `Emission.MINING_POOL` |
+| block reward | 1,984 LETH out of the pool, for every block including the genesis block | `Emission.BLOCK_REWARD`, `GenesisAllocationTest` |
+| pre-allocation | none: nobody holds anything before the first block is mined (#111) | `GenesisAllocationTest` |
+| invariant | the balances add up to the supply after every block | `ChainState`, `ReplayTest` |
+
+The emission changes in the next consensus break: a reward that declines with the pool, with a
+tail of 66 LETH per block (#133). It is built on the integration branch `consensus/lethenon-2` and
+released together with the new chain identifiers (section 8); until then this table is the rule.
+
+## 3. Accounts and transfers
+
+An account model with a nonce per account, not UTXO: one signature per transfer instead of one per
+input, which is what makes post-quantum signatures affordable (README, "The planned shape"). A
+transfer names its chain, its nonce, its sender, its recipient, its amount, its fee and a memo, and
+the memo is signed with it (`TransactionBody`, `Transfers`). Fees go into the pool. Waiting
+transfers are kept in a bounded pool of at most 5,000 (`TransactionPool.LIMIT`).
+
+## 4. Signatures
+
+Two suites: Ed25519 by default, ML-DSA-65 (FIPS 204) selectable per transfer, and the suite's
+identifier is inside the signed bytes (`SignatureSuite`, `SigningPayload`). The primitives come from
+the family's libraries over Bouncy Castle - crypt-api for the algorithm names, mystic-crypt for
+signing and verifying - not from this project. Evidence: `KnownAnswerTest` (RFC 8032 vector 1, and
+the FIPS 204 key and signature sizes), `PostQuantumSuiteTest` (a tampered ML-DSA-65 transfer is
+refused; a signature of one suite does not verify as the other; one chain carries both),
+`SigningPayloadTest`.
+
+## 5. Recipients
+
+Two destination schemes (`AddressScheme`): `direct`, an account key in the clear, and
+`stealth-v2`, a one-time destination derived by the sender from the recipient's published address,
+`P = S + H(s)*B`, found by the recipient with the X25519 view key and spent with the blinded spend
+key (`OneTimeAddresses`, `PublishedAddress`, `WalletScan`, `Sweeps`, #21). Evidence:
+`OneTimeAddressesTest`, `StealthFundsCanBeSpentTest`, `WalletScanTest`, `SweepsTest`.
+
+What this hides and what it does not is stated in the README, "Privacy, and its honest label":
+post-quantum in its authenticity, classical in its hidden recipient, open about sender and amount.
+
+## 6. Blocks and proof of pun
+
+A block carries its chain identifier, height, the previous block's hash, its beneficiary, its
+transfers, a timestamp, its difficulty and a pun (`BlockBody`). Its hash is SHA-256 over its
+canonical encoding with the Merkle root of its transfers in place of the transfers (`Blocks.hashOf`,
+`Blocks.merkleRoot`). It is valid when that hash has at least `difficulty` leading zero bits
+(`Blocks`); mining varies the pun rather than a nonce (`Mining`, README "The planned shape"):
+
+| | | where |
+|---|---|---|
+| minimum difficulty | 8 bits | `DifficultyRule.MINIMUM` |
+| target | two-minute blocks | `DifficultyRule.TARGET_BLOCK_MILLIS` |
+| adjustment | at most 2 bits every 30 blocks | `DifficultyRule.INTERVAL`, `MAXIMUM_STEP` |
+| timestamp | later than the median of the 11 before | `DifficultyRule.MEDIAN_SPAN`, #24 |
+| fork choice | the most cumulative work, on the test network | `ChainWork`, ADR 0003 |
+
+Evidence: `BlocksTest`, `MiningTest`, `DifficultyRuleTest`, `ChainWorkTest`.
+
+## 7. Consensus rules
+
+One table per chain (`ConsensusRules`): which scheme is admitted from which height (`SchemeActivation`,
+ADR 0001 and [ADR 0002](../adr/0002-privacy-building-blocks.md)), the block limits - at most
+300,000 bytes per block and timestamps at most two hours ahead of the verifying node's clock, on both
+chains from height 0 (`BlockLimits`, #96, #99, #109) - and at most one genesis block fixed in the
+code per chain (`GenesisAnchor`, #104). New cryptography enters only under the rules of
+[ADR 0001](../adr/0001-new-cryptographic-constructions.md): a peer-reviewed publication with its
+proof, the authors' test vectors, the test chain first, the main chain after an external review.
+Evidence: `ConsensusRulesTest`, `BlockSizeTest`, `FutureTimestampTest`, `GenesisAnchorTest`.
+
+## 8. Chain identity
+
+Two chains, the main chain and the test chain, and the identifier is inside every block and every
+signed transfer, so nothing signed for one is accepted on the other (`Chain`, `ChainIdentifierTest`,
+#50). On `develop` they are `lethenon-1` and `lethenon-test-1`. In the next consensus break they
+become `lethenon-2` and `lethenon-test-2`, and a chain under the old identifiers is refused with the
+reason that it was started before the rules of 0.3.0 (#137, already on `consensus/lethenon-2`). The
+main chain gets its genesis block fixed in the code in the same break.
+
+## 9. Encoding and files
+
+One canonical encoder for blocks (version 2) and transfers (version 1), with a round-trip property
+test (`CanonicalEncoding`, `CanonicalEncodingTest`). A decoder that is handed bytes from a file or a
+peer checks every announced length against what is left before allocating (#80,
+`UntrustedBytesTest`). A chain lives in one file and its waiting transfers next to it in
+`<chain>.pending` (`ChainFile`, `ChainFileTest`). A fixture written by an earlier process is replayed
+from its bytes alone, and a corrupted one refused (`ChainFixtureTest`).
+
+## 10. Replay
+
+`Replay.verify` checks a chain from its genesis block: every block hash and difficulty, every
+signature, every nonce and balance, the scheme activations and block limits, the anchor where one
+exists, and the supply invariant after every block. Nothing is taken from anybody: a balance is
+computed from the chain, and the chain package cannot name a networking type at all
+(`NoBalanceQueryTest`). Evidence: `ReplayTest`, `ChainFixtureTest`.
+
+## 11. Wallet
+
+A seed phrase (BIP-39 word list) with hierarchical derivation of the spend and view keys
+(`SeedPhrase`, `DeterministicKeys`, `Wallet`), a wallet file sealed with a password in the envelope
+of mystic-crypt (`WalletFile`, `LETHWF`), and Shamir splitting of the seed from mystic-crypt
+(README, "What it demonstrates"). Evidence: `SeedPhraseTest`, `DeterministicKeysTest`,
+`WalletFileTest`, `RecoveryAcceptanceTest`.
+
+## 12. Network
+
+The test network only ([ADR 0003](../adr/0003-test-network.md)): TCP, a `HELLO` with the magic
+`LETHENON` and protocol version 3 (`Hello`), frames of at most 4 MiB (`Frames.MAXIMUM_FRAME`), at
+most 12 outgoing and 16 incoming connections (`Node`), peer exchange (#102), relay of blocks and
+transfers, fork choice by work, a one-shot sync (`Sync`, #107) and the handover of a transfer to a
+node (`Handover`). Tor as a transport ([ADR 0004](../adr/0004-tor-transport.md)): a SOCKS5 proxy for
+every outgoing connection, an anonymity zone for a node's own transfers, an onion service for its
+zone peers; run against a real Tor by [docs/tor.md](../tor.md) (#112). The tests are in
+`src/test/java/io/github/astrapi69/lethenon/transport`. There is no main-chain network yet.
+
+## 13. Command line
+
+`lethenon` with the subcommands `wallet`, `balance`, `send`, `sweep`, `faucet`, `mine`, `genesis`,
+`node` and `sync` (`src/main/java/io/github/astrapi69/lethenon/cli`); the README, "Command line",
+shows them in use.
+
+## 14. Not built
+
+Amount confidentiality and sender ambiguity, and a post-quantum hidden recipient: looked at and
+postponed for want of a construction that meets ADR 0001 (README, "Privacy, and its honest label";
+`docs/research/pq-privacy-literature.md`, sections 15 and 16). A network for the main chain, and the
+main chain's genesis block (section 8).
