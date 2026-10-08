@@ -1,16 +1,20 @@
 # Running lethenon over Tor
 
-A runbook for the first run of the Tor transport against a real Tor (ADR 0004, step 4, #124).
-Steps 1 to 3 (#114, #116, #120) are tested against a SOCKS5 server in the test sources. A real Tor
-could not be reached from the environment they were built in (ADR 0004, "Measured in this
-environment"), so this run is the first time the transport meets the Tor network. What it shows
-belongs in #112.
+A runbook for running the Tor transport against a real Tor (ADR 0004, step 4, #124). Steps 1 to 3
+(#114, #116, #120) are tested against a SOCKS5 server in the test sources. The first run against a
+real Tor, 0.4.9.11 on 2026-10-08, is recorded in #112. It found that a connection through Tor
+needs more than the five seconds a direct one gets (#127), and the runbook below is the one that
+then ran green.
 
 Everything runs on the test network, `lethenon-test-1`. A node does not run on the main chain.
 
 ## What you need
 
-- Tor, version 0.4.x, as a daemon: `apt install tor` on Debian or Ubuntu
+- Tor, version 0.4.x, as a daemon: `apt install tor` on Debian or Ubuntu. Without root, Tor runs as
+  a user process just as well: `tor -f torrc` with a `torrc` that has the lines of section 1 plus a
+  `DataDirectory`, and every `HiddenServiceDir` in a folder of your own (mode 700). The first run
+  did exactly that; then the onion addresses are in `<HiddenServiceDir>/hostname`, and `sudo` and
+  `systemctl` are not needed
 - a lethenon build that contains #123 (`node --anonymous-inbound`)
 - one machine is enough. Its two nodes reach each other through the Tor network, by onion
   addresses, exactly as two machines would
@@ -61,7 +65,7 @@ Note B's `account (ed25519): ...` line, written below as `<B account>`.
 ```sh
 lethenon node --chain a.lethenon --listen 18431 --mine --wallet a.wallet \
     --tx-proxy tor,127.0.0.1:9050 \
-    --anonymous-inbound $ZONE:18484,127.0.0.1:18484
+    --anonymous-inbound $ZONE:18484,127.0.0.1:18484 --for 1800
 ```
 
 Expect, among other things:
@@ -71,7 +75,9 @@ mined the genesis block of lethenon-test-1
 node on lethenon-test-1, listening on 0.0.0.0 port 18431, 0 peer(s) configured, connecting direct, anonymity zone through the SOCKS5 proxy at 127.0.0.1:9050, at most 10 peer(s), onion service <ZONE>:18484 on 127.0.0.1 port 18484, at most 16 peer(s), mining for <A account>
 ```
 
-Let it mine a few blocks, so that A holds money to send.
+Let it mine a few blocks, so that A holds money to send. `--for` ends the node and prints its stop
+line and its refusals; stopped with Ctrl-C it prints neither (#129), so give it enough seconds for
+the whole run.
 
 ## 4. B takes the chain over Tor
 
@@ -82,8 +88,10 @@ lethenon sync --chain b.lethenon --peer $CHAIN:18431 --proxy 127.0.0.1:9050
 ```
 
 Expect `chain lethenon-test-1 from the node at <CHAIN>:18431: took N block(s), now at height
-N-1`. The first connection to an onion service can take tens of seconds while Tor builds its
-circuits. `--within` raises the default of 300 seconds.
+N-1`. The first connection to an onion service takes a few seconds while Tor fetches the service's
+descriptor and builds a rendezvous circuit: from a freshly started Tor client, the first run
+measured 3.7 to 6.8 s, and once Tor gave up after its own 120 s. A node gives a connection through
+Tor 45 s to open (#127). `--within` raises the default of 300 seconds.
 
 What this shows: the chain came through Tor (SOCKS5, host unresolved, #114) from an onion service,
 and every block was verified locally.
@@ -96,7 +104,9 @@ lethenon node --chain b.lethenon --listen 18432 --no-discovery \
 ```
 
 B has no clearnet peer and needs none for this run. Its only peer is A, reached through A's onion
-service, inside the zone.
+service, inside the zone. B dials it once, at the start; if that one attempt fails - Tor can give
+up on a first circuit - B stays without a zone peer until it is started again (#128). Its stop line
+says so: `0 anonymity peer(s)`, with the reason among the refusals.
 
 ## 6. A's own transfer goes only through the zone
 
@@ -109,7 +119,7 @@ lethenon send --chain a.lethenon --wallet a.wallet --to <B account> --amount 7 \
 
 A's node counts it as its own, because a command has no node identity. So the node sends it to
 its zone peers only, which here means B, and to no clearnet peer (#116). When B stops after its
-900 seconds, or earlier with Ctrl-C, expect:
+900 seconds, expect:
 
 ```text
 stopped at height H, mined 0 block(s), 1 transfer(s) waiting, 0 peer(s) connected, 1 anonymity peer(s)
@@ -134,8 +144,9 @@ While B runs, its Java process should have no connection except to Tor's SOCKS p
 ss -tnp | grep java
 ```
 
-B's lines should all go to `127.0.0.1:9050`. A's lines are its listeners, its connections from
-Tor's onion services (from 127.0.0.1), and its own SOCKS connections.
+B's lines should all go to `127.0.0.1:9050`; `ss` may write that as `[::ffff:127.0.0.1]:9050`. A's
+lines are its connections from Tor's onion services (from 127.0.0.1) and its own SOCKS
+connections; `ss -tnp` without `-l` does not list the listeners themselves.
 
 ## 8. What to record in #112
 
@@ -145,5 +156,5 @@ Tor's onion services (from 127.0.0.1), and its own SOCKS connections.
 - the output of step 7
 - anything that differed from this runbook
 
-Once that is recorded, the README sentence "not yet run against a real Tor" goes, in the same
-change that links the record.
+The first run is recorded there. A later run against a real Tor - another version, two machines -
+is recorded the same way, in #112 or in an issue of its own that links it.

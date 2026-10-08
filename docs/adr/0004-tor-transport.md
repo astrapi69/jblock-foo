@@ -53,6 +53,17 @@ Tor 0.4.9.11 installs here, but it cannot bootstrap. With direct connections it 
 `The https proxy refused to allow connection to 205.185.125.239 (status code 403, "Forbidden")`
 (tor log, 2026-10-07). So no test here can use the Tor network.
 
+### Measured against a real Tor
+
+The runbook (step 4) ran on the maintainer's machine on 2026-10-08, Tor 0.4.9.11, recorded in #112.
+A node took the chain from an onion service, a second node joined the first one's zone through its
+onion service and nothing else, and an own transfer reached it through the zone only. The first run
+found that a connection through Tor needs more time to open than a direct one: from a freshly
+started Tor client, the first CONNECT to an onion service took 3.7 to 6.8 s in seven of eight
+samples, and Tor gave up on the eighth after its own 120 s. A connection through a SOCKS proxy now
+has Monero's `P2P_DEFAULT_SOCKS_CONNECT_TIMEOUT`, 45 s, a direct one keeps 5 s (#127). That a
+configured peer is dialled only once is recorded in #128.
+
 ## Decision
 
 ### No Tor library, a Tor daemon
@@ -110,8 +121,8 @@ the daemon does not already do.
 4. **The runbook against a real Tor.** `docs/tor.md`: the torrc lines (`SocksPort`,
    `HiddenServiceDir`, `HiddenServicePort`), the three node configurations, and a manual
    end-to-end run between two machines. It cannot be executed here (see "Measured in this
-   environment"). Until the maintainer has run it once, the Tor transport is tested only against
-   the SOCKS5 server in the tests, and the README says exactly that.
+   environment"); the maintainer ran it on 2026-10-08 (see "Measured against a real Tor",
+   #112), and the README says so.
 
 ### How it is tested
 
