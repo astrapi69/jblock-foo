@@ -63,8 +63,8 @@ destinations and the account together. Receiving is unlinkable; spending is the 
 
 There are two chains, `lethenon-2` and the test chain `lethenon-test-2`, and the identifier is
 inside every signed transfer and every block, so nothing signed for one is accepted on the other.
-A chain under the identifiers before them, `lethenon-1` or `lethenon-test-1`, was started before
-the rules of 0.3.0 and is refused with that reason: under today's rules its balances would come
+A chain under the identifiers before them, `lethenon-1` or `lethenon-test-1`, was started under the
+rules before 0.4.0 and is refused with that reason: under today's rules its balances would come
 out differently (#137).
 `--testnet` chooses the test chain when `mine` writes the genesis block; from then on the genesis
 block decides, every command follows it, and `--testnet` on a main chain is refused. A new

@@ -68,7 +68,7 @@ Read from the Monero sources, commit f6a591c (2026-10-04), `git clone --depth 1 
 A node runs only on `lethenon-test-2`.
 - It refuses a chain file whose genesis block names `lethenon-2`.
 - It refuses a chain file under `lethenon-test-1` or `lethenon-1` with the reason that the chain was
-  started before the rules of 0.3.0 (#137).
+  started under the rules before 0.4.0 (#137).
 - It creates no main chain.
 - Its handshake refuses any peer that names another chain or another genesis block.
 

@@ -17,4 +17,4 @@ chain identifier changes; the last time was #137, when the main chain became `le
 
 `chain-lethenon-1.lethenon` is the chain file as an earlier build wrote it, 698 bytes, under
 `lethenon-1` (commit 2e1076c, 2026-10-01). It is not regenerated: it is the evidence that a chain
-started before the rules of 0.3.0 is refused, and with that reason, by this build (#137).
+started under the rules before 0.4.0 is refused, and with that reason, by this build (#137).
