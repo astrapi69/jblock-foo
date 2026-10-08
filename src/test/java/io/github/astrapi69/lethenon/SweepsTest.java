@@ -164,7 +164,7 @@ class SweepsTest
 	private SignedTransaction payment(final Destination destination, final long nonce,
 		final Amount amount)
 	{
-		return TransactionSigner.sign(new TransactionBody(Chain.IDENTIFIER, nonce, payerKey,
+		return TransactionSigner.sign(new TransactionBody(Chain.TEST_IDENTIFIER, nonce, payerKey,
 			destination, amount, Amount.ZERO, "paid"), SignatureSuite.ED25519,
 			payer.getPrivate());
 	}
@@ -172,7 +172,7 @@ class SweepsTest
 	private List<BlockBody> chainPaying(final List<SignedTransaction> payments)
 	{
 		List<BlockBody> chain = new ArrayList<>(List.of(Blocks
-			.mine(new BlockBody(Chain.IDENTIFIER, 0L, Bytes.of(new byte[32]), payerKey,
+			.mine(new BlockBody(Chain.TEST_IDENTIFIER, 0L, Bytes.of(new byte[32]), payerKey,
 				new ArrayList<>(), 1_759_000_000_000L, 8, "in the beginning was the pun"),
 				1_000_000L)
 			.orElseThrow()));
@@ -194,7 +194,7 @@ class SweepsTest
 	private BlockBody block(final List<BlockBody> chain, final List<SignedTransaction> transfers)
 	{
 		BlockBody previous = chain.getLast();
-		return Blocks.mine(new BlockBody(Chain.IDENTIFIER, previous.height() + 1L,
+		return Blocks.mine(new BlockBody(Chain.TEST_IDENTIFIER, previous.height() + 1L,
 			Blocks.hashOf(previous), payerKey, transfers,
 			previous.timestamp() + 120_000L, 8, "block " + (previous.height() + 1L)), 1_000_000L)
 			.orElseThrow();

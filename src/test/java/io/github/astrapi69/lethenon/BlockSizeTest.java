@@ -95,7 +95,7 @@ class BlockSizeTest
 		final List<SignedTransaction> transfers)
 	{
 		List<BlockBody> funded = funded(chainIdentifier).chain();
-		BlockBody unmined = Mining.nextBlock(Chain.IDENTIFIER, List.of(), MINER, List.of(), "",
+		BlockBody unmined = Mining.nextBlock(Chain.TEST_IDENTIFIER, List.of(), MINER, List.of(), "",
 			0L);
 		BlockBody next = new BlockBody(chainIdentifier, 2L, Blocks.hashOf(funded.getLast()), MINER,
 			transfers, GENESIS_TIME + 2 * STEP, unmined.difficulty(), "too large");
@@ -110,7 +110,7 @@ class BlockSizeTest
 	}
 
 	@ParameterizedTest(name = "{0}")
-	@ValueSource(strings = { Chain.TEST_IDENTIFIER, Chain.IDENTIFIER })
+	@ValueSource(strings = { Chain.TEST_IDENTIFIER, Chain.TEST_IDENTIFIER })
 	@DisplayName("the limit is 300,000 bytes on both chains")
 	void theLimit_is300000Bytes(final String chainIdentifier)
 	{
@@ -130,7 +130,7 @@ class BlockSizeTest
 	}
 
 	@ParameterizedTest(name = "{0}")
-	@ValueSource(strings = { Chain.TEST_IDENTIFIER, Chain.IDENTIFIER })
+	@ValueSource(strings = { Chain.TEST_IDENTIFIER, Chain.TEST_IDENTIFIER })
 	@DisplayName("a block larger than the limit does not verify, on either chain")
 	void aBlockLargerThanTheLimit_doesNotVerify(final String chainIdentifier)
 	{
@@ -143,7 +143,7 @@ class BlockSizeTest
 	}
 
 	@ParameterizedTest(name = "{0}")
-	@ValueSource(strings = { Chain.TEST_IDENTIFIER, Chain.IDENTIFIER })
+	@ValueSource(strings = { Chain.TEST_IDENTIFIER, Chain.TEST_IDENTIFIER })
 	@DisplayName("the limit holds to the byte, on either chain")
 	void theLimitHoldsToTheByte(final String chainIdentifier)
 	{
@@ -164,7 +164,7 @@ class BlockSizeTest
 	}
 
 	@ParameterizedTest(name = "{0}")
-	@ValueSource(strings = { Chain.TEST_IDENTIFIER, Chain.IDENTIFIER })
+	@ValueSource(strings = { Chain.TEST_IDENTIFIER, Chain.TEST_IDENTIFIER })
 	@DisplayName("a mined block carries the longest prefix that fits, and it verifies, on either chain")
 	void aMinedBlock_carriesTheLongestPrefixThatFits(final String chainIdentifier)
 	{

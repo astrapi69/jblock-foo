@@ -94,7 +94,7 @@ class StealthFundsCanBeSpentTest
 		Ed25519ExpandedPrivateKey oneTimeKey = OneTimeAddresses.oneTimeKey(destination, address,
 			view.getPrivate(), spend.getPrivate());
 		SignedTransaction spending = TransactionSigner.sign(
-			new TransactionBody(Chain.IDENTIFIER, 0L, destination.key(),
+			new TransactionBody(Chain.TEST_IDENTIFIER, 0L, destination.key(),
 				Destination.direct(elsewhere), Amount.ofLeth(2L), Amount.ZERO,
 				"spent from an address that appeared once"),
 			oneTimeKey);
@@ -129,7 +129,7 @@ class StealthFundsCanBeSpentTest
 		BlockBody genesis = genesis();
 		BlockBody paid = block(1L, genesis, transferFromThePayer(destination, Amount.ofLeth(5L)));
 		SignedTransaction theft = TransactionSigner.sign(
-			new TransactionBody(Chain.IDENTIFIER, 0L, destination.key(),
+			new TransactionBody(Chain.TEST_IDENTIFIER, 0L, destination.key(),
 				Destination.direct(payerKey), Amount.ofLeth(5L), Amount.ZERO, "mine now"),
 			payersAttempt);
 		BlockBody stolen = block(2L, paid, theft);
@@ -182,7 +182,7 @@ class StealthFundsCanBeSpentTest
 		BlockBody paid = block(1L, genesis, transferFromThePayer(destination, Amount.ofLeth(4L)));
 
 		SignedTransaction spending = TransactionSigner.sign(
-			new TransactionBody(Chain.IDENTIFIER, 0L, destination.key(),
+			new TransactionBody(Chain.TEST_IDENTIFIER, 0L, destination.key(),
 				Destination.direct(payee.spendKey(SignatureSuite.ED25519)), Amount.ofLeth(4L),
 				Amount.ZERO, "swept into the account itself"),
 			payee.oneTimeKey(destination));
@@ -201,7 +201,7 @@ class StealthFundsCanBeSpentTest
 		final Amount amount)
 	{
 		return TransactionSigner.sign(
-			new TransactionBody(Chain.IDENTIFIER, 0L, payerKey, destination, amount, Amount.ZERO,
+			new TransactionBody(Chain.TEST_IDENTIFIER, 0L, payerKey, destination, amount, Amount.ZERO,
 				"paid to an address that appears once"),
 			SignatureSuite.ED25519, payer.getPrivate());
 	}
@@ -209,7 +209,7 @@ class StealthFundsCanBeSpentTest
 	private BlockBody genesis()
 	{
 		return Blocks
-			.mine(new BlockBody(Chain.IDENTIFIER, 0L, Bytes.of(new byte[32]), payerKey,
+			.mine(new BlockBody(Chain.TEST_IDENTIFIER, 0L, Bytes.of(new byte[32]), payerKey,
 				new ArrayList<>(), 1_759_000_000_000L, 8, "in the beginning was the pun"),
 				1_000_000L)
 			.orElseThrow();
@@ -218,7 +218,7 @@ class StealthFundsCanBeSpentTest
 	private BlockBody block(final long height, final BlockBody previous,
 		final SignedTransaction transfer)
 	{
-		return Blocks.mine(new BlockBody(Chain.IDENTIFIER, height, Blocks.hashOf(previous),
+		return Blocks.mine(new BlockBody(Chain.TEST_IDENTIFIER, height, Blocks.hashOf(previous),
 			payerKey, List.of(transfer), 1_759_000_000_000L + height * 120_000L, 8,
 			"block " + height), 1_000_000L).orElseThrow();
 	}

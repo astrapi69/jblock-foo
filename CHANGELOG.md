@@ -28,6 +28,8 @@ FORMAT:
   chain 'lethenon-2', which is neither 'lethenon-1' nor 'lethenon-test-1'", and the same for
   `lethenon-test-2`. No earlier version computes a balance on a chain of 0.4.0. To be measured again
   against the release, with the jars from Maven Central.
+- The main chain starts with the genesis block fixed in the code, hash `009cffa5...4e1f`, whose
+  reward belongs to nobody (ADR 0005). A main chain with any other genesis block is refused.
 
 CHANGED:
 
@@ -43,6 +45,8 @@ CHANGED:
   everything at once; that lottery is gone
 - the command line's help names the test chain through the constant: `genesis --testnet`,
   `mine --testnet` and `node` say `lethenon-test-2` (#137)
+- `mine` on a new main chain writes the anchored genesis block and says that it pays nobody; the
+  next `mine` mines block 1. Faucet and holder flows run on the test chain, `mine --testnet`
 - **API**: `Emission.TOTAL_SUPPLY` is `GENESIS_SUPPLY`; `BLOCK_REWARD` and `BLOCKS_WITH_A_REWARD`
   are gone, replaced by `FIRST_REWARD`, `TAIL_REWARD`, `EMISSION_DIVISOR` and `rewardFor`.
   `ConsensusRules` carries an `EmissionSchedule`; `ChainState` has `minted()` and `supply()`
@@ -50,6 +54,8 @@ CHANGED:
 ADDED:
 
 - `EmissionSchedule` and `BlockReward`: the reward as a share of the pool plus the minted part
+- `Genesis.NOBODY`, the beneficiary of the main chain's genesis block
+- ADR 0005, the genesis block of the main chain
 
 Version 0.3.0
 -------------

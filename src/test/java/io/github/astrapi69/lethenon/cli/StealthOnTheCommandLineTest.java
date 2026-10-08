@@ -65,8 +65,9 @@ class StealthOnTheCommandLineTest extends AbstractCliTest
 		holderPassword = aPassword();
 		holderWallet = directory.resolve("holder.wallet").toString();
 		assertEquals(0, run(holderPassword, "wallet", "create", "--wallet", holderWallet), err);
-		assertEquals(0, run(holderPassword, "mine", "--chain", chain.toString(), "--wallet",
-			holderWallet), err);
+		// the test chain: the main chain starts from its anchored genesis block, which pays nobody
+		assertEquals(0, run(holderPassword, "mine", "--testnet", "--chain", chain.toString(),
+			"--wallet", holderWallet), err);
 	}
 
 	@Test

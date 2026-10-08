@@ -267,10 +267,10 @@ class ChainIdentifierTest
 		return chainOf(Chain.TEST_IDENTIFIER);
 	}
 
+	/** A chain of its genesis block: the anchored one for the main chain, a mined one otherwise */
 	private List<BlockBody> chainOf(final String identifier)
 	{
-		return List.of(Blocks.mine(Mining.nextBlock(identifier, List.of(), holderKey, List.of(),
-			"in the beginning", NOW), 1_000_000L).orElseThrow());
+		return List.of(Genesis.start(identifier, holderKey, "in the beginning", NOW));
 	}
 
 	private static List<BlockBody> minedOnto(final List<BlockBody> chain,

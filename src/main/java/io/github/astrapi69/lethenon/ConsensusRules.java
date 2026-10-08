@@ -44,6 +44,20 @@ import java.util.Set;
 public final class ConsensusRules
 {
 
+	/**
+	 * The genesis block of {@code lethenon-2}, fixed in the code (#104, #137): mined on 2026-10-08
+	 * at difficulty 8 from the pun "in the beginning was the pun", hash
+	 * 009cffa549366d12a7f223be0e90821b7155f215a57ee3b6eed9d1e98cd04e1f. Its beneficiary is
+	 * {@link Genesis#NOBODY}, so the first block reward is paid as every reward is and can never be
+	 * spent. ADR 0005 says why
+	 */
+	private static final String LETHENON_2_GENESIS = "020000000000000001000000c5020000000a6c657468656e6f6e2d32000000000000000000000020"
+		+ "00000000000000000000000000000000000000000000000000000000000000000000002d6e6f626f"
+		+ "647920686f6c6473207468652067656e6573697320726577617264206f66206c657468656e6f6e2d"
+		+ "3200000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855000001"
+		+ "a11bd57c41000000000000000800000021696e2074686520626567696e6e696e6720776173207468"
+		+ "652070756e20233331350000000000000000";
+
 	/** The rule both chains run today */
 	public static final ConsensusRules LETHENON = new ConsensusRules(List.of(
 		SchemeActivation.from(Chain.IDENTIFIER, SignatureSuite.ED25519, 0L),
@@ -59,7 +73,8 @@ public final class ConsensusRules
 		List.of(new BlockLimits(Chain.IDENTIFIER, BlockLimits.TWO_HOURS,
 			BlockLimits.MAXIMUM_BLOCK_BYTES),
 			new BlockLimits(Chain.TEST_IDENTIFIER, BlockLimits.TWO_HOURS,
-				BlockLimits.MAXIMUM_BLOCK_BYTES)));
+				BlockLimits.MAXIMUM_BLOCK_BYTES)),
+		List.of(new GenesisAnchor(Chain.IDENTIFIER, LETHENON_2_GENESIS)));
 
 	private final List<SchemeActivation> activations;
 

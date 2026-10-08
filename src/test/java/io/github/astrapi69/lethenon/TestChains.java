@@ -72,7 +72,7 @@ final class TestChains
 	static List<BlockBody> chainWith(final Bytes holder, final SignedTransaction... transfers)
 	{
 		BlockBody genesis = Blocks
-			.mine(new BlockBody(Chain.IDENTIFIER, 0L, Bytes.of(new byte[32]), holder,
+			.mine(new BlockBody(Chain.TEST_IDENTIFIER, 0L, Bytes.of(new byte[32]), holder,
 				new ArrayList<>(), 1_759_000_000_000L, 8, "in the beginning was the pun"),
 				1_000_000L)
 			.orElseThrow();
@@ -81,7 +81,7 @@ final class TestChains
 		{
 			BlockBody previous = chain.getLast();
 			chain.add(Blocks
-				.mine(new BlockBody(Chain.IDENTIFIER, previous.height() + 1L,
+				.mine(new BlockBody(Chain.TEST_IDENTIFIER, previous.height() + 1L,
 					Blocks.hashOf(previous), MINER, List.of(transfer),
 					1_759_000_000_000L + 60_000L * chain.size(), 8, "block " + chain.size()),
 					1_000_000L)

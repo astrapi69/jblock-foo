@@ -82,8 +82,9 @@ class LethenonCliTest extends AbstractCliTest
 		holderPassword = aPassword();
 		holderWallet = directory.resolve("holder.wallet").toString();
 		holderAccount = createWallet(holderWallet, holderPassword);
-		assertEquals(0, run(holderPassword, "mine", "--chain", chain.toString(), "--wallet",
-			holderWallet), err);
+		// the test chain: the main chain starts from its anchored genesis block, which pays nobody
+		assertEquals(0, run(holderPassword, "mine", "--testnet", "--chain", chain.toString(),
+			"--wallet", holderWallet), err);
 	}
 
 	@Test
@@ -144,7 +145,7 @@ class LethenonCliTest extends AbstractCliTest
 		while (fast.size() < DifficultyRule.INTERVAL)
 		{
 			BlockBody last = fast.getLast();
-			fast.add(Blocks.mine(new BlockBody(Chain.IDENTIFIER, last.height() + 1L,
+			fast.add(Blocks.mine(new BlockBody(Chain.TEST_IDENTIFIER, last.height() + 1L,
 				Blocks.hashOf(last), last.beneficiary(), List.of(), last.timestamp() + 1_000L,
 				DifficultyRule.requiredFor(fast), "fast"), 1_000_000L).orElseThrow());
 		}

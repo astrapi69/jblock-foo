@@ -24,6 +24,7 @@
  */
 package io.github.astrapi69.lethenon;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 
@@ -33,6 +34,15 @@ import java.util.Optional;
  */
 public final class Genesis
 {
+
+	/**
+	 * The beneficiary of the anchored genesis block of {@code lethenon-2}: words, not a key. No
+	 * signature verifies for a sender that does not decode as a public key of any suite, so the
+	 * genesis reward is paid out of the pool like every reward and can never be spent (#137,
+	 * ADR 0005)
+	 */
+	public static final Bytes NOBODY = Bytes.of(
+		"nobody holds the genesis reward of lethenon-2".getBytes(StandardCharsets.UTF_8));
 
 	/** How many puns mining a genesis block tries before giving up */
 	static final long ATTEMPTS = 10_000_000L;

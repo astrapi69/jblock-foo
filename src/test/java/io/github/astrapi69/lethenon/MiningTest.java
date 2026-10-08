@@ -114,7 +114,7 @@ class MiningTest
 		List<SignedTransaction> transfers = new ArrayList<>();
 		for (long nonce = 0; nonce < DifficultyRule.INTERVAL - 1; nonce++)
 		{
-			transfers.add(holder.sign(new TransactionBody(Chain.IDENTIFIER, nonce, holderKey,
+			transfers.add(holder.sign(new TransactionBody(Chain.TEST_IDENTIFIER, nonce, holderKey,
 				Destination.direct(MINER), Amount.ofLeth(1L), Amount.ZERO, "block " + nonce),
 				SignatureSuite.ED25519));
 		}

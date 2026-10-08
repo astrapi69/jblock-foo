@@ -51,7 +51,7 @@ class PostQuantumSuiteTest
 		final long nonce)
 	{
 		KeyPair signer = TransactionSigner.newKeyPair(suite);
-		TransactionBody body = new TransactionBody(Chain.IDENTIFIER, nonce,
+		TransactionBody body = new TransactionBody(Chain.TEST_IDENTIFIER, nonce,
 			TransactionSigner.asBytes(signer.getPublic()),
 			new Destination(AddressScheme.DIRECT, Bytes.of(new byte[] { 9 }), Bytes.of(new byte[0]),
 				0),
@@ -130,22 +130,22 @@ class PostQuantumSuiteTest
 
 		// the genesis holder pays the post-quantum account first, so it can pay in turn
 		SignedTransaction classical = TransactionSigner.sign(
-			new TransactionBody(Chain.IDENTIFIER, 0L, holderKey,
+			new TransactionBody(Chain.TEST_IDENTIFIER, 0L, holderKey,
 				new Destination(AddressScheme.DIRECT, quantumKey, Bytes.of(new byte[0]), 0),
 				Amount.ofLeth(10L), Amount.ZERO, "signed the way every tool reads"),
 			SignatureSuite.ED25519, holder.getPrivate());
 		SignedTransaction postQuantum = TransactionSigner.sign(
-			new TransactionBody(Chain.IDENTIFIER, 0L, quantumKey,
+			new TransactionBody(Chain.TEST_IDENTIFIER, 0L, quantumKey,
 				new Destination(AddressScheme.DIRECT, holderKey, Bytes.of(new byte[0]), 0),
 				Amount.ofLeth(4L), Amount.ZERO, "signed against a machine that does not exist yet"),
 			SignatureSuite.ML_DSA_65, quantumHolder.getPrivate());
 
 		BlockBody genesis = Blocks
-			.mine(new BlockBody(Chain.IDENTIFIER, 0L, Bytes.of(new byte[32]), holderKey,
+			.mine(new BlockBody(Chain.TEST_IDENTIFIER, 0L, Bytes.of(new byte[32]), holderKey,
 				new ArrayList<>(), 1_759_000_000_000L, 8, "in the beginning was the pun"),
 				1_000_000L)
 			.orElseThrow();
-		BlockBody second = Blocks.mine(new BlockBody(Chain.IDENTIFIER, 1L, Blocks.hashOf(genesis),
+		BlockBody second = Blocks.mine(new BlockBody(Chain.TEST_IDENTIFIER, 1L, Blocks.hashOf(genesis),
 			miner, List.of(classical, postQuantum), 1_759_000_060_000L, 8, "two suites, one chain"),
 			1_000_000L).orElseThrow();
 

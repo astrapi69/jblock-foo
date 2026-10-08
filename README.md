@@ -67,7 +67,12 @@ A chain under the identifiers before them, `lethenon-1` or `lethenon-test-1`, wa
 rules before 0.4.0 and is refused with that reason: under today's rules its balances would come
 out differently (#137).
 `--testnet` chooses the test chain when `mine` writes the genesis block; from then on the genesis
-block decides, every command follows it, and `--testnet` on a main chain is refused. A new
+block decides, every command follows it, and `--testnet` on a main chain is refused. The main
+chain is never mined anew: its genesis block is fixed in the code, and `mine` on a new main chain
+writes that block, whose reward belongs to nobody ([ADR 0005](docs/adr/0005-main-chain-genesis.md)).
+A test chain starts with a genesis block mined for the wallet that runs `mine --testnet`, which is
+where the faucet pays from. A chain under `lethenon-1` or `lethenon-test-1`, the identifiers
+before 0.4.0, is refused with a message that names its successor (#137). A new
 cryptographic scheme runs on the test chain first ([ADR 0001](docs/adr/0001-new-cryptographic-constructions.md)).
 
 `send`, `faucet` and `sweep` sign transfers that wait in `chain.lethenon.pending`; the next `mine` puts

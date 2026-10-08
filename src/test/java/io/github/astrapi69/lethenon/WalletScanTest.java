@@ -158,7 +158,7 @@ class WalletScanTest
 	private SignedTransaction transfer(final long nonce, final Destination recipient,
 		final Amount amount, final String memo)
 	{
-		return TransactionSigner.sign(new TransactionBody(Chain.IDENTIFIER, nonce, senderKey,
+		return TransactionSigner.sign(new TransactionBody(Chain.TEST_IDENTIFIER, nonce, senderKey,
 			recipient, amount, Amount.ZERO, memo), SignatureSuite.ED25519, sender.getPrivate());
 	}
 }

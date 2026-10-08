@@ -43,8 +43,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * A genesis block fixed in the code: the rule table carries it as canonical bytes, a chain with
  * another genesis block does not verify, and a chain is started with it instead of a mined one
- * (#104). Tested on both chains against test anchors; the main chain's real block is the
- * maintainer's decision and comes last, onto the integration branch of #137.
+ * (#104). Tested on both chains against test anchors; the main chain's real block, filed in #137,
+ * is tested in {@link MainChainGenesisTest}.
  */
 class GenesisAnchorTest
 {
@@ -87,10 +87,10 @@ class GenesisAnchorTest
 	}
 
 	@Test
-	@DisplayName("neither chain has an anchor yet: the main chain's is the maintainer's decision")
-	void neitherChainHasAnAnchorYet()
+	@DisplayName("the main chain has its anchor, the test chain none: anybody may start a test chain")
+	void onlyTheMainChainHasAnAnchor()
 	{
-		assertTrue(ConsensusRules.LETHENON.anchorFor(Chain.IDENTIFIER).isEmpty());
+		assertTrue(ConsensusRules.LETHENON.anchorFor(Chain.IDENTIFIER).isPresent());
 		assertTrue(ConsensusRules.LETHENON.anchorFor(Chain.TEST_IDENTIFIER).isEmpty());
 	}
 

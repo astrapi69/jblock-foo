@@ -39,11 +39,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import io.github.astrapi69.lethenon.BlockBody;
+import io.github.astrapi69.lethenon.Blocks;
 import io.github.astrapi69.lethenon.CanonicalEncoding;
 import io.github.astrapi69.lethenon.Chain;
 import io.github.astrapi69.lethenon.Amount;
 import io.github.astrapi69.lethenon.Bytes;
 import io.github.astrapi69.lethenon.ChainFile;
+import io.github.astrapi69.lethenon.ConsensusRules;
+import io.github.astrapi69.lethenon.Emission;
+import io.github.astrapi69.lethenon.Genesis;
 import io.github.astrapi69.lethenon.Destination;
 import io.github.astrapi69.lethenon.Replay;
 import io.github.astrapi69.lethenon.SignatureSuite;
@@ -102,15 +106,27 @@ class TestnetOnTheCommandLineTest extends AbstractCliTest
 	}
 
 	@Test
-	@DisplayName("without --testnet a new chain is the main chain")
-	void withoutTheFlag_aNewChainIsTheMainChain() throws Exception
+	@DisplayName("without --testnet a new chain is the main chain, from its anchored genesis block")
+	void withoutTheFlag_aNewChainIsTheMainChain_startedFromItsAnchor() throws Exception
 	{
 		assertEquals(0, run(password, "mine", "--chain", chain.toString(), "--wallet", wallet),
 			err);
 
+		BlockBody genesis = CanonicalEncoding.readChain(Files.readAllBytes(chain)).getFirst();
+		BlockBody anchor = ConsensusRules.LETHENON.anchorFor(Chain.IDENTIFIER).orElseThrow();
 		assertTrue(out.contains("chain " + Chain.IDENTIFIER), out);
-		assertEquals(Chain.IDENTIFIER, CanonicalEncoding.readChain(Files.readAllBytes(chain))
-			.getFirst().chainIdentifier());
+		assertEquals(Blocks.hashOf(anchor), Blocks.hashOf(genesis),
+			"the main chain is never mined anew: every node starts from the same block");
+		assertEquals(Genesis.NOBODY, genesis.beneficiary(), "and it pays nobody, not this wallet");
+		assertTrue(out.contains("started the chain with its genesis block fixed in the code, "
+			+ Blocks.hashOf(anchor)), out);
+		assertEquals(0, run(password, "mine", "--chain", chain.toString(), "--wallet", wallet),
+			err);
+		assertTrue(out.contains("mined block 1"), out);
+		assertEquals(0, run(password, "balance", "--chain", chain.toString(), "--wallet", wallet),
+			err);
+		assertTrue(out.contains("account (ed25519): " + account + " holds "
+			+ Emission.rewardFor(Emission.MINING_POOL.minus(Emission.FIRST_REWARD)).total() + " LETH"), out);
 	}
 
 	@Test

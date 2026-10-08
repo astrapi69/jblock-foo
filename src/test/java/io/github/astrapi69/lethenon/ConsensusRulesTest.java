@@ -216,10 +216,15 @@ class ConsensusRulesTest
 	{
 		ConsensusRules ed25519FromTwoOnTheTestChain = rulesWith(
 			SchemeActivation.from(Chain.TEST_IDENTIFIER, SignatureSuite.ED25519, 2L));
+		// a main chain of its own: the rule table here carries no genesis anchor, and the anchored
+		// genesis pays nobody who could sign the transfer
 		List<BlockBody> main = List.of(Blocks.mine(Mining.nextBlock(Chain.IDENTIFIER, List.of(),
 			holderKey, List.of(), "main", NOW), 1_000_000L).orElseThrow());
+		SignedTransaction transfer = holder.sign(new TransactionBody(Chain.IDENTIFIER, 0L,
+			holderKey, Destination.direct(MINER), Amount.ofLeth(1L), Amount.ZERO, "a transfer"),
+			SignatureSuite.ED25519);
 
-		assertEquals(1L, Replay.verify(minedOnto(main, List.of(aTransfer(main))),
+		assertEquals(1L, Replay.verify(minedOnto(main, List.of(transfer)),
 			ed25519FromTwoOnTheTestChain).transactions());
 	}
 

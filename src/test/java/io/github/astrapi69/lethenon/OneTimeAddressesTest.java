@@ -143,16 +143,16 @@ class OneTimeAddressesTest
 		Destination destination = OneTimeAddresses.destinationFor(address,
 			OneTimeAddresses.newEphemeralKeyPair());
 		SignedTransaction transfer = TransactionSigner.sign(
-			new TransactionBody(Chain.IDENTIFIER, 0L, senderKey, destination, Amount.ofLeth(3L),
+			new TransactionBody(Chain.TEST_IDENTIFIER, 0L, senderKey, destination, Amount.ofLeth(3L),
 				Amount.ZERO, "paid to an address that appears once"),
 			SignatureSuite.ED25519, sender.getPrivate());
 
 		BlockBody genesis = Blocks
-			.mine(new BlockBody(Chain.IDENTIFIER, 0L, Bytes.of(new byte[32]), senderKey,
+			.mine(new BlockBody(Chain.TEST_IDENTIFIER, 0L, Bytes.of(new byte[32]), senderKey,
 				new ArrayList<>(), 1_759_000_000_000L, 8, "in the beginning was the pun"),
 				1_000_000L)
 			.orElseThrow();
-		BlockBody second = Blocks.mine(new BlockBody(Chain.IDENTIFIER, 1L, Blocks.hashOf(genesis),
+		BlockBody second = Blocks.mine(new BlockBody(Chain.TEST_IDENTIFIER, 1L, Blocks.hashOf(genesis),
 			Bytes.of(new byte[] { 5 }), List.of(transfer), 1_759_000_060_000L, 8,
 			"nobody can tell who was paid"), 1_000_000L).orElseThrow();
 

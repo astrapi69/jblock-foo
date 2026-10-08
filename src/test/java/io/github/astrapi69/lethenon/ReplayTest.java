@@ -63,7 +63,7 @@ class ReplayTest
 
 	private SignedTransaction aTransferOf(final long nonce, final Amount amount)
 	{
-		TransactionBody body = new TransactionBody(Chain.IDENTIFIER, nonce, holderKey(),
+		TransactionBody body = new TransactionBody(Chain.TEST_IDENTIFIER, nonce, holderKey(),
 			new Destination(AddressScheme.DIRECT, minerKey(), Bytes.of(new byte[0]), 0), amount,
 			Amount.ofLethe(100L), "no permanent record about people");
 		return TransactionSigner.sign(body, SignatureSuite.ED25519, holder.getPrivate());
@@ -78,14 +78,14 @@ class ReplayTest
 	private List<BlockBody> aChain(final List<SignedTransaction> transactions)
 	{
 		BlockBody genesis = Blocks
-			.mine(new BlockBody(Chain.IDENTIFIER, 0L, Bytes.of(new byte[32]), holderKey(),
+			.mine(new BlockBody(Chain.TEST_IDENTIFIER, 0L, Bytes.of(new byte[32]), holderKey(),
 				new ArrayList<>(), 1_759_000_000_000L, DIFFICULTY, "in the beginning was the pun"),
 				1_000_000L)
 			.orElseThrow();
-		BlockBody second = Blocks.mine(new BlockBody(Chain.IDENTIFIER, 1L, Blocks.hashOf(genesis),
+		BlockBody second = Blocks.mine(new BlockBody(Chain.TEST_IDENTIFIER, 1L, Blocks.hashOf(genesis),
 			minerKey(), transactions, 1_759_000_060_000L, DIFFICULTY,
 			"surveillance is not security"), 1_000_000L).orElseThrow();
-		BlockBody third = Blocks.mine(new BlockBody(Chain.IDENTIFIER, 2L, Blocks.hashOf(second),
+		BlockBody third = Blocks.mine(new BlockBody(Chain.TEST_IDENTIFIER, 2L, Blocks.hashOf(second),
 			minerKey(), new ArrayList<>(), 1_759_000_120_000L, DIFFICULTY, "and nothing to hide"),
 			1_000_000L).orElseThrow();
 		return List.of(genesis, second, third);
@@ -203,7 +203,7 @@ class ReplayTest
 	@DisplayName("a block of difficulty 0 is refused: the rule, not the miner, says how hard")
 	void aBlockOfDifficultyZero_isRefused()
 	{
-		BlockBody genesis = Blocks.mine(new BlockBody(Chain.IDENTIFIER, 0L, Bytes.of(new byte[32]),
+		BlockBody genesis = Blocks.mine(new BlockBody(Chain.TEST_IDENTIFIER, 0L, Bytes.of(new byte[32]),
 			holderKey(), new ArrayList<>(), 1_759_000_000_000L, 0, "no work at all"), 1L)
 			.orElseThrow();
 
@@ -219,7 +219,7 @@ class ReplayTest
 	void aBackdatedBlock_isRefused()
 	{
 		BlockBody genesis = aChain(new ArrayList<>()).getFirst();
-		BlockBody backdated = Blocks.mine(new BlockBody(Chain.IDENTIFIER, 1L,
+		BlockBody backdated = Blocks.mine(new BlockBody(Chain.TEST_IDENTIFIER, 1L,
 			Blocks.hashOf(genesis), minerKey(), new ArrayList<>(), genesis.timestamp(),
 			DifficultyRule.MINIMUM, "same time as genesis"), 1_000_000L).orElseThrow();
 
@@ -301,7 +301,7 @@ class ReplayTest
 	{
 		for (int attempt = 0;; attempt++)
 		{
-			BlockBody candidate = new BlockBody(Chain.IDENTIFIER, 0L, Bytes.of(new byte[32]),
+			BlockBody candidate = new BlockBody(Chain.TEST_IDENTIFIER, 0L, Bytes.of(new byte[32]),
 				holderKey(), new ArrayList<>(), 1_759_000_000_000L, DifficultyRule.MINIMUM,
 				"nobody looked for this one #" + attempt);
 			if (!Blocks.isMined(candidate))
@@ -318,7 +318,7 @@ class ReplayTest
 			? Bytes.of(new byte[32])
 			: Blocks.hashOf(before.getLast());
 		Bytes beneficiary = before.isEmpty() ? holderKey() : minerKey();
-		return Blocks.mine(new BlockBody(Chain.IDENTIFIER, height, previous, beneficiary,
+		return Blocks.mine(new BlockBody(Chain.TEST_IDENTIFIER, height, previous, beneficiary,
 			new ArrayList<>(), 1_759_000_000_000L + 1_000L * height, difficulty, "fast"),
 			1_000_000L).orElseThrow();
 	}
