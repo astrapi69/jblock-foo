@@ -67,6 +67,18 @@ integration branch `consensus/lethenon-2` (#138), which carries develop's requir
 - [ ] **Seed nodes** as [infrastructure.md](infrastructure.md) describes them: at least two, at
   different providers, sized by measurement, with an onion service each.
 
+### The release key
+
+- [ ] **The release key `D8C403518C49CA75` prepared** as [release-key.md](release-key.md) describes:
+  - a revocation certificate, stored offline;
+  - a subkey that only signs, valid for two years, in the CI secrets of all six repositories that
+    sign with the key (#154 and its counterparts in the libraries);
+  - the primary key on offline media only;
+  - the fingerprint in the README, on the website and on keyserver.ubuntu.com and keys.openpgp.org.
+
+  A node of the main chain trusts the chain through the code it runs, and the code through this
+  signature.
+
 ### The documents
 
 - [ ] The five documents of `docs/launch/` re-checked against their sources, each with a new
@@ -96,7 +108,7 @@ Retrieved 2026-10-08.
 - Regulation (EU) 2023/1114 on markets in crypto-assets (MiCA): Article 2(1); Article 3(1)(15),
   (16), (17) and (26); Article 4(3), (4), (5) and (8); Article 5(1) and (2); Article 59(1) and (2);
   Article 61(1); recitals 26 and 93. <https://eur-lex.europa.eu/eli/reg/2023/1114/oj>
-- In the repository: [ADR 0003](../adr/0003-test-network.md),
+- In the repository: [release-key.md](release-key.md), [ADR 0003](../adr/0003-test-network.md),
   [ADR 0004](../adr/0004-tor-transport.md), the README, and the issues
   [#88](https://github.com/astrapi69/lethenon/issues/88),
   [#104](https://github.com/astrapi69/lethenon/issues/104),
