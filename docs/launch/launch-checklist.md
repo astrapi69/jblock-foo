@@ -84,8 +84,9 @@ ticked ([ADR 0005](../adr/0005-main-chain-genesis.md)).
 - [ ] **The depth of a reorganisation.** A node follows a heavier fork only within one `CHAIN`
   answer, 500 blocks; ADR 0003 calls that a choice on a test chain and "not one for a chain with
   value" ("Consequences", #88). Decided - lifted or kept, with the reason - before the start.
-- [ ] **Open network bugs that touch seed nodes**: #128 (a configured peer is dialled once; P2) and
-  #126 (P3). #129 (no stop line after SIGTERM; P3) is fixed: a node stopped by hand reports its run.
+- [ ] **Open network bugs that touch seed nodes**: #126 (P3). Fixed: #128 (a configured peer was
+  dialled once; P2), dialled again now while it is not connected, and #129 (no stop line after
+  SIGTERM; P3), a node stopped by hand reports its run.
 - [ ] **Seed nodes** as [infrastructure.md](infrastructure.md) describes them: at least two, at
   different providers, sized by measurement, with an onion service each.
 

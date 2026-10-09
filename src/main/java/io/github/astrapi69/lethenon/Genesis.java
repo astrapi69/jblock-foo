@@ -37,6 +37,16 @@ public final class Genesis
 {
 
 	/**
+	 * Why no main chain exists before its genesis block is fixed in the code: what
+	 * {@link #start(String, String, long)} says when asked to start one, and what the replay says of
+	 * a main chain whose genesis block came from anywhere else (#161, ADR 0005)
+	 */
+	public static final String NO_MAIN_CHAIN_WITHOUT_ITS_ANCHOR = "the main chain '" + Chain.IDENTIFIER
+		+ "' starts only from the genesis block fixed in the code, and this build has none: "
+		+ "the main chain starts with lethenon 1.0.0 (ADR 0005). A test chain starts with "
+		+ "--testnet";
+
+	/**
 	 * The burn account every genesis block pays its reward to (#148, ADR 0005): words, not a key.
 	 * Two things keep it from being spent, each enough alone. A consensus rule: a genesis block
 	 * paying anybody else does not verify, and a transfer from this account is refused. And the
@@ -85,10 +95,7 @@ public final class Genesis
 		}
 		if (Chain.IDENTIFIER.equals(chainIdentifier))
 		{
-			throw new IllegalStateException("the main chain '" + Chain.IDENTIFIER
-				+ "' starts only from the genesis block fixed in the code, and this build has none: "
-				+ "the main chain starts with lethenon 1.0.0 (ADR 0005). A test chain starts with "
-				+ "--testnet");
+			throw new IllegalStateException(NO_MAIN_CHAIN_WITHOUT_ITS_ANCHOR);
 		}
 		return candidate(chainIdentifier, pun, now);
 	}

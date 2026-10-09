@@ -32,6 +32,8 @@ import java.security.KeyPair;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -71,7 +73,7 @@ class BurnedGenesisTest
 	void theGenesisReward_landsOnTheBurnAccount(final String chainIdentifier)
 	{
 		BlockBody genesis = genesis(chainIdentifier);
-		ChainState state = Replay.verify(List.of(genesis)).finalState();
+		ChainState state = TestChains.replay(List.of(genesis)).finalState();
 
 		assertEquals(Genesis.NOBODY, genesis.beneficiary(), "a genesis block names the burn account");
 		assertEquals(Emission.FIRST_REWARD, state.balanceOf(Genesis.NOBODY),
@@ -82,13 +84,17 @@ class BurnedGenesisTest
 			"the burned reward counts: all balances, the burn account's included, are the supply");
 	}
 
-	@ParameterizedTest(name = "on {0}")
-	@ValueSource(strings = { Chain.IDENTIFIER, Chain.TEST_IDENTIFIER })
-	void aGenesisBlockPayingAnybodyElse_isRefused(final String chainIdentifier)
+	private BlockBody payingTheMiner(final String chainIdentifier)
 	{
-		BlockBody paying = Blocks.mine(new BlockBody(chainIdentifier, 0L, Bytes.of(new byte[32]),
-			minerKey(), List.of(), NOW, DifficultyRule.MINIMUM, "mine for me"), 1_000_000L)
-			.orElseThrow();
+		return Blocks.mine(new BlockBody(chainIdentifier, 0L, Bytes.of(new byte[32]), minerKey(),
+			List.of(), NOW, DifficultyRule.MINIMUM, "mine for me"), 1_000_000L).orElseThrow();
+	}
+
+	@Test
+	@DisplayName("on the test chain, a genesis block paying anybody else is refused")
+	void aGenesisBlockPayingAnybodyElse_isRefused()
+	{
+		BlockBody paying = payingTheMiner(Chain.TEST_IDENTIFIER);
 
 		ChainRejected refused = assertThrows(ChainRejected.class,
 			() -> Replay.verify(List.of(paying)));
@@ -96,6 +102,19 @@ class BurnedGenesisTest
 		assertTrue(refused.getMessage().startsWith("block 0 pays its reward to " + minerKey()),
 			refused.getMessage());
 		assertTrue(refused.getMessage().contains("burn account"), refused.getMessage());
+	}
+
+	@Test
+	@DisplayName("on the main chain, a genesis block paying anybody else cannot be filed as its anchor, which is the only way in (#161)")
+	void aMainGenesisPayingAnybodyElse_cannotBeItsAnchor()
+	{
+		BlockBody paying = payingTheMiner(Chain.IDENTIFIER);
+
+		IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+			() -> TestChains.anchoredTo(List.of(paying), ConsensusRules.LETHENON));
+
+		assertTrue(refused.getMessage().contains("block 0 pays its reward to " + minerKey()),
+			refused.getMessage());
 	}
 
 	@ParameterizedTest(name = "on {0}")
@@ -110,7 +129,7 @@ class BurnedGenesisTest
 			minerKey(), List.of(spending), NOW + DifficultyRule.TARGET_BLOCK_MILLIS,
 			DifficultyRule.MINIMUM, "spend it"), 1_000_000L).orElseThrow());
 
-		ChainRejected refused = assertThrows(ChainRejected.class, () -> Replay.verify(chain));
+		ChainRejected refused = assertThrows(ChainRejected.class, () -> TestChains.replay(chain));
 
 		assertTrue(refused.getMessage().startsWith("a transfer from the burn account"),
 			refused.getMessage());
@@ -120,7 +139,7 @@ class BurnedGenesisTest
 	@ValueSource(strings = { Chain.IDENTIFIER, Chain.TEST_IDENTIFIER })
 	void afterTheFirstBlock_theInvariantHolds_andTheBurnedRewardStays(final String chainIdentifier)
 	{
-		ChainState state = Replay.verify(withBlockOne(chainIdentifier, List.of())).finalState();
+		ChainState state = TestChains.replay(withBlockOne(chainIdentifier, List.of())).finalState();
 
 		assertEquals(Emission.FIRST_REWARD, state.balanceOf(Genesis.NOBODY));
 		assertEquals(TestChains.rewardOfBlock(1), state.balanceOf(minerKey()),

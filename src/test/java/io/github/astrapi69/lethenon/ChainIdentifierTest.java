@@ -81,7 +81,7 @@ class ChainIdentifierTest
 	{
 		List<BlockBody> chain = List.of(underARetiredIdentifier(retired));
 
-		ChainRejected refused = assertThrows(ChainRejected.class, () -> Replay.verify(chain));
+		ChainRejected refused = assertThrows(ChainRejected.class, () -> TestChains.replay(chain));
 
 		assertSaysStartedBefore040(refused.getMessage(), retired, successor);
 	}
@@ -184,7 +184,7 @@ class ChainIdentifierTest
 			holderKey, List.of(), NOW, DifficultyRule.MINIMUM, "nowhere"), 1_000_000L).orElseThrow();
 
 		ChainRejected refused = assertThrows(ChainRejected.class,
-			() -> Replay.verify(List.of(genesis)));
+			() -> TestChains.replay(List.of(genesis)));
 
 		assertTrue(refused.getMessage().startsWith("block 0 belongs to chain '" + unknown + "'"),
 			refused.getMessage());
@@ -200,7 +200,7 @@ class ChainIdentifierTest
 
 		assertEquals(Chain.TEST_IDENTIFIER, transfer.body().chainIdentifier());
 
-		Replay replay = Replay.verify(minedOnto(chain, List.of(transfer)));
+		Replay replay = TestChains.replay(minedOnto(chain, List.of(transfer)));
 
 		assertEquals(Chain.TEST_IDENTIFIER, replay.finalState().chainIdentifier());
 		assertEquals(Amount.ofLeth(3L).plus(TestChains.rewardOfBlock(2)),
@@ -222,7 +222,7 @@ class ChainIdentifierTest
 			Amount.ZERO, "swept");
 
 		assertEquals(Chain.TEST_IDENTIFIER, sweep.getFirst().body().chainIdentifier());
-		Replay replay = Replay.verify(minedOnto(chain, sweep));
+		Replay replay = TestChains.replay(minedOnto(chain, sweep));
 		assertEquals(Amount.ofLeth(4L),
 			replay.finalState().balanceOf(payee.spendKey(SignatureSuite.ED25519)));
 	}
@@ -238,7 +238,7 @@ class ChainIdentifierTest
 		chain.add(Blocks.mine(new BlockBody(foreign, 1L, Blocks.hashOf(genesis), MINER, List.of(),
 			NOW + 60_000L, DifficultyRule.requiredFor(chain), "smuggled"), 1_000_000L).orElseThrow());
 
-		ChainRejected refused = assertThrows(ChainRejected.class, () -> Replay.verify(chain));
+		ChainRejected refused = assertThrows(ChainRejected.class, () -> TestChains.replay(chain));
 
 		assertEquals("block 1 belongs to chain '" + foreign + "', and its genesis block to '"
 			+ genesisIdentifier + "'", refused.getMessage());
@@ -256,7 +256,7 @@ class ChainIdentifierTest
 			SignatureSuite.ED25519);
 
 		ChainRejected refused = assertThrows(ChainRejected.class,
-			() -> Replay.verify(minedOnto(chain, List.of(crossing))));
+			() -> TestChains.replay(minedOnto(chain, List.of(crossing))));
 
 		assertEquals("a transfer for chain '" + foreign + "' in a " + genesisIdentifier + " block",
 			refused.getMessage());

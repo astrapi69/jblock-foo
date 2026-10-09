@@ -42,6 +42,65 @@ final class TestChains
 	}
 
 	/**
+	 * Replays a chain the way a test of a rule means it, against this node's clock: a main chain
+	 * verifies only from its anchor (#161), so a main chain a test builds is replayed with its own
+	 * genesis block filed as the anchor, the way the start day files the real one (ADR 0005); a test
+	 * chain, which never gets an anchor, under {@link ConsensusRules#LETHENON} as it is
+	 *
+	 * @param chain
+	 *            the blocks, genesis first
+	 * @return what was verified
+	 */
+	static Replay replay(final List<BlockBody> chain)
+	{
+		return replay(chain, ConsensusRules.LETHENON);
+	}
+
+	/**
+	 * Replays a chain under the given rules, with a main chain's own genesis block as its anchor
+	 */
+	static Replay replay(final List<BlockBody> chain, final ConsensusRules rules)
+	{
+		return Replay.verify(chain, anchoredTo(chain, rules));
+	}
+
+	/**
+	 * Replays a chain under the given rules and clock, with a main chain's own genesis block as its
+	 * anchor
+	 */
+	static Replay replay(final List<BlockBody> chain, final ConsensusRules rules, final long now)
+	{
+		return Replay.verify(chain, anchoredTo(chain, rules), now);
+	}
+
+	/**
+	 * The given rules, and for a main chain that has no anchor in them its own genesis block filed
+	 * as one. Everything else - activations, limits, the emission, a test chain's anchor - stays as
+	 * it is.
+	 *
+	 * @param chain
+	 *            the chain whose genesis block is filed when it is a main chain
+	 * @param rules
+	 *            the rules the test means
+	 * @return the rules to replay the chain under
+	 */
+	static ConsensusRules anchoredTo(final List<BlockBody> chain, final ConsensusRules rules)
+	{
+		BlockBody genesis = chain.getFirst();
+		if (!Chain.IDENTIFIER.equals(genesis.chainIdentifier())
+			|| rules.anchorFor(Chain.IDENTIFIER).isPresent())
+		{
+			return rules;
+		}
+		List<BlockLimits> limits = new ArrayList<>();
+		rules.limitsFor(Chain.IDENTIFIER).ifPresent(limits::add);
+		rules.limitsFor(Chain.TEST_IDENTIFIER).ifPresent(limits::add);
+		List<GenesisAnchor> anchors = new ArrayList<>(List.of(Genesis.anchorOf(genesis)));
+		rules.anchorFor(Chain.TEST_IDENTIFIER).map(Genesis::anchorOf).ifPresent(anchors::add);
+		return new ConsensusRules(rules.activations(), limits, anchors, rules.emission());
+	}
+
+	/**
 	 * What the block at a height pays under {@link Emission#SCHEDULE} on a chain whose blocks carry
 	 * no fees
 	 *

@@ -35,6 +35,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -45,6 +46,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import io.github.astrapi69.lethenon.BlockBody;
@@ -127,6 +129,11 @@ public final class Node implements AutoCloseable
 	private final AtomicInteger anonymousIncoming = new AtomicInteger();
 
 	private volatile boolean closed;
+
+	/** The peers given with {@code --peer}, dialled again while they are not connected (#128) */
+	private volatile Redials redials = Redials.standard();
+
+	private final AtomicBoolean redialing = new AtomicBoolean();
 
 	private Node(final List<BlockBody> chain, final Replay replay, final ChainFile file)
 	{
@@ -300,8 +307,10 @@ public final class Node implements AutoCloseable
 	}
 
 	/**
-	 * Connects to every peer on a fixed list; a peer that cannot be reached is recorded as a
-	 * refusal and does not stop the others
+	 * Connects to every peer on a fixed list, in its order; a peer that cannot be reached is
+	 * recorded as a refusal and does not stop the others. Each of them is dialled again while it is
+	 * not connected, after a pause that grows with every failed attempt, and a failure is recorded
+	 * once rather than on every attempt (#128)
 	 *
 	 * @param addresses
 	 *            the peers
@@ -310,14 +319,87 @@ public final class Node implements AutoCloseable
 	{
 		for (PeerAddress address : addresses)
 		{
+			dialConfigured(address);
+		}
+		if (!addresses.isEmpty() && redialing.compareAndSet(false, true))
+		{
+			threads.submit(this::redial);
+		}
+	}
+
+	private void dialConfigured(final PeerAddress address)
+	{
+		redials.dialling(address);
+		try
+		{
+			connect(address.host(), address.port());
+		}
+		catch (IOException notConnected)
+		{
+			if (redials.failed(address, nowMillis()))
+			{
+				refusals.add(address + " was not connected: " + notConnected.getMessage()
+					+ "; it is dialled again, after a longer pause each time it fails");
+			}
+		}
+	}
+
+	/**
+	 * Dials the configured peers whose pause is over, until the node closes
+	 */
+	private void redial()
+	{
+		while (!closed)
+		{
 			try
 			{
-				connect(address.host(), address.port());
+				Thread.sleep(redials.tick());
+				for (PeerAddress due : redials.due(nowMillis()))
+				{
+					dialConfigured(due);
+				}
 			}
-			catch (IOException notConnected)
+			catch (InterruptedException | RejectedExecutionException closing)
 			{
-				refusals.add(address + " was not connected: " + notConnected.getMessage());
+				return;
 			}
+		}
+	}
+
+	/**
+	 * Sets the pauses before a configured peer is dialled again, for peers given after this call;
+	 * tests use it so as not to wait seconds
+	 */
+	Node redialingAfter(final Duration first, final Duration longest)
+	{
+		redials = new Redials(first, longest);
+		return this;
+	}
+
+	private static long nowMillis()
+	{
+		return System.nanoTime() / 1_000_000L;
+	}
+
+	/**
+	 * Tells the configured peers how a connection to one of them ended
+	 *
+	 * @param admitted
+	 *            whether the connection got through its handshake
+	 */
+	private void endedDial(final Optional<PeerAddress> dialed, final boolean admitted)
+	{
+		if (dialed.isEmpty() || !redials.isConfigured(dialed.get()))
+		{
+			return;
+		}
+		if (admitted)
+		{
+			redials.disconnected(dialed.get(), nowMillis());
+		}
+		else
+		{
+			redials.failed(dialed.get(), nowMillis());
 		}
 	}
 
@@ -392,6 +474,7 @@ public final class Node implements AutoCloseable
 	{
 		open.add(socket);
 		Peer peer = null;
+		boolean admitted = false;
 		try
 		{
 			try
@@ -401,6 +484,8 @@ public final class Node implements AutoCloseable
 				{
 					return;
 				}
+				admitted = true;
+				dialed.ifPresent(redials::connected);
 			}
 			finally
 			{
@@ -428,6 +513,7 @@ public final class Node implements AutoCloseable
 			open.remove(socket);
 			closeQuietly(socket);
 			counted.decrementAndGet();
+			endedDial(dialed, admitted);
 			if (peer == null)
 			{
 				// a dialled address that did not complete a handshake is not dialled again
@@ -909,6 +995,7 @@ public final class Node implements AutoCloseable
 			{
 				return;
 			}
+			dialed.ifPresent(redials::connected);
 			peer.startWriting(threads);
 			anonymous.joined(peer);
 			anonymous.discovery().connected(peer);
@@ -931,6 +1018,7 @@ public final class Node implements AutoCloseable
 			open.remove(socket);
 			closeQuietly(socket);
 			release.run();
+			endedDial(dialed, peer != null);
 			if (dialed.isPresent())
 			{
 				refillTheZone(anonymous, dialed.get(), peer == null);
