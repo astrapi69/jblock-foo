@@ -140,7 +140,7 @@ class BlockSizeTest
 	{
 		List<BlockBody> chain = withBlockOf(chainIdentifier, postQuantum(chainIdentifier));
 
-		ChainRejected rejected = assertThrows(ChainRejected.class, () -> Replay.verify(chain));
+		ChainRejected rejected = assertThrows(ChainRejected.class, () -> TestChains.replay(chain));
 
 		assertTrue(rejected.getMessage().contains("block 3 is "), rejected.getMessage());
 		assertTrue(rejected.getMessage().contains("allows 300000"), rejected.getMessage());
@@ -156,9 +156,9 @@ class BlockSizeTest
 		int size = CanonicalEncoding.blockSize(chain.getLast());
 
 		assertEquals(4L,
-			Replay.verify(chain, rulesWithLimit(chainIdentifier, size), GENESIS_TIME).blocks());
+			TestChains.replay(chain, rulesWithLimit(chainIdentifier, size), GENESIS_TIME).blocks());
 		assertThrows(ChainRejected.class,
-			() -> Replay.verify(chain, rulesWithLimit(chainIdentifier, size - 1), GENESIS_TIME));
+			() -> TestChains.replay(chain, rulesWithLimit(chainIdentifier, size - 1), GENESIS_TIME));
 	}
 
 	private static ConsensusRules rulesWithLimit(final String chainIdentifier, final int bytes)
@@ -187,7 +187,7 @@ class BlockSizeTest
 			"the next transfer would not have fitted");
 		List<BlockBody> chain = new ArrayList<>(funded);
 		chain.add(mined);
-		assertEquals((long)carried + 1L, Replay.verify(chain).transactions());
+		assertEquals((long)carried + 1L, TestChains.replay(chain).transactions());
 	}
 
 	@Test

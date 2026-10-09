@@ -75,7 +75,11 @@ before that day. The block mined on 2026-10-08 with the default pun "in the begi
 - **0.4.0 carries the rules:** the emission (#133), the identifiers (#137), the burn account and
   the anchor mechanism (#104), and **no anchor for the main chain**. Without an anchor,
   `Genesis.start` refuses to start `lethenon-2` with a message naming 1.0.0 and `--testnet`, so
-  `mine` on a new main chain exits 1 and writes nothing (`TestnetOnTheCommandLineTest`). `node`
+  `mine` on a new main chain exits 1 and writes nothing (`TestnetOnTheCommandLineTest`). The replay
+  refuses a chain under `lethenon-2` while the rules carry no anchor for it, with the same reason, so
+  a genesis block mined by any other path - the library called directly, another program - starts
+  nothing that 0.4.0 replays or mines on (#161, `GenesisAnchorTest`). An anchor is checked under the
+  rules with itself as the only anchor, as the chain it will start. `node`
   runs test chains only and refuses a main chain file, as since ADR 0003 (`NodeCommandTest`). The
   test network runs as before.
 - **1.0.0 is the start of the main chain:** on the start day the block is mined from the

@@ -65,7 +65,9 @@ probe() { # version chainfile
 echo "## 0.4.0 writes" >> $OUT
 write_chain 0.4.0 $W/t4.lethenon yes
 "$JAVA_HOME/bin/java" -cp "$C/wt-0.4.0/build/install/lethenon/lib/*" $C/GenesisFile.java $W/m4.lethenon "a headline of the day" >> $OUT 2>&1
-write_chain 0.4.0 $W/m4.lethenon no pre
+# since #161 a main chain without its anchor is refused by 0.4.0 as well: it stays at block 0, and
+# 0.4.0 is measured on it like any other version that refuses a chain
+probe 0.4.0 $W/m4.lethenon
 step 0.4.0 "faucet on test chain" t4.lethenon faucet --chain $W/t4.lethenon --wallet $W/0.4.0-H.wallet --to $(lc 0.4.0 balance --chain $W/t4.lethenon --wallet $W/0.4.0-A.wallet; acct)
 step 0.4.0 "mine" t4.lethenon mine --chain $W/t4.lethenon --wallet $W/0.4.0-H.wallet
 step 0.4.0 "mine without --testnet on a new file" new.lethenon mine --chain $W/new.lethenon --wallet $W/0.4.0-H.wallet

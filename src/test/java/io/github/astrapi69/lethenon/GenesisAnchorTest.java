@@ -121,15 +121,30 @@ class GenesisAnchorTest
 			rejected.getMessage());
 	}
 
-	@ParameterizedTest(name = "an anchor of {0} binds only its own chain, not {1}")
-	@CsvSource({ Chain.TEST_IDENTIFIER + ", " + Chain.IDENTIFIER,
-		Chain.IDENTIFIER + ", " + Chain.TEST_IDENTIFIER })
-	void anAnchorBindsOnlyItsOwnChain(final String anchoredChain, final String freeChain)
+	@Test
+	@DisplayName("an anchor of the main chain binds only the main chain: a test chain stays free")
+	void theMainChainsAnchor_leavesTheTestChainFree()
 	{
-		ConsensusRules rules = anchoredTo(genesis(anchoredChain, HOLDER, "fixed"));
+		ConsensusRules rules = anchoredTo(genesis(Chain.IDENTIFIER, HOLDER, "fixed"));
 
-		assertEquals(2L, Replay.verify(extended(genesis(freeChain, HOLDER, "free")), rules,
-			TIME).blocks());
+		assertEquals(2L, Replay.verify(extended(genesis(Chain.TEST_IDENTIFIER, HOLDER, "free")),
+			rules, TIME).blocks());
+	}
+
+	@Test
+	@DisplayName("a test chain's anchor does not stand in for the main chain's: the main chain is refused for its own missing anchor (#161)")
+	void aTestChainsAnchor_doesNotStandInForTheMainChains()
+	{
+		BlockBody testAnchor = genesis(Chain.TEST_IDENTIFIER, HOLDER, "fixed");
+		ConsensusRules rules = anchoredTo(testAnchor);
+
+		ChainRejected rejected = assertThrows(ChainRejected.class, () -> Replay.verify(
+			extended(genesis(Chain.IDENTIFIER, HOLDER, "free")), rules, TIME));
+
+		assertTrue(rejected.getMessage().contains(Genesis.NO_MAIN_CHAIN_WITHOUT_ITS_ANCHOR),
+			rejected.getMessage());
+		assertTrue(!rejected.getMessage().contains(Blocks.hashOf(testAnchor).toString()),
+			"the test chain's anchor is not what refuses it: " + rejected.getMessage());
 	}
 
 	record Malformed(String name, Function<BlockBody, String> hex, String reasonNames)
@@ -190,6 +205,20 @@ class GenesisAnchorTest
 		BlockBody started = Genesis.start(anchoredTo(anchored), chain, "whatever", TIME + 1L);
 
 		assertEquals(anchored, started);
+	}
+
+	@Test
+	@DisplayName("without an anchor, a chain under the main chain's identifier does not verify, whoever mined its genesis block (#161)")
+	void theMainChainWithoutAnAnchor_doesNotVerify()
+	{
+		BlockBody minedElsewhere = Genesis.candidate(Chain.IDENTIFIER, "mined elsewhere", TIME);
+
+		ChainRejected rejected = assertThrows(ChainRejected.class,
+			() -> Replay.verify(extended(minedElsewhere), ConsensusRules.LETHENON, TIME));
+
+		assertTrue(rejected.getMessage().startsWith("block 0: "), rejected.getMessage());
+		assertTrue(rejected.getMessage().contains(Genesis.NO_MAIN_CHAIN_WITHOUT_ITS_ANCHOR),
+			rejected.getMessage());
 	}
 
 	@Test

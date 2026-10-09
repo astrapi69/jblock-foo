@@ -121,10 +121,30 @@ class TestnetOnTheCommandLineTest extends AbstractCliTest
 	}
 
 	@Test
-	@DisplayName("--testnet on a main chain is refused with a message, and the chain is unchanged")
+	@DisplayName("a main chain started without the anchor is refused by balance and by mine, and the file stays as it was (#161)")
+	void aMainChainWithoutTheAnchor_isRefused() throws Exception
+	{
+		// mined through the library rather than by this build's mine, which starts no main chain
+		Files.write(chain, CanonicalEncoding.encodeChain(List.of(Genesis.candidate(Chain.IDENTIFIER,
+			"mined elsewhere", System.currentTimeMillis()))));
+		byte[] before = Files.readAllBytes(chain);
+
+		assertEquals(1, run(password, "balance", "--chain", chain.toString(), "--wallet", wallet),
+			out);
+		assertTrue(err.contains(Genesis.NO_MAIN_CHAIN_WITHOUT_ITS_ANCHOR), err);
+		assertEquals(1, run(password, "mine", "--chain", chain.toString(), "--wallet", wallet),
+			out);
+		assertTrue(err.contains(Genesis.NO_MAIN_CHAIN_WITHOUT_ITS_ANCHOR), err);
+		assertArrayEquals(before, Files.readAllBytes(chain), "the file stays as it was");
+	}
+
+	@Test
+	@DisplayName("--testnet on a main chain file is refused with a message, and the file is unchanged")
 	void testnet_onAMainChain_isRefused() throws Exception
 	{
-		// a main chain file as the start day writes it; this build does not start one itself
+		// a main chain file mined elsewhere: this build has no anchor for the main chain, so the
+		// file is refused for that before --testnet is looked at (#161); with the anchor of 1.0.0 the
+		// refusal names the test chain as well
 		Files.write(chain, CanonicalEncoding.encodeChain(List.of(Blocks.mine(Mining.nextBlock(
 			Chain.IDENTIFIER, List.of(), Genesis.NOBODY, List.of(), "main", System.currentTimeMillis()),
 			1_000_000L).orElseThrow())));
@@ -135,7 +155,7 @@ class TestnetOnTheCommandLineTest extends AbstractCliTest
 
 		assertEquals(1, exit, out);
 		assertTrue(err.contains("'" + Chain.IDENTIFIER + "'"), err);
-		assertTrue(err.contains("'" + Chain.TEST_IDENTIFIER + "'"), err);
+		assertTrue(err.contains(Genesis.NO_MAIN_CHAIN_WITHOUT_ITS_ANCHOR), err);
 		assertArrayEquals(before, Files.readAllBytes(chain));
 	}
 

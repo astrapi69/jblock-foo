@@ -1,7 +1,7 @@
 ## Change log
 ----------------------
 
-Version 0.4.1 (unreleased)
+Version 0.5.0 (unreleased)
 -------------
 
 FIXED:
@@ -15,8 +15,15 @@ FIXED:
   every attempt; a connection that ends after its handshake is dialled again after 5 s. The first
   round still dials in the order given, so a full limit refuses the same peers as before
 
-Version 0.4.0 (unreleased)
+Version 0.4.0
 -------------
+
+**0.4.0 cannot start a main chain.** It carries the main chain's rules - the identifier
+`lethenon-2`, the declining reward with its tail, the burn account for every genesis reward - but
+no genesis block for it: `mine` refuses to start one, and the replay refuses every chain under
+`lethenon-2`, however its genesis block was mined (#161). The main chain starts with lethenon 1.0.0
+(ADR 0005). Until then everything runs on the test chain `lethenon-test-2`, and every chain an
+earlier version wrote is refused.
 
 FORMAT:
 
@@ -34,16 +41,19 @@ FORMAT:
   break was to carry only the identifiers; with the tail emission (#133) in the same break, a chain
   that 0.3.0 started is under old rules as well, so the reason says 0.4.0.
 - **Compatibility with 0.1.0, 0.2.0 and 0.3.0, measured in both directions on chains with real
-  transfers.** The command lines of 0.1.0, 0.2.0 and 0.3.0 were built from their release tags, this
-  one from the integration branch at `c4546d0` with the full gate (`./gradlew clean build`: 74
-  classes, 710 tests, 0 failures). Every chain carries an Ed25519 transfer of 12.5 LETH, a payment of
-  20 LETH to a published address and its sweep, 100 LETH to the holder's ML-DSA-65 account and a
-  transfer of 5 LETH from it, in four blocks; the 0.4.0 test chain also a faucet payment of 1,000
-  LETH in a fifth. Every version computes the same balances on its own chains: the recipient 17.5
-  LETH, the address owner 20 LETH after the sweep.
+  transfers, on the release.** The command lines of 0.1.0, 0.2.0 and 0.3.0 were built from their
+  release tags, each with its lethenon jar replaced by the one on Maven Central and checked against
+  Central's `.sha1` (`b5037a632fc0...`, `64a6bfb94fae...`, `09f2b96a6884...`); this one from the
+  release commit with the full gate (`./gradlew clean build`: 74 classes, 712 tests, 0 failures).
+  Every chain a version writes with its own command line carries an Ed25519 transfer of 12.5 LETH, a
+  payment of 20 LETH to a published address and its sweep, 100 LETH to the holder's ML-DSA-65
+  account and a transfer of 5 LETH from it, in four blocks; the 0.4.0 test chain also a faucet
+  payment of 1,000 LETH in a fifth. Every version computes the same balances on its own chains: the
+  recipient 17.5 LETH, the address owner 20 LETH after the sweep, in all six chains.
   - The earlier versions on the chains of 0.4.0, a `lethenon-test-2` chain written with `mine
     --testnet` and a `lethenon-2` chain whose block 0 was mined with `Genesis.candidate`, as the start
-    day will: `balance`, `mine` and `send` exit 1 in all 18 runs, and neither file changes. 0.1.0
+    day will (block 0 only: 0.4.0 does not extend it either, below): `balance`, `mine` and `send`
+    exit 1 in all 18 runs, and neither file changes. 0.1.0
     says "block 0 belongs to chain 'lethenon-2'" (or 'lethenon-test-2'); 0.2.0 and 0.3.0 add "which
     is neither 'lethenon-1' nor 'lethenon-test-1'". No earlier version computes a balance on a chain
     of 0.4.0, or appends to one.
@@ -52,16 +62,31 @@ FORMAT:
     15 runs, "block 0: chain 'lethenon-1' was started under the rules before lethenon 0.4.0; under
     the rules from 0.4.0 on the main chain is 'lethenon-2'" and the same for `lethenon-test-1`, and
     no file changes.
+  - 0.4.0 on the `lethenon-2` chain from `Genesis.candidate`: `balance`, `mine` and `send` exit 1,
+    "block 0: the main chain 'lethenon-2' starts only from the genesis block fixed in the code, and
+    this build has none" (#161), and the file does not change.
   - `mine` without `--testnet` on a new file exits 1 with the message below and writes nothing.
 
-  Commands: `bash docs/launch/compatibility-0.4.0/build.sh c4546d0`, then
+  Commands: `bash docs/launch/compatibility-0.4.0/build.sh <release commit>`, then
   `bash docs/launch/compatibility-0.4.0/measure.sh`, which writes one line per command to
-  `results.tsv`. To be measured again against the release, with the jars from Maven Central.
+  `results.tsv`. The same measurement on the integration branch at `c4546d0`, before #161, had the
+  same results, except that 0.4.0 wrote four blocks onto the `lethenon-2` chain.
+- Wallets: unchanged. 0.4.0 opens the wallets of 0.1.0 (`MCRYPT`), 0.2.0 and 0.3.0 (`LETHWF`);
+  0.2.0 and 0.3.0 open those of 0.4.0, and 0.1.0 does not, as since 0.2.0.
+- Network: the protocol version stays 3, and nodes of 0.3.0 and 0.4.0 refuse each other by their
+  chain. `sync` of 0.3.0 against a node of 0.4.0 exits 1, "the peer at ... is on chain
+  'lethenon-test-2', and a node runs only on 'lethenon-test-1'", and `sync` of 0.4.0 against a node
+  of 0.3.0 the same the other way round; neither writes a file. (Wallets and network measured with
+  a script of their own, in a network namespace, on the same command lines.)
 - Every genesis block pays its reward to the burn account `Genesis.NOBODY`, on both chains (#148,
   ADR 0005): a chain whose block 0 pays anybody else is refused, and so is every transfer from that
   account. The burned 1,984 LETH count in every balance sum. Block 1 pays the first wallet that
   mines, so nobody holds anything before then.
-- **No main chain yet.** 0.4.0 carries the anchor mechanism of #104 but no anchor for `lethenon-2`:
+- **No main chain yet, by any path** (#161): the replay refuses a chain under `lethenon-2` while the
+  rules carry no anchor for it, with the reason below, so a main chain whose genesis block was mined
+  through the library or by another program is neither replayed nor mined on. Measured before the
+  fix on the release candidate: such a chain replayed, and `mine` added block 2 to it.
+- 0.4.0 carries the anchor mechanism of #104 but no anchor for `lethenon-2`:
   `mine` without `--testnet` on a new chain exits 1, "the main chain 'lethenon-2' starts only from
   the genesis block fixed in the code, and this build has none: the main chain starts with lethenon
   1.0.0 (ADR 0005)". The main chain's genesis block is mined on its start day from a headline of
@@ -112,6 +137,15 @@ FIXED:
   the seed node measurement (#150) the miner found no block for its last 79 minutes. The root is
   now computed once per candidate: 578,054 attempts a second empty and 723,775 with 40 transfers,
   measured the same way. The block hash is unchanged, so nothing about the chain changes
+
+KNOWN AND NOT FIXED:
+
+- a configured peer is dialled once: a node whose one dial fails - through Tor that happens - stays
+  without that peer until it is started again, and with `--no-discovery` that may be all its peers
+  (#128)
+- a node stopped with Ctrl-C or SIGTERM prints neither its stop line nor its refusals; with `--for`
+  it does (#129)
+- discovery forgets an address when only the node's own connection limit refused the dial (#126)
 
 Version 0.3.0
 -------------
