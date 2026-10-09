@@ -74,7 +74,16 @@ public final class Blocks
 	 */
 	public static Bytes hashOf(final BlockBody body)
 	{
-		return Bytes.of(SigningPayload.digestOf(CanonicalEncoding.encode(body, merkleRoot(body))));
+		return hashOf(body, merkleRoot(body));
+	}
+
+	/**
+	 * The hash of a block whose Merkle root is already known, for mining, which varies only the
+	 * pun and so hashes the same transfers on every attempt (#151)
+	 */
+	private static Bytes hashOf(final BlockBody body, final Bytes merkleRoot)
+	{
+		return Bytes.of(SigningPayload.digestOf(CanonicalEncoding.encode(body, merkleRoot)));
 	}
 
 	/**
@@ -118,7 +127,9 @@ public final class Blocks
 	 * Looks for a pun that satisfies the difficulty, by appending a counter to the one given.
 	 * <p>
 	 * This is proof of work with wordplay in place of a nonce: the miner picks the words, the
-	 * counter does the searching, and both are inside the hash.
+	 * counter does the searching, and both are inside the hash. The transfers do not change while
+	 * the pun does, so their Merkle root is computed once rather than on every attempt: computed
+	 * per attempt, a block of 40 transfers mined 40 times slower than an empty one (#151).
 	 *
 	 * @param body
 	 *            the block to mine, whose pun is the starting point
@@ -128,6 +139,7 @@ public final class Blocks
 	 */
 	public static java.util.Optional<BlockBody> mine(final BlockBody body, final long attempts)
 	{
+		Bytes merkleRoot = merkleRoot(body);
 		for (long attempt = 0; attempt < attempts; attempt++)
 		{
 			String pun = body.pun() + " #" + attempt;
@@ -138,7 +150,7 @@ public final class Blocks
 			BlockBody candidate = new BlockBody(body.chainIdentifier(), body.height(),
 				body.previousHash(), body.beneficiary(), body.transactions(), body.timestamp(),
 				body.difficulty(), pun);
-			if (isMined(candidate))
+			if (leadingZeroBits(hashOf(candidate, merkleRoot).toByteArray()) >= body.difficulty())
 			{
 				return java.util.Optional.of(candidate);
 			}
