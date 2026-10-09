@@ -31,7 +31,7 @@ issues [#1](https://github.com/astrapi69/lethenon/issues/1) (reasoning) and
 | genesis supply | 1,984,000,000 LETH, held at the start in the mining pool | `Emission.GENESIS_SUPPLY`, `Emission.MINING_POOL` |
 | block reward | a millionth of the pool, for every block including the genesis block: 1,984 LETH first, then declining; half the pool is paid out after about 2.6 years | `Emission.EMISSION_DIVISOR`, `Emission.rewardFor`, `EmissionTest` |
 | tail | never less than 66 LETH a block; where the pool's share is smaller, the difference is minted, from block 3,403,214, after about 12.9 years. 0.8748 % of the genesis supply a year, against Monero's 0.8702 % at the start of its tail (#133) | `Emission.TAIL_REWARD`, `EmissionSchedule`, `TailEmissionTest` |
-| pre-allocation | none: nobody holds anything before the first block is mined (#111) | `GenesisAllocationTest` |
+| pre-allocation | none: nobody holds anything before the first block is mined (#111); the main chain's genesis reward belongs to nobody (section 8) | `GenesisAllocationTest`, `MainChainGenesisTest` |
 | invariant | the balances add up to the genesis supply plus what was minted, after every block | `ChainState.supply`, `ChainState.minted`, `TailEmissionTest` |
 
 The supply is not fixed: the tail adds at most 66 LETH a block, so a 64-bit integer of lethe lasts at
@@ -91,8 +91,9 @@ Evidence: `BlocksTest`, `MiningTest`, `DifficultyRuleTest`, `ChainWorkTest`.
 One table per chain (`ConsensusRules`): which scheme is admitted from which height (`SchemeActivation`,
 ADR 0001 and [ADR 0002](../adr/0002-privacy-building-blocks.md)), the block limits - at most
 300,000 bytes per block and timestamps at most two hours ahead of the verifying node's clock, on both
-chains from height 0 (`BlockLimits`, #96, #99, #109) - and at most one genesis block fixed in the
-code per chain (`GenesisAnchor`, #104) - and the emission schedule, the same on both chains
+chains from height 0 (`BlockLimits`, #96, #99, #109) - at most one genesis block fixed in the code
+per chain (`GenesisAnchor`, #104), filed for the main chain (section 8) - and the emission schedule,
+the same on both chains
 (`EmissionSchedule`, section 2). New cryptography enters only under the rules of
 [ADR 0001](../adr/0001-new-cryptographic-constructions.md): a peer-reviewed publication with its
 proof, the authors' test vectors, the test chain first, the main chain after an external review.
