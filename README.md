@@ -45,9 +45,9 @@ never an argument; it is the first line of standard input.
 ```
 lethenon wallet create  --wallet holder.wallet          # prints the account and the 24 words
 lethenon wallet restore --wallet again.wallet           # stdin: the 24 words, then a new password
-lethenon mine    --chain chain.lethenon --wallet holder.wallet   # first run: the main chain's anchored genesis block
-lethenon mine    --testnet --chain test.lethenon --wallet holder.wallet   # genesis of a test chain, paying this wallet
-lethenon faucet  --chain test.lethenon --wallet holder.wallet --to <account>   # pays from the test chain's genesis holder
+lethenon mine    --testnet --chain test.lethenon --wallet holder.wallet   # block 0 of a test chain, its reward burned
+lethenon mine    --chain test.lethenon --wallet holder.wallet   # block 1, paying this wallet
+lethenon faucet  --chain test.lethenon --wallet holder.wallet --to <account>   # 1,000 LETH from the wallet block 1 paid
 lethenon send    --chain chain.lethenon --wallet w.wallet --to <account> --amount 12.5 --memo "..."
 lethenon send    --chain chain.lethenon --wallet w.wallet --to-address <view:spend> --amount 12.5
 lethenon sweep   --chain chain.lethenon --wallet w.wallet       # one-time payments onto the account
@@ -67,11 +67,12 @@ A chain under the identifiers before them, `lethenon-1` or `lethenon-test-1`, wa
 rules before 0.4.0 and is refused with that reason: under today's rules its balances would come
 out differently (#137).
 `--testnet` chooses the test chain when `mine` writes the genesis block; from then on the genesis
-block decides, every command follows it, and `--testnet` on a main chain is refused. The main
-chain is never mined anew: its genesis block is fixed in the code, and `mine` on a new main chain
-writes that block, whose reward belongs to nobody ([ADR 0005](docs/adr/0005-main-chain-genesis.md)).
-A test chain starts with a genesis block mined for the wallet that runs `mine --testnet`, which is
-where the faucet pays from. A chain under `lethenon-1` or `lethenon-test-1`, the identifiers
+block decides, every command follows it, and `--testnet` on a main chain is refused. Every genesis
+block pays its reward to a burn account, `Genesis.NOBODY`, from which no transfer may spend, so
+nobody holds anything before somebody mines block 1 ([ADR 0005](docs/adr/0005-main-chain-genesis.md)).
+The main chain is never mined anew: its genesis block is fixed in the code on its start day and
+released as 1.0.0, and until then `mine` without `--testnet` refuses to start one. On a test chain
+block 1 pays the first wallet that mines on it, which is where the faucet pays from. A chain under `lethenon-1` or `lethenon-test-1`, the identifiers
 before 0.4.0, is refused with a message that names its successor (#137). A new
 cryptographic scheme runs on the test chain first ([ADR 0001](docs/adr/0001-new-cryptographic-constructions.md)).
 
@@ -97,7 +98,7 @@ lethenon node --chain a.lethenon --listen 18431 --mine --wallet miner.wallet   #
 lethenon node --chain b.lethenon --listen 18432 --peer 127.0.0.1:18431         # takes the chain from a
 lethenon send --chain a.lethenon --wallet w.wallet --to <account> --amount 7 --node 127.0.0.1:18431
 lethenon balance --chain b.lethenon --wallet friend.wallet                      # from b's own copy
-lethenon genesis --testnet --wallet holder.wallet       # a candidate genesis block, its hash and bytes
+lethenon genesis --testnet --headline "..."             # a candidate genesis block, its hash and bytes
 lethenon sync --chain c.lethenon --peer 127.0.0.1:18431  # brings c up to a's tip, verified, and stops
 lethenon sync --chain c.lethenon --peer <56 characters>.onion:18431 --proxy 127.0.0.1:9050   # the same over Tor
 lethenon node --chain d.lethenon --listen 18431 --tx-proxy tor,127.0.0.1:9050 \

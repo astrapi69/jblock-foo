@@ -26,6 +26,7 @@ package io.github.astrapi69.lethenon.cli;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
@@ -45,9 +46,8 @@ import io.github.astrapi69.lethenon.Chain;
 import io.github.astrapi69.lethenon.Amount;
 import io.github.astrapi69.lethenon.Bytes;
 import io.github.astrapi69.lethenon.ChainFile;
-import io.github.astrapi69.lethenon.ConsensusRules;
-import io.github.astrapi69.lethenon.Emission;
 import io.github.astrapi69.lethenon.Genesis;
+import io.github.astrapi69.lethenon.Mining;
 import io.github.astrapi69.lethenon.Destination;
 import io.github.astrapi69.lethenon.Replay;
 import io.github.astrapi69.lethenon.SignatureSuite;
@@ -92,13 +92,15 @@ class TestnetOnTheCommandLineTest extends AbstractCliTest
 		assertEquals(0, run(password, "mine", "--testnet", "--chain", chain.toString(), "--wallet",
 			wallet), err);
 		assertTrue(out.contains("chain " + Chain.TEST_IDENTIFIER), out);
+		assertEquals(0, run(password, "mine", "--chain", chain.toString(), "--wallet", wallet),
+			err);
 		assertEquals(0, run(password, "send", "--chain", chain.toString(), "--wallet", wallet,
 			"--to", account, "--amount", "1"), err);
 		assertEquals(0, run(password, "mine", "--chain", chain.toString(), "--wallet", wallet),
 			err);
 
 		List<BlockBody> blocks = CanonicalEncoding.readChain(Files.readAllBytes(chain));
-		assertEquals(List.of(Chain.TEST_IDENTIFIER, Chain.TEST_IDENTIFIER),
+		assertEquals(List.of(Chain.TEST_IDENTIFIER, Chain.TEST_IDENTIFIER, Chain.TEST_IDENTIFIER),
 			blocks.stream().map(BlockBody::chainIdentifier).toList());
 		assertEquals(Chain.TEST_IDENTIFIER,
 			blocks.getLast().transactions().getFirst().body().chainIdentifier());
@@ -106,35 +108,26 @@ class TestnetOnTheCommandLineTest extends AbstractCliTest
 	}
 
 	@Test
-	@DisplayName("without --testnet a new chain is the main chain, from its anchored genesis block")
-	void withoutTheFlag_aNewChainIsTheMainChain_startedFromItsAnchor() throws Exception
+	@DisplayName("without --testnet a new chain is refused: this build starts no main chain")
+	void withoutTheFlag_aNewChainIsRefused_untilTheMainChainHasItsAnchor()
 	{
-		assertEquals(0, run(password, "mine", "--chain", chain.toString(), "--wallet", wallet),
-			err);
+		int exit = run(password, "mine", "--chain", chain.toString(), "--wallet", wallet);
 
-		BlockBody genesis = CanonicalEncoding.readChain(Files.readAllBytes(chain)).getFirst();
-		BlockBody anchor = ConsensusRules.LETHENON.anchorFor(Chain.IDENTIFIER).orElseThrow();
-		assertTrue(out.contains("chain " + Chain.IDENTIFIER), out);
-		assertEquals(Blocks.hashOf(anchor), Blocks.hashOf(genesis),
-			"the main chain is never mined anew: every node starts from the same block");
-		assertEquals(Genesis.NOBODY, genesis.beneficiary(), "and it pays nobody, not this wallet");
-		assertTrue(out.contains("started the chain with its genesis block fixed in the code, "
-			+ Blocks.hashOf(anchor)), out);
-		assertEquals(0, run(password, "mine", "--chain", chain.toString(), "--wallet", wallet),
-			err);
-		assertTrue(out.contains("mined block 1"), out);
-		assertEquals(0, run(password, "balance", "--chain", chain.toString(), "--wallet", wallet),
-			err);
-		assertTrue(out.contains("account (ed25519): " + account + " holds "
-			+ Emission.rewardFor(Emission.MINING_POOL.minus(Emission.FIRST_REWARD)).total() + " LETH"), out);
+		assertEquals(1, exit, out);
+		assertTrue(err.contains("'" + Chain.IDENTIFIER + "' starts only from the genesis block "
+			+ "fixed in the code"), err);
+		assertTrue(err.contains("--testnet"), err);
+		assertFalse(Files.exists(chain), "nothing is written");
 	}
 
 	@Test
 	@DisplayName("--testnet on a main chain is refused with a message, and the chain is unchanged")
 	void testnet_onAMainChain_isRefused() throws Exception
 	{
-		assertEquals(0, run(password, "mine", "--chain", chain.toString(), "--wallet", wallet),
-			err);
+		// a main chain file as the start day writes it; this build does not start one itself
+		Files.write(chain, CanonicalEncoding.encodeChain(List.of(Blocks.mine(Mining.nextBlock(
+			Chain.IDENTIFIER, List.of(), Genesis.NOBODY, List.of(), "main", System.currentTimeMillis()),
+			1_000_000L).orElseThrow())));
 		byte[] before = Files.readAllBytes(chain);
 
 		int exit = run(password, "mine", "--testnet", "--chain", chain.toString(), "--wallet",
@@ -152,6 +145,8 @@ class TestnetOnTheCommandLineTest extends AbstractCliTest
 	{
 		assertEquals(0, run(password, "mine", "--testnet", "--chain", chain.toString(), "--wallet",
 			wallet), err);
+		assertEquals(0, run(password, "mine", "--chain", chain.toString(), "--wallet", wallet),
+			err);
 		Wallet opened = WalletFile.read(Path.of(wallet), password.toCharArray());
 		Bytes postQuantum = opened.spendKey(SignatureSuite.ML_DSA_65);
 		assertEquals(0, run(password, "send", "--chain", chain.toString(), "--wallet", wallet,

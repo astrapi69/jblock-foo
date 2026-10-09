@@ -43,8 +43,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * A genesis block fixed in the code: the rule table carries it as canonical bytes, a chain with
  * another genesis block does not verify, and a chain is started with it instead of a mined one
- * (#104). Tested on both chains against test anchors; the main chain's real block, filed in #137,
- * is tested in {@link MainChainGenesisTest}.
+ * (#104). Tested on both chains against test anchors; the main chain's real block is filed on
+ * the day the main chain starts, with the headline of that day (#148, ADR 0005).
  */
 class GenesisAnchorTest
 {
@@ -87,10 +87,10 @@ class GenesisAnchorTest
 	}
 
 	@Test
-	@DisplayName("the main chain has its anchor, the test chain none: anybody may start a test chain")
-	void onlyTheMainChainHasAnAnchor()
+	@DisplayName("no chain has an anchor before the start day: the main chain's is filed on it, a test chain never gets one")
+	void noChainHasAnAnchorBeforeTheStartDay()
 	{
-		assertTrue(ConsensusRules.LETHENON.anchorFor(Chain.IDENTIFIER).isPresent());
+		assertTrue(ConsensusRules.LETHENON.anchorFor(Chain.IDENTIFIER).isEmpty());
 		assertTrue(ConsensusRules.LETHENON.anchorFor(Chain.TEST_IDENTIFIER).isEmpty());
 	}
 
@@ -187,19 +187,18 @@ class GenesisAnchorTest
 	{
 		BlockBody anchored = genesis(chain, HOLDER, "fixed");
 
-		BlockBody started = Genesis.start(anchoredTo(anchored), chain,
-			Bytes.of(new byte[] { 2 }), "whatever", TIME + 1L);
+		BlockBody started = Genesis.start(anchoredTo(anchored), chain, "whatever", TIME + 1L);
 
 		assertEquals(anchored, started);
 	}
 
 	@Test
-	@DisplayName("a chain without an anchor starts with a genesis block mined for its holder")
+	@DisplayName("a chain without an anchor starts with a mined genesis block paying the burn account")
 	void aChainWithoutAnAnchor_startsWithAMinedGenesis()
 	{
-		BlockBody started = Genesis.start(Chain.TEST_IDENTIFIER, HOLDER, "free", TIME);
+		BlockBody started = Genesis.start(Chain.TEST_IDENTIFIER, "free", TIME);
 
-		assertEquals(HOLDER, started.beneficiary());
+		assertEquals(Genesis.NOBODY, started.beneficiary());
 		assertEquals(0L, started.height());
 		assertEquals(1L, Replay.verify(List.of(started)).blocks());
 	}

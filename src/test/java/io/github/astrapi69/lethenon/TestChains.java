@@ -60,23 +60,47 @@ final class TestChains
 	}
 
 	/**
-	 * A genesis block allocating to the holder, and one mined block per transfer, each paying
-	 * {@link #MINER}
+	 * The first two blocks of a test chain whose holder can spend: the genesis block, which pays
+	 * the burn account (#148), and block 1, which pays the holder - the first reward anybody holds
+	 *
+	 * @param chainIdentifier
+	 *            the chain
+	 * @param holder
+	 *            the account block 1 pays
+	 * @param time
+	 *            the genesis block's timestamp; block 1 follows a minute later
+	 * @return the two blocks, genesis first
+	 */
+	static List<BlockBody> funding(final String chainIdentifier, final Bytes holder,
+		final long time)
+	{
+		BlockBody genesis = Blocks
+			.mine(new BlockBody(chainIdentifier, 0L, Bytes.of(new byte[32]), Genesis.NOBODY,
+				new ArrayList<>(), time, DifficultyRule.MINIMUM, "in the beginning was the pun"),
+				1_000_000L)
+			.orElseThrow();
+		BlockBody first = Blocks
+			.mine(new BlockBody(chainIdentifier, 1L, Blocks.hashOf(genesis), holder,
+				new ArrayList<>(), time + 60_000L, DifficultyRule.MINIMUM, "the first reward"),
+				1_000_000L)
+			.orElseThrow();
+		return List.of(genesis, first);
+	}
+
+	/**
+	 * A test chain whose block 1 pays the holder, and one mined block per transfer after it, each
+	 * paying {@link #MINER}
 	 *
 	 * @param holder
-	 *            the account the genesis block pays its block reward to
+	 *            the account block 1 pays its reward to
 	 * @param transfers
 	 *            the transfers, in chain order
 	 * @return the blocks, genesis first
 	 */
 	static List<BlockBody> chainWith(final Bytes holder, final SignedTransaction... transfers)
 	{
-		BlockBody genesis = Blocks
-			.mine(new BlockBody(Chain.TEST_IDENTIFIER, 0L, Bytes.of(new byte[32]), holder,
-				new ArrayList<>(), 1_759_000_000_000L, 8, "in the beginning was the pun"),
-				1_000_000L)
-			.orElseThrow();
-		List<BlockBody> chain = new ArrayList<>(List.of(genesis));
+		List<BlockBody> chain = new ArrayList<>(
+			funding(Chain.TEST_IDENTIFIER, holder, 1_759_000_000_000L));
 		for (SignedTransaction transfer : transfers)
 		{
 			BlockBody previous = chain.getLast();

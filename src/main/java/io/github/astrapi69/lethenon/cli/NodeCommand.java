@@ -273,8 +273,7 @@ class NodeCommand implements Callable<Integer>
 		}
 		if (beneficiary != null)
 		{
-			BlockBody genesis = Genesis.start(Chain.TEST_IDENTIFIER, beneficiary, pun,
-				System.currentTimeMillis());
+			BlockBody genesis = Genesis.start(Chain.TEST_IDENTIFIER, pun, System.currentTimeMillis());
 			out.println("mined the genesis block of " + Chain.TEST_IDENTIFIER);
 			return List.of(genesis);
 		}

@@ -75,7 +75,7 @@ class HandshakeTest
 		assertEquals(Hello.PROTOCOL_VERSION, read.protocolVersion());
 		assertEquals(Chain.TEST_IDENTIFIER, read.chainIdentifier());
 		assertEquals(Blocks.hashOf(chain.getFirst()), read.genesisHash());
-		assertEquals(1L, read.bestHeight());
+		assertEquals(chain.size() - 1L, read.bestHeight());
 		assertEquals(Blocks.hashOf(chain.getLast()), read.bestHash());
 		assertEquals(ChainWork.of(chain), read.work());
 	}
@@ -91,7 +91,7 @@ class HandshakeTest
 
 			await("both sides to count one peer",
 				() -> first.peers().size() == 1 && second.peers().size() == 1);
-			assertEquals(1L, second.peers().getFirst().bestHeight());
+			assertEquals(chain.size() - 1L, second.peers().getFirst().bestHeight());
 			assertEquals(Blocks.hashOf(chain.getLast()), first.peers().getFirst().bestHash());
 		}
 	}

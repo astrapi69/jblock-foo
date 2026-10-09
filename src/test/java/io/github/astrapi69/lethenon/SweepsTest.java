@@ -171,11 +171,8 @@ class SweepsTest
 
 	private List<BlockBody> chainPaying(final List<SignedTransaction> payments)
 	{
-		List<BlockBody> chain = new ArrayList<>(List.of(Blocks
-			.mine(new BlockBody(Chain.TEST_IDENTIFIER, 0L, Bytes.of(new byte[32]), payerKey,
-				new ArrayList<>(), 1_759_000_000_000L, 8, "in the beginning was the pun"),
-				1_000_000L)
-			.orElseThrow()));
+		List<BlockBody> chain = new ArrayList<>(
+			TestChains.funding(Chain.TEST_IDENTIFIER, payerKey, 1_759_000_000_000L));
 		for (SignedTransaction payment : payments)
 		{
 			chain.add(block(chain, List.of(payment)));

@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -37,8 +38,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import io.github.astrapi69.lethenon.BlockBody;
+import io.github.astrapi69.lethenon.Blocks;
+import io.github.astrapi69.lethenon.CanonicalEncoding;
 import io.github.astrapi69.lethenon.Chain;
 import io.github.astrapi69.lethenon.ChainFile;
+import io.github.astrapi69.lethenon.Genesis;
+import io.github.astrapi69.lethenon.Mining;
 import io.github.astrapi69.lethenon.Replay;
 import io.github.astrapi69.lethenon.transport.Node;
 
@@ -104,10 +109,12 @@ class NodeCommandTest extends AbstractCliTest
 
 	@Test
 	@DisplayName("a main chain file is refused")
-	void aMainChain_isRefused()
+	void aMainChain_isRefused() throws Exception
 	{
-		assertEquals(0, run(password, "mine", "--chain", chain.toString(), "--wallet", wallet),
-			err);
+		// a main chain file as the start day writes it; this build does not start one itself
+		Files.write(chain, CanonicalEncoding.encodeChain(List.of(Blocks.mine(Mining.nextBlock(
+			Chain.IDENTIFIER, List.of(), Genesis.NOBODY, List.of(), "main", System.currentTimeMillis()),
+			1_000_000L).orElseThrow())));
 
 		assertEquals(1, run("", "node", "--chain", chain.toString(), "--listen", "0", "--for", "1"),
 			out);

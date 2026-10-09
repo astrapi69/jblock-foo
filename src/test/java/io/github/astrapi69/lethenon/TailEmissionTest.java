@@ -99,8 +99,9 @@ class TailEmissionTest
 			List<SignedTransaction> waiting = transfersAt.containsKey(height)
 				? List.of(transfersAt.get(height))
 				: List.of();
+			// block 0 pays the burn account whoever mines it (#148), block 1 the holder
 			chain.add(Blocks.mine(Mining.nextBlock(chainIdentifier, chain,
-				height == 0 ? holderKey() : MINER, waiting, "block " + height,
+				height == 1 ? holderKey() : MINER, waiting, "block " + height,
 				1_759_000_000_000L + 120_000L * height), 1_000_000L).orElseThrow());
 		}
 		return chain;

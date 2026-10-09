@@ -175,7 +175,7 @@ class ProxyTest
 				Duration.ofSeconds(20), Outbound.through(socks.address()));
 
 			assertEquals(ahead, file.require());
-			assertEquals(3L, synced.blocksAfter());
+			assertEquals(ahead.size(), synced.blocksAfter());
 			assertEquals(2, socks.requests().size(), "one for the genesis block, one for the rest");
 		}
 	}

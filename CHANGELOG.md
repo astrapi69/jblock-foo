@@ -7,7 +7,7 @@ Version 0.4.0 (unreleased)
 FORMAT:
 
 - **One consensus break**: the emission with its tail (#133), the new chain identifiers (#137) and
-  the main chain's anchored genesis block (#104) are collected on the integration branch
+  the burn account for every genesis reward (#148) are collected on the integration branch
   `consensus/lethenon-2` (#138) and released together.
 - The emission (#133): every chain replays under a declining reward, so a chain of 0.3.0 would come
   out with other balances; it is refused by its identifier instead (below).
@@ -28,8 +28,15 @@ FORMAT:
   chain 'lethenon-2', which is neither 'lethenon-1' nor 'lethenon-test-1'", and the same for
   `lethenon-test-2`. No earlier version computes a balance on a chain of 0.4.0. To be measured again
   against the release, with the jars from Maven Central.
-- The main chain starts with the genesis block fixed in the code, hash `009cffa5...4e1f`, whose
-  reward belongs to nobody (ADR 0005). A main chain with any other genesis block is refused.
+- Every genesis block pays its reward to the burn account `Genesis.NOBODY`, on both chains (#148,
+  ADR 0005): a chain whose block 0 pays anybody else is refused, and so is every transfer from that
+  account. The burned 1,984 LETH count in every balance sum. Block 1 pays the first wallet that
+  mines, so nobody holds anything before then.
+- **No main chain yet.** 0.4.0 carries the anchor mechanism of #104 but no anchor for `lethenon-2`:
+  `mine` without `--testnet` on a new chain exits 1, "the main chain 'lethenon-2' starts only from
+  the genesis block fixed in the code, and this build has none: the main chain starts with lethenon
+  1.0.0 (ADR 0005)". The main chain's genesis block is mined on its start day from a headline of
+  that day and released as 1.0.0 (`docs/launch/launch-checklist.md`, "The start day").
 
 CHANGED:
 
@@ -45,8 +52,15 @@ CHANGED:
   everything at once; that lottery is gone
 - the command line's help names the test chain through the constant: `genesis --testnet`,
   `mine --testnet` and `node` say `lethenon-test-2` (#137)
-- `mine` on a new main chain writes the anchored genesis block and says that it pays nobody; the
-  next `mine` mines block 1. Faucet and holder flows run on the test chain, `mine --testnet`
+- `mine --testnet` mines block 0 for the burn account and says so; the next `mine` mines block 1
+  for the wallet
+- the faucet pays from the wallet that mined block 1, and hands out 1,000 LETH instead of 1,984:
+  block 1 pays 1,983.998016 LETH under the declining reward, so 1,984 would need two mined blocks
+- `lethenon genesis` takes `--headline`, a headline of the day the block is mined, and no longer
+  `--wallet`: the reward goes to the burn account. It mines the main chain's candidate too, and
+  writes nothing
+- **API**: `Genesis.start(chainIdentifier, pun, now)` loses its holder parameter and refuses the
+  main chain without an anchor; `Genesis.candidate` mines a genesis block regardless
 - **API**: `Emission.TOTAL_SUPPLY` is `GENESIS_SUPPLY`; `BLOCK_REWARD` and `BLOCKS_WITH_A_REWARD`
   are gone, replaced by `FIRST_REWARD`, `TAIL_REWARD`, `EMISSION_DIVISOR` and `rewardFor`.
   `ConsensusRules` carries an `EmissionSchedule`; `ChainState` has `minted()` and `supply()`
@@ -54,8 +68,10 @@ CHANGED:
 ADDED:
 
 - `EmissionSchedule` and `BlockReward`: the reward as a share of the pool plus the minted part
-- `Genesis.NOBODY`, the beneficiary of the main chain's genesis block
-- ADR 0005, the genesis block of the main chain
+- `Genesis.NOBODY`, the burn account every genesis block pays, and `NobodyIsNoKeyTest`, which
+  checks for every signature suite that the bytes decode as no key and no signature counts for
+  them; a suite added later has to pass it (ADR 0005)
+- ADR 0005, the genesis block of the main chain, accepted (#148)
 
 Version 0.3.0
 -------------

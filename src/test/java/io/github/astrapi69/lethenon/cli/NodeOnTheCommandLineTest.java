@@ -69,6 +69,9 @@ class NodeOnTheCommandLineTest extends AbstractCliTest
 		account = matchIn(ACCOUNT, out);
 		assertEquals(0, run(password, "mine", "--testnet", "--chain", chain.toString(), "--wallet",
 			wallet), err);
+		// block 0 pays the burn account (#148), block 1 this wallet
+		assertEquals(0, run(password, "mine", "--chain", chain.toString(), "--wallet", wallet),
+			err);
 	}
 
 	@Test

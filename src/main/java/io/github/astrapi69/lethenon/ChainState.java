@@ -179,9 +179,10 @@ public final class ChainState
 
 	/**
 	 * Puts the genesis allocation in place: the whole supply into the mining pool, and out of it the
-	 * ordinary block reward to the account the genesis block names as its beneficiary, as every
-	 * later block pays its miner. The same on both chains, so the test chain tests the main chain's
-	 * rule (#111)
+	 * ordinary block reward to the burn account {@link Genesis#NOBODY}, which the genesis block has
+	 * to name as its beneficiary (#148). Its balance counts in every sum like any other, so the
+	 * burned reward is part of the supply and can be seen in it, but it never moves again. The same on both chains, so the test chain tests the main chain's rule
+	 * (#111)
 	 *
 	 * @param genesis
 	 *            the genesis block
@@ -245,6 +246,11 @@ public final class ChainState
 			throw new ChainRejected("a transfer to a " + AddressScheme.STEALTH_V1.identifier()
 				+ " destination, whose key is a hash and therefore the private half of nothing; "
 				+ "those funds could never be moved again");
+		}
+		if (Genesis.NOBODY.equals(body.sender()))
+		{
+			throw new ChainRejected("a transfer from the burn account, which block 0 paid its reward "
+				+ "to and which no transfer may spend (#148)");
 		}
 		rules.requireAdmitted(chainIdentifier, transaction.suite(), height);
 		rules.requireAdmitted(chainIdentifier, body.recipient().scheme(), height);

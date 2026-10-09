@@ -56,7 +56,8 @@ public final class Mining
 	 * @param chain
 	 *            the chain so far, genesis first; empty for a new main chain
 	 * @param beneficiary
-	 *            whom the block pays: on an empty chain the genesis holder, otherwise the miner
+	 *            whom the block pays; ignored for the genesis block, which pays the burn account
+	 *            ({@link Genesis#NOBODY}, #148)
 	 * @param waiting
 	 *            the transfers to carry, in the order they wait; the block carries the longest
 	 *            prefix that fits the chain's size limit. Ignored for the genesis block, which
@@ -86,7 +87,8 @@ public final class Mining
 	 * @param chain
 	 *            the chain so far, genesis first; empty for a new chain
 	 * @param beneficiary
-	 *            whom the block pays: on an empty chain the genesis holder, otherwise the miner
+	 *            whom the block pays; ignored for the genesis block, which pays the burn account
+	 *            ({@link Genesis#NOBODY}, #148)
 	 * @param waiting
 	 *            the transfers to carry, in the order they wait; the block carries the longest
 	 *            prefix that fits the chain's size limit. Ignored for the genesis block, which
@@ -123,7 +125,8 @@ public final class Mining
 		int difficulty = DifficultyRule.requiredFor(chain);
 		if (chain.isEmpty())
 		{
-			return new BlockBody(chainIdentifier, 0L, Bytes.of(new byte[32]), beneficiary,
+			// whoever mines it, the genesis block pays the burn account (#148)
+			return new BlockBody(chainIdentifier, 0L, Bytes.of(new byte[32]), Genesis.NOBODY,
 				List.of(), now, difficulty, pun);
 		}
 		long timestamp = Math.max(now, DifficultyRule.medianTimePast(chain) + 1L);

@@ -115,7 +115,7 @@ class SyncTest
 			Sync.Synced synced = Sync.once(file, local(peer.listen(0)), WITHIN);
 
 			assertEquals(ahead, file.require());
-			assertEquals(1L, synced.blocksBefore());
+			assertEquals(genesis.size(), synced.blocksBefore());
 			assertEquals(ahead.size(), synced.blocksAfter());
 		}
 	}
@@ -191,7 +191,7 @@ class SyncTest
 
 			String message = refused.getMessage();
 			assertTrue(message.contains("height 1000"), message);
-			assertTrue(message.contains("height 0"), message);
+			assertTrue(message.contains("height " + (genesis.size() - 1)), message);
 			assertArrayEquals(before, Files.readAllBytes(path));
 		}
 		finally

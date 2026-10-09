@@ -110,6 +110,9 @@ public record Replay(long blocks, long transactions, long signatures, ChainState
 				+ Blocks.hashOf(anchor.get()) + ", and this chain starts with "
 				+ Blocks.hashOf(genesis));
 		}
+		requireThat(Genesis.NOBODY.equals(genesis.beneficiary()), "block 0 pays its reward to "
+			+ genesis.beneficiary() + ", and a genesis block pays it to the burn account "
+			+ Genesis.NOBODY + " (#148)");
 		ChainState state = new ChainState(rules);
 		state.allocateGenesis(genesis);
 		long transactions = 0;

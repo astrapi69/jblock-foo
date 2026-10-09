@@ -51,7 +51,9 @@ final class Networks
 	}
 
 	/**
-	 * A test chain of one genesis block, paying the given holder
+	 * A test chain of its genesis block, which pays the burn account (#148), and block 1, which
+	 * pays the given holder, so that the holder can spend. The genesis pun names the holder: a
+	 * genesis block pays nobody it could tell apart by, so two holders still mean two chains
 	 */
 	static List<BlockBody> testGenesis(final Bytes holder)
 	{
@@ -60,8 +62,9 @@ final class Networks
 
 	static List<BlockBody> genesis(final String chainIdentifier, final Bytes holder)
 	{
-		return List.of(Blocks.mine(Mining.nextBlock(chainIdentifier, List.of(), holder, List.of(),
-			"in the beginning", GENESIS_TIME), 1_000_000L).orElseThrow());
+		List<BlockBody> genesis = List.of(Blocks.mine(Mining.nextBlock(chainIdentifier, List.of(),
+			holder, List.of(), "in the beginning of " + holder, GENESIS_TIME), 1_000_000L).orElseThrow());
+		return extended(genesis, holder, List.of());
 	}
 
 	/**

@@ -89,7 +89,7 @@ class StealthFundsCanBeSpentTest
 		Bytes elsewhere = TransactionSigner
 			.asBytes(TransactionSigner.newKeyPair(SignatureSuite.ED25519).getPublic());
 		BlockBody genesis = genesis();
-		BlockBody paid = block(1L, genesis, transferFromThePayer(destination, Amount.ofLeth(5L)));
+		BlockBody paid = block(2L, genesis, transferFromThePayer(destination, Amount.ofLeth(5L)));
 
 		Ed25519ExpandedPrivateKey oneTimeKey = OneTimeAddresses.oneTimeKey(destination, address,
 			view.getPrivate(), spend.getPrivate());
@@ -98,10 +98,10 @@ class StealthFundsCanBeSpentTest
 				Destination.direct(elsewhere), Amount.ofLeth(2L), Amount.ZERO,
 				"spent from an address that appeared once"),
 			oneTimeKey);
-		BlockBody spent = block(2L, paid, spending);
+		BlockBody spent = block(3L, paid, spending);
 
 		Replay replay = Replay.verify(CanonicalEncoding
-			.readChain(CanonicalEncoding.encodeChain(List.of(genesis, paid, spent))));
+			.readChain(CanonicalEncoding.encodeChain(List.of(burned(), genesis, paid, spent))));
 
 		assertEquals(Amount.ofLeth(2L), replay.finalState().balanceOf(elsewhere),
 			"the money left the one-time destination, which is what #21 says it could not");
@@ -127,16 +127,16 @@ class StealthFundsCanBeSpentTest
 			"blinding the wrong spend key cannot land on the recipient's destination");
 
 		BlockBody genesis = genesis();
-		BlockBody paid = block(1L, genesis, transferFromThePayer(destination, Amount.ofLeth(5L)));
+		BlockBody paid = block(2L, genesis, transferFromThePayer(destination, Amount.ofLeth(5L)));
 		SignedTransaction theft = TransactionSigner.sign(
 			new TransactionBody(Chain.TEST_IDENTIFIER, 0L, destination.key(),
 				Destination.direct(payerKey), Amount.ofLeth(5L), Amount.ZERO, "mine now"),
 			payersAttempt);
-		BlockBody stolen = block(2L, paid, theft);
+		BlockBody stolen = block(3L, paid, theft);
 
 		ChainRejected refused = assertThrows(ChainRejected.class, () -> Replay.verify(
 			CanonicalEncoding.readChain(
-				CanonicalEncoding.encodeChain(List.of(genesis, paid, stolen)))));
+				CanonicalEncoding.encodeChain(List.of(burned(), genesis, paid, stolen)))));
 
 		assertTrue(refused.getMessage().contains("signature does not match its sender"),
 			refused.getMessage());
@@ -163,10 +163,10 @@ class StealthFundsCanBeSpentTest
 			Bytes.of(SigningPayload.digestOf("a hash, not a key".getBytes())),
 			Bytes.of(OneTimeAddresses.newEphemeralKeyPair().getPublic().getEncoded()), 7);
 		BlockBody genesis = genesis();
-		BlockBody paid = block(1L, genesis, transferFromThePayer(unspendable, Amount.ofLeth(5L)));
+		BlockBody paid = block(2L, genesis, transferFromThePayer(unspendable, Amount.ofLeth(5L)));
 
 		ChainRejected refused = assertThrows(ChainRejected.class, () -> Replay.verify(
-			CanonicalEncoding.readChain(CanonicalEncoding.encodeChain(List.of(genesis, paid)))));
+			CanonicalEncoding.readChain(CanonicalEncoding.encodeChain(List.of(burned(), genesis, paid)))));
 
 		assertTrue(refused.getMessage().contains("private half of nothing"), refused.getMessage());
 	}
@@ -179,17 +179,17 @@ class StealthFundsCanBeSpentTest
 		Destination destination = OneTimeAddresses.destinationFor(payee.address(),
 			OneTimeAddresses.newEphemeralKeyPair());
 		BlockBody genesis = genesis();
-		BlockBody paid = block(1L, genesis, transferFromThePayer(destination, Amount.ofLeth(4L)));
+		BlockBody paid = block(2L, genesis, transferFromThePayer(destination, Amount.ofLeth(4L)));
 
 		SignedTransaction spending = TransactionSigner.sign(
 			new TransactionBody(Chain.TEST_IDENTIFIER, 0L, destination.key(),
 				Destination.direct(payee.spendKey(SignatureSuite.ED25519)), Amount.ofLeth(4L),
 				Amount.ZERO, "swept into the account itself"),
 			payee.oneTimeKey(destination));
-		BlockBody spent = block(2L, paid, spending);
+		BlockBody spent = block(3L, paid, spending);
 
 		Replay replay = Replay.verify(CanonicalEncoding
-			.readChain(CanonicalEncoding.encodeChain(List.of(genesis, paid, spent))));
+			.readChain(CanonicalEncoding.encodeChain(List.of(burned(), genesis, paid, spent))));
 
 		assertEquals(Amount.ofLeth(4L),
 			replay.finalState().balanceOf(payee.spendKey(SignatureSuite.ED25519)),
@@ -206,13 +206,23 @@ class StealthFundsCanBeSpentTest
 			SignatureSuite.ED25519, payer.getPrivate());
 	}
 
+	private List<BlockBody> funded;
+
+	/** Block 1, which pays the payer: the genesis block pays the burn account (#148) */
 	private BlockBody genesis()
 	{
-		return Blocks
-			.mine(new BlockBody(Chain.TEST_IDENTIFIER, 0L, Bytes.of(new byte[32]), payerKey,
-				new ArrayList<>(), 1_759_000_000_000L, 8, "in the beginning was the pun"),
-				1_000_000L)
-			.orElseThrow();
+		if (funded == null)
+		{
+			funded = TestChains.funding(Chain.TEST_IDENTIFIER, payerKey, 1_759_000_000_000L);
+		}
+		return funded.get(1);
+	}
+
+	/** The genesis block itself, which pays the burn account */
+	private BlockBody burned()
+	{
+		genesis();
+		return funded.get(0);
 	}
 
 	private BlockBody block(final long height, final BlockBody previous,

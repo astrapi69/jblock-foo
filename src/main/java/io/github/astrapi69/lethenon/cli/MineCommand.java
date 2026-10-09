@@ -55,8 +55,9 @@ import picocli.CommandLine.Option;
  * {@link DifficultyRule} (lethenon#24), which the replay checks.
  */
 @Command(name = "mine", description = "Mine the next block with every waiting transfer, paying "
-	+ "this wallet. With no chain yet, start it: a test chain with a genesis block mined for this "
-	+ "wallet, the main chain with its genesis block fixed in the code.")
+	+ "this wallet. With no chain yet, start it: with the genesis block fixed in the code where "
+	+ "there is one, otherwise with a newly mined one; a genesis block pays its reward to the burn "
+	+ "account.")
 class MineCommand extends ChainCommand
 {
 
@@ -93,8 +94,7 @@ class MineCommand extends ChainCommand
 		}
 		long now = System.currentTimeMillis();
 		BlockBody mined = blocks.isEmpty()
-			? Genesis.start(testnet ? Chain.TEST_IDENTIFIER : Chain.IDENTIFIER, beneficiary, pun,
-				now)
+			? Genesis.start(testnet ? Chain.TEST_IDENTIFIER : Chain.IDENTIFIER, pun, now)
 			: Blocks.mine(testnet
 				? Mining.nextBlock(Chain.TEST_IDENTIFIER, blocks, beneficiary, waiting, pun, now)
 				: Mining.nextBlock(blocks, beneficiary, waiting, pun, now), attempts)
@@ -111,8 +111,14 @@ class MineCommand extends ChainCommand
 			.filter(Blocks.hashOf(mined)::equals).isPresent())
 		{
 			out.println("started the chain with its genesis block fixed in the code, "
-				+ Blocks.hashOf(mined) + ", which pays " + hex(mined.beneficiary())
-				+ "; the next mine mines block 1");
+				+ Blocks.hashOf(mined) + ", which pays the burn account; the next mine mines "
+				+ "block 1");
+		}
+		else if (mined.height() == 0L)
+		{
+			out.println("mined block 0: \"" + mined.pun() + "\", paying its reward to the burn "
+				+ "account, which nobody can spend (#148); the next mine mines block 1 for this "
+				+ "wallet");
 		}
 		else
 		{

@@ -68,14 +68,17 @@ class ChainFixtureTest
 
 		Replay replay = Replay.verify(chain);
 
-		assertEquals(List.of(holder, miner), chain.stream().map(BlockBody::beneficiary).toList(),
+		assertEquals(List.of(Genesis.NOBODY, holder, miner),
+			chain.stream().map(BlockBody::beneficiary).toList(),
 			"the chain itself names who it paid - the key files only say whom to expect");
-		assertEquals(Emission.FIRST_REWARD.minus(Amount.ofLeth(42L))
+		assertEquals(Emission.FIRST_REWARD, replay.finalState().balanceOf(Genesis.NOBODY),
+			"block 0 paid the burn account (#148)");
+		assertEquals(TestChains.rewardOfBlock(1).minus(Amount.ofLeth(42L))
 			.minus(Amount.ofLethe(100L)), replay.finalState().balanceOf(holder));
-		assertEquals(2L, replay.blocks());
+		assertEquals(3L, replay.blocks());
 		assertEquals(1L, replay.transactions());
 		assertEquals(Emission.GENESIS_SUPPLY, replay.finalState().total());
-		assertEquals(Amount.ofLeth(42L).plus(TestChains.rewardOfBlock(1)),
+		assertEquals(Amount.ofLeth(42L).plus(TestChains.rewardOfBlock(2)),
 			replay.finalState().balanceOf(miner),
 			"the miner holds what was transferred to it plus one block reward");
 	}

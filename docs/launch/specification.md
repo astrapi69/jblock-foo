@@ -31,7 +31,7 @@ issues [#1](https://github.com/astrapi69/lethenon/issues/1) (reasoning) and
 | genesis supply | 1,984,000,000 LETH, held at the start in the mining pool | `Emission.GENESIS_SUPPLY`, `Emission.MINING_POOL` |
 | block reward | a millionth of the pool, for every block including the genesis block: 1,984 LETH first, then declining; half the pool is paid out after about 2.6 years | `Emission.EMISSION_DIVISOR`, `Emission.rewardFor`, `EmissionTest` |
 | tail | never less than 66 LETH a block; where the pool's share is smaller, the difference is minted, from block 3,403,214, after about 12.9 years. 0.8748 % of the genesis supply a year, against Monero's 0.8702 % at the start of its tail (#133) | `Emission.TAIL_REWARD`, `EmissionSchedule`, `TailEmissionTest` |
-| pre-allocation | none: nobody holds anything before the first block is mined (#111); the main chain's genesis reward belongs to nobody (section 8) | `GenesisAllocationTest`, `MainChainGenesisTest` |
+| pre-allocation | none: nobody holds anything before the first block is mined (#111); every genesis reward is burned (section 8) | `GenesisAllocationTest`, `BurnedGenesisTest` |
 | invariant | the balances add up to the genesis supply plus what was minted, after every block | `ChainState.supply`, `ChainState.minted`, `TailEmissionTest` |
 
 The supply is not fixed: the tail adds at most 66 LETH a block, so a 64-bit integer of lethe lasts at
@@ -92,7 +92,7 @@ One table per chain (`ConsensusRules`): which scheme is admitted from which heig
 ADR 0001 and [ADR 0002](../adr/0002-privacy-building-blocks.md)), the block limits - at most
 300,000 bytes per block and timestamps at most two hours ahead of the verifying node's clock, on both
 chains from height 0 (`BlockLimits`, #96, #99, #109) - at most one genesis block fixed in the code
-per chain (`GenesisAnchor`, #104), filed for the main chain (section 8) - and the emission schedule,
+per chain (`GenesisAnchor`, #104), filed for the main chain on its start day (section 8) - and the emission schedule,
 the same on both chains
 (`EmissionSchedule`, section 2). New cryptography enters only under the rules of
 [ADR 0001](../adr/0001-new-cryptographic-constructions.md): a peer-reviewed publication with its
@@ -107,12 +107,13 @@ signed transfer, so nothing signed for one is accepted on the other (`Chain`, `C
 `lethenon-1` or `lethenon-test-1`, is refused with the reason that it was started under the rules
 before 0.4.0 (#137).
 
-The main chain starts with its genesis block fixed in the code: hash
-`009cffa549366d12a7f223be0e90821b7155f215a57ee3b6eed9d1e98cd04e1f`, mined on 2026-10-08, paying its
-reward to `Genesis.NOBODY` - words, not a key, so no signature can ever spend it
-([ADR 0005](../adr/0005-main-chain-genesis.md), `MainChainGenesisTest`). `mine` on a new main chain
-writes that block; the test chain has no anchor, and a test chain is started by whoever runs
-`mine --testnet`.
+Every genesis block, on both chains, pays its reward to `Genesis.NOBODY`, the burn account: a chain
+whose block 0 pays anybody else is refused, a transfer from it is refused, and its bytes are no key
+of any signature suite ([ADR 0005](../adr/0005-main-chain-genesis.md), `BurnedGenesisTest`,
+`NobodyIsNoKeyTest`). The main chain starts from a genesis block fixed in the code, mined on its
+start day from a headline of that day and released as 1.0.0; until then this build has no anchor
+for it, and `mine` refuses to start one. The test chain has no anchor, and a test chain is started
+by whoever runs `mine --testnet`; its block 1 pays the first wallet that mines on it.
 
 ## 9. Encoding and files
 
