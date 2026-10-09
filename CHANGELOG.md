@@ -18,16 +18,31 @@ FORMAT:
   "block 0: chain 'lethenon-1' was started under the rules before lethenon 0.4.0; under the rules
   from 0.4.0 on the main chain is 'lethenon-2'". #137 decided "before the rules of 0.3.0", when the
   break was to carry only the identifiers; with the tail emission (#133) in the same break, a chain
-  that 0.3.0 started is under old rules as well, so the reason says 0.4.0. Measured with this
-  version's command line on a main chain and a test chain that 0.3.0 wrote: `balance` and `mine`
-  exit 1 with that reason, and the file stays as it was.
-- The earlier versions refuse the new chains at block 0. Measured with the command lines of 0.1.0,
-  0.2.0 and 0.3.0, built from their release tags, on a `lethenon-2` and a `lethenon-test-2` chain of
-  two blocks each, `balance` and `mine`: 0.1.0 exits 1 on both, "block 0 belongs to chain
-  'lethenon-2'" and "... 'lethenon-test-2'"; 0.2.0 and 0.3.0 exit 1 on both, "block 0 belongs to
-  chain 'lethenon-2', which is neither 'lethenon-1' nor 'lethenon-test-1'", and the same for
-  `lethenon-test-2`. No earlier version computes a balance on a chain of 0.4.0. To be measured again
-  against the release, with the jars from Maven Central.
+  that 0.3.0 started is under old rules as well, so the reason says 0.4.0.
+- **Compatibility with 0.1.0, 0.2.0 and 0.3.0, measured in both directions on chains with real
+  transfers.** The command lines of 0.1.0, 0.2.0 and 0.3.0 were built from their release tags, this
+  one from the integration branch at `c4546d0` with the full gate (`./gradlew clean build`: 74
+  classes, 710 tests, 0 failures). Every chain carries an Ed25519 transfer of 12.5 LETH, a payment of
+  20 LETH to a published address and its sweep, 100 LETH to the holder's ML-DSA-65 account and a
+  transfer of 5 LETH from it, in four blocks; the 0.4.0 test chain also a faucet payment of 1,000
+  LETH in a fifth. Every version computes the same balances on its own chains: the recipient 17.5
+  LETH, the address owner 20 LETH after the sweep.
+  - The earlier versions on the chains of 0.4.0, a `lethenon-test-2` chain written with `mine
+    --testnet` and a `lethenon-2` chain whose block 0 was mined with `Genesis.candidate`, as the start
+    day will: `balance`, `mine` and `send` exit 1 in all 18 runs, and neither file changes. 0.1.0
+    says "block 0 belongs to chain 'lethenon-2'" (or 'lethenon-test-2'); 0.2.0 and 0.3.0 add "which
+    is neither 'lethenon-1' nor 'lethenon-test-1'". No earlier version computes a balance on a chain
+    of 0.4.0, or appends to one.
+  - 0.4.0 on the chains of the earlier versions, main chains of 0.1.0, 0.2.0 and 0.3.0 and test
+    chains of 0.2.0 and 0.3.0 (0.1.0 has no test chain): `balance`, `mine` and `send` exit 1 in all
+    15 runs, "block 0: chain 'lethenon-1' was started under the rules before lethenon 0.4.0; under
+    the rules from 0.4.0 on the main chain is 'lethenon-2'" and the same for `lethenon-test-1`, and
+    no file changes.
+  - `mine` without `--testnet` on a new file exits 1 with the message below and writes nothing.
+
+  Commands: `bash docs/launch/compatibility-0.4.0/build.sh c4546d0`, then
+  `bash docs/launch/compatibility-0.4.0/measure.sh`, which writes one line per command to
+  `results.tsv`. To be measured again against the release, with the jars from Maven Central.
 - Every genesis block pays its reward to the burn account `Genesis.NOBODY`, on both chains (#148,
   ADR 0005): a chain whose block 0 pays anybody else is refused, and so is every transfer from that
   account. The burned 1,984 LETH count in every balance sum. Block 1 pays the first wallet that
