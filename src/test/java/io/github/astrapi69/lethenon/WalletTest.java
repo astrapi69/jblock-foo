@@ -123,7 +123,7 @@ class WalletTest
 	{
 		Wallet sender = Wallet.create();
 		Bytes senderKey = sender.spendKey(SignatureSuite.ED25519);
-		SignedTransaction payment = sender.sign(new TransactionBody(Chain.IDENTIFIER, 0L, senderKey,
+		SignedTransaction payment = sender.sign(new TransactionBody(Chain.TEST_IDENTIFIER, 0L, senderKey,
 			OneTimeAddresses.destinationFor(original.address(),
 				OneTimeAddresses.newEphemeralKeyPair()),
 			Amount.ofLeth(9L), Amount.ZERO, "paid before the wallet was lost"),
@@ -214,7 +214,7 @@ class WalletTest
 	void aTransferFromAnotherAccount_isNotSigned()
 	{
 		Bytes somebodyElse = Wallet.create().spendKey(SignatureSuite.ED25519);
-		TransactionBody body = new TransactionBody(Chain.IDENTIFIER, 0L, somebodyElse,
+		TransactionBody body = new TransactionBody(Chain.TEST_IDENTIFIER, 0L, somebodyElse,
 			Destination.direct(somebodyElse), Amount.ofLeth(1L), Amount.ZERO, "not mine to sign");
 
 		IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
@@ -227,7 +227,7 @@ class WalletTest
 	@Test
 	void anAccountOfOneSuite_isNotSignedWithTheOther()
 	{
-		TransactionBody body = new TransactionBody(Chain.IDENTIFIER, 0L,
+		TransactionBody body = new TransactionBody(Chain.TEST_IDENTIFIER, 0L,
 			original.spendKey(SignatureSuite.ED25519),
 			Destination.direct(Bytes.of(new byte[] { 1 })),
 			Amount.ofLeth(1L), Amount.ZERO, "the right wallet, the wrong suite");

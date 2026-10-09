@@ -78,19 +78,23 @@ final class ChainFixtureWriter
 		final Bytes minerKey)
 	{
 		SignedTransaction transfer = TransactionSigner.sign(
-			new TransactionBody(Chain.IDENTIFIER, 0L, holderKey, Destination.direct(minerKey),
+			new TransactionBody(Chain.TEST_IDENTIFIER, 0L, holderKey, Destination.direct(minerKey),
 				Amount.ofLeth(42L), Amount.ofLethe(100L), "no permanent record about people"),
 			SignatureSuite.ED25519, holder.getPrivate());
 		BlockBody genesis = Blocks
-			.mine(new BlockBody(Chain.IDENTIFIER, 0L, Bytes.of(new byte[32]), holderKey,
+			.mine(new BlockBody(Chain.TEST_IDENTIFIER, 0L, Bytes.of(new byte[32]), Genesis.NOBODY,
 				new ArrayList<>(), 1_759_000_000_000L, 8, "in the beginning was the pun"),
 				1_000_000L)
 			.orElseThrow();
 		BlockBody first = Blocks
-			.mine(new BlockBody(Chain.IDENTIFIER, 1L, Blocks.hashOf(genesis), minerKey,
-				List.of(transfer), 1_759_000_060_000L, 8, "surveillance is not security"),
+			.mine(new BlockBody(Chain.TEST_IDENTIFIER, 1L, Blocks.hashOf(genesis), holderKey,
+				new ArrayList<>(), 1_759_000_060_000L, 8, "the first reward"), 1_000_000L)
+			.orElseThrow();
+		BlockBody second = Blocks
+			.mine(new BlockBody(Chain.TEST_IDENTIFIER, 2L, Blocks.hashOf(first), minerKey,
+				List.of(transfer), 1_759_000_120_000L, 8, "surveillance is not security"),
 				1_000_000L)
 			.orElseThrow();
-		return List.of(genesis, first);
+		return List.of(genesis, first, second);
 	}
 }

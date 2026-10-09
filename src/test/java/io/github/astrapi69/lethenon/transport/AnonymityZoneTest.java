@@ -237,7 +237,7 @@ class AnonymityZoneTest
 			assertEquals(0, theirs.listenPort());
 			assertEquals(0L, theirs.bestHeight());
 			assertEquals(clearnet.genesisHash(), theirs.bestHash());
-			assertEquals(2L, clearnet.bestHeight());
+			assertEquals(longer.size() - 1L, clearnet.bestHeight());
 		}
 	}
 

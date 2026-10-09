@@ -56,7 +56,7 @@ class TransactionPoolTest
 
 	private SignedTransaction transfer(final long nonce, final Amount amount, final String memo)
 	{
-		return sender.sign(new TransactionBody(Chain.IDENTIFIER, nonce, account, SOMEONE, amount,
+		return sender.sign(new TransactionBody(Chain.TEST_IDENTIFIER, nonce, account, SOMEONE, amount,
 			Amount.ZERO, memo), SignatureSuite.ED25519);
 	}
 
@@ -130,10 +130,10 @@ class TransactionPoolTest
 				test -> test.tampered(test.transfer(0L, Amount.ofLeth(1L), "signed")),
 				"signature"),
 			new Refusal("another chain",
-				test -> test.sender.sign(new TransactionBody(Chain.TEST_IDENTIFIER, 0L,
+				test -> test.sender.sign(new TransactionBody(Chain.IDENTIFIER, 0L,
 					test.account, SOMEONE, Amount.ofLeth(1L), Amount.ZERO, "elsewhere"),
 					SignatureSuite.ED25519),
-				"lethenon-test-1"));
+				Chain.IDENTIFIER));
 	}
 
 	private SignedTransaction tampered(final SignedTransaction signed)

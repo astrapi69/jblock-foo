@@ -65,7 +65,7 @@ class RecoveryAcceptanceTest
 			List.of(writtenDown.get(4), writtenDown.get(0), writtenDown.get(2)).stream()
 				.map(SecretShare::decode).toList());
 		Bytes recipient = Bytes.of("whoever was paid".getBytes());
-		SignedTransaction transfer = restored.sign(new TransactionBody(Chain.IDENTIFIER, 0L, holder,
+		SignedTransaction transfer = restored.sign(new TransactionBody(Chain.TEST_IDENTIFIER, 0L, holder,
 			Destination.direct(recipient), Amount.ofLeth(42L), Amount.ZERO,
 			"restored from three pieces of paper"), suite);
 		List<BlockBody> chain = chainWith(holder, transfer);
@@ -89,7 +89,7 @@ class RecoveryAcceptanceTest
 
 		Wallet restored = Wallet.fromPhrase(writtenDown);
 		Bytes recipient = Bytes.of("whoever was paid".getBytes());
-		SignedTransaction transfer = restored.sign(new TransactionBody(Chain.IDENTIFIER, 0L, holder,
+		SignedTransaction transfer = restored.sign(new TransactionBody(Chain.TEST_IDENTIFIER, 0L, holder,
 			Destination.direct(recipient), Amount.ofLeth(42L), Amount.ZERO,
 			"restored from twenty-four words"), suite);
 		List<BlockBody> chain = chainWith(holder, transfer);
@@ -115,7 +115,7 @@ class RecoveryAcceptanceTest
 
 		Wallet restored = WalletFile.read(file, password);
 		Bytes recipient = Bytes.of("whoever was paid".getBytes());
-		SignedTransaction transfer = restored.sign(new TransactionBody(Chain.IDENTIFIER, 0L, holder,
+		SignedTransaction transfer = restored.sign(new TransactionBody(Chain.TEST_IDENTIFIER, 0L, holder,
 			Destination.direct(recipient), Amount.ofLeth(42L), Amount.ZERO,
 			"read back from its own file"), suite);
 		List<BlockBody> chain = chainWith(holder, transfer);
@@ -134,7 +134,7 @@ class RecoveryAcceptanceTest
 	{
 		Bytes holder = Wallet.create().spendKey(suite);
 		Wallet stranger = Wallet.restore(Wallet.create().split(2, 3).subList(0, 2));
-		SignedTransaction transfer = stranger.sign(new TransactionBody(Chain.IDENTIFIER, 0L,
+		SignedTransaction transfer = stranger.sign(new TransactionBody(Chain.TEST_IDENTIFIER, 0L,
 			stranger.spendKey(suite), Destination.direct(holder), Amount.ofLeth(1L), Amount.ZERO,
 			"not the holder"), suite);
 		List<BlockBody> chain = chainWith(holder, transfer);

@@ -45,9 +45,9 @@ never an argument; it is the first line of standard input.
 ```
 lethenon wallet create  --wallet holder.wallet          # prints the account and the 24 words
 lethenon wallet restore --wallet again.wallet           # stdin: the 24 words, then a new password
-lethenon mine    --chain chain.lethenon --wallet holder.wallet   # first run: the genesis block
-lethenon mine    --testnet --chain test.lethenon --wallet holder.wallet   # genesis of a test chain
-lethenon faucet  --chain chain.lethenon --wallet holder.wallet --to <account>
+lethenon mine    --testnet --chain test.lethenon --wallet holder.wallet   # block 0 of a test chain, its reward burned
+lethenon mine    --chain test.lethenon --wallet holder.wallet   # block 1, paying this wallet
+lethenon faucet  --chain test.lethenon --wallet holder.wallet --to <account>   # 1,000 LETH from the wallet block 1 paid
 lethenon send    --chain chain.lethenon --wallet w.wallet --to <account> --amount 12.5 --memo "..."
 lethenon send    --chain chain.lethenon --wallet w.wallet --to-address <view:spend> --amount 12.5
 lethenon sweep   --chain chain.lethenon --wallet w.wallet       # one-time payments onto the account
@@ -61,10 +61,19 @@ destination derived from it, so two payments to the same address have nothing vi
 one transfer per destination, and says out loud what that costs - the chain then shows those
 destinations and the account together. Receiving is unlinkable; spending is the moment that ends.
 
-There are two chains, `lethenon-1` and the test chain `lethenon-test-1`, and the identifier is
+There are two chains, `lethenon-2` and the test chain `lethenon-test-2`, and the identifier is
 inside every signed transfer and every block, so nothing signed for one is accepted on the other.
+A chain under the identifiers before them, `lethenon-1` or `lethenon-test-1`, was started under the
+rules before 0.4.0 and is refused with that reason: under today's rules its balances would come
+out differently (#137).
 `--testnet` chooses the test chain when `mine` writes the genesis block; from then on the genesis
-block decides, every command follows it, and `--testnet` on a main chain is refused. A new
+block decides, every command follows it, and `--testnet` on a main chain is refused. Every genesis
+block pays its reward to a burn account, `Genesis.NOBODY`, from which no transfer may spend, so
+nobody holds anything before somebody mines block 1 ([ADR 0005](docs/adr/0005-main-chain-genesis.md)).
+The main chain is never mined anew: its genesis block is fixed in the code on its start day and
+released as 1.0.0, and until then `mine` without `--testnet` refuses to start one. On a test chain
+block 1 pays the first wallet that mines on it, which is where the faucet pays from. A chain under `lethenon-1` or `lethenon-test-1`, the identifiers
+before 0.4.0, is refused with a message that names its successor (#137). A new
 cryptographic scheme runs on the test chain first ([ADR 0001](docs/adr/0001-new-cryptographic-constructions.md)).
 
 `send`, `faucet` and `sweep` sign transfers that wait in `chain.lethenon.pending`; the next `mine` puts
@@ -80,7 +89,7 @@ anonymity zone for a node's own transfers, and an onion service for its zone pee
 transport is tested against a SOCKS5 server in the test sources and has run against a real Tor,
 0.4.9.11, by the runbook [docs/tor.md](docs/tor.md): two nodes reached each other only through
 onion services, and an own transfer travelled only through the zone (recorded in #112). A node
-runs only on `lethenon-test-1` and refuses a main
+runs only on `lethenon-test-2` and refuses a main
 chain. There is no message that asks a node for a balance; a wallet still computes its own from
 a chain file.
 
@@ -89,7 +98,7 @@ lethenon node --chain a.lethenon --listen 18431 --mine --wallet miner.wallet   #
 lethenon node --chain b.lethenon --listen 18432 --peer 127.0.0.1:18431         # takes the chain from a
 lethenon send --chain a.lethenon --wallet w.wallet --to <account> --amount 7 --node 127.0.0.1:18431
 lethenon balance --chain b.lethenon --wallet friend.wallet                      # from b's own copy
-lethenon genesis --testnet --wallet holder.wallet       # a candidate genesis block, its hash and bytes
+lethenon genesis --testnet --headline "..."             # a candidate genesis block, its hash and bytes
 lethenon sync --chain c.lethenon --peer 127.0.0.1:18431  # brings c up to a's tip, verified, and stops
 lethenon sync --chain c.lethenon --peer <56 characters>.onion:18431 --proxy 127.0.0.1:9050   # the same over Tor
 lethenon node --chain d.lethenon --listen 18431 --tx-proxy tor,127.0.0.1:9050 \
@@ -133,12 +142,12 @@ and that is deliberate.
 
 | | |
 |---|---|
-| Supply | **1,984,000,000 LETH**, fixed. 1984 is the protest in the amount itself |
+| Supply | **1,984,000,000 LETH at genesis**, plus a small tail emission after about 12.9 years ([#133](https://github.com/astrapi69/lethenon/issues/133)). 1984 is the protest in the amount itself |
 | Base unit | the **lethe**; 10^8 lethe = 1 LETH |
-| Why that magnitude | the supply is 1.984 x 10^17 base units against a 64-bit signed integer's 9.22 x 10^18 - a factor of 46 of headroom, so integer arithmetic suffices and no `BigInteger` is needed |
-| Mining reward | **1,984 LETH per block, from a pre-minted pool** holding the whole supply - exactly 1,000,000 blocks, about 3.8 years at two-minute blocks, then fees only |
+| Why that magnitude | the genesis supply is 1.984 x 10^17 base units against a 64-bit signed integer's 9.22 x 10^18 - a factor of 46 of headroom, so integer arithmetic suffices and no `BigInteger` is needed. The tail adds at most 66 LETH a block, which leaves at least 5,200 years |
+| Mining reward | **a millionth of the pool per block**, out of a pre-minted pool holding the whole genesis supply: the first block pays exactly 1,984 LETH, and the reward declines from there - half the pool is paid out after about 2.6 years. It never falls below the **tail reward of 66 LETH**, which a block reaches at height 3,403,214, after about 12.9 years. A fee goes into the pool and reaches the miners a share at a time |
 | Genesis | **no pre-allocation.** The genesis block is paid one block reward out of the pool, like every other block, on both chains ([#111](https://github.com/astrapi69/lethenon/issues/111)). Nobody holds anything before the first block is mined |
-| Inflation | none. The reward is distributed, never minted: the sum of all balances equals the supply after every block, and that is an assertion, not a promise |
+| Inflation | none for the first 12.9 years, then a tail after Monero's: where the pool's share falls below 66 LETH, the difference is minted. 66 LETH a block is 0.8748 % of the genesis supply a year, against Monero's 0.8702 % at the start of its tail; the minted part starts near zero and approaches that as the pool empties. The sum of all balances equals the genesis supply plus what was minted after every block, and that is an assertion, not a promise. The calculation, with its script, is in [#133](https://github.com/astrapi69/lethenon/issues/133) |
 
 ## Privacy, and its honest label
 

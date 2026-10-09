@@ -30,17 +30,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * The test chain of lethenon#50: a chain is {@code lethenon-1} or {@code lethenon-test-1}, its
- * genesis block decides which, and nothing - no block, no transfer, no signature - crosses from one
- * to the other.
+ * The test chain of lethenon#50: a chain is the main chain or the test chain, its genesis block
+ * decides which, and nothing - no block, no transfer, no signature - crosses from one to the other.
+ * Since #137 they are {@code lethenon-2} and {@code lethenon-test-2}, and a chain under the
+ * identifiers of the rules before 0.4.0 is refused with a reason that says so.
  */
 class ChainIdentifierTest
 {
@@ -54,11 +58,67 @@ class ChainIdentifierTest
 	private final Bytes holderKey = holder.spendKey(SignatureSuite.ED25519);
 
 	@Test
-	@DisplayName("the test identifier is lethenon-test-1, and the main one stays lethenon-1")
+	@DisplayName("under the rules from 0.4.0 on the chains are lethenon-2 and lethenon-test-2 (#137)")
 	void theTwoIdentifiers()
 	{
-		assertEquals("lethenon-test-1", Chain.TEST_IDENTIFIER);
-		assertEquals("lethenon-1", Chain.IDENTIFIER);
+		assertEquals("lethenon-2", Chain.IDENTIFIER);
+		assertEquals("lethenon-test-2", Chain.TEST_IDENTIFIER);
+	}
+
+	/**
+	 * The identifiers of the rules before 0.4.0, each with the one that took its place
+	 */
+	static Stream<Arguments> retiredIdentifiers()
+	{
+		return Stream.of(Arguments.of("lethenon-1", Chain.IDENTIFIER),
+			Arguments.of("lethenon-test-1", Chain.TEST_IDENTIFIER));
+	}
+
+	@ParameterizedTest(name = "a chain under {0} is refused by the replay, naming {1}")
+	@MethodSource("retiredIdentifiers")
+	void aChainUnderARetiredIdentifier_isRefusedByTheReplay(final String retired,
+		final String successor)
+	{
+		List<BlockBody> chain = List.of(underARetiredIdentifier(retired));
+
+		ChainRejected refused = assertThrows(ChainRejected.class, () -> Replay.verify(chain));
+
+		assertSaysStartedBefore040(refused.getMessage(), retired, successor);
+	}
+
+	@ParameterizedTest(name = "nothing is mined onto a chain under {0}")
+	@MethodSource("retiredIdentifiers")
+	void aChainUnderARetiredIdentifier_isNotMinedOnto(final String retired,
+		final String successor)
+	{
+		List<BlockBody> chain = List.of(underARetiredIdentifier(retired));
+
+		IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+			() -> Mining.nextBlock(chain, MINER, List.of(), "a pun", NOW + 60_000L));
+
+		assertSaysStartedBefore040(refused.getMessage(), retired, successor);
+	}
+
+	/**
+	 * The decided refusal (#137): the chain was started under the rules before 0.4.0, and the message
+	 * names both the retired identifier and the one that took its place
+	 */
+	static void assertSaysStartedBefore040(final String message, final String retired,
+		final String successor)
+	{
+		assertTrue(message.contains("'" + retired + "'"), message);
+		assertTrue(message.contains("started under the rules before lethenon 0.4.0"), message);
+		assertTrue(message.contains("'" + successor + "'"), message);
+	}
+
+	/**
+	 * A genesis block under a retired identifier, as a version before #137 mined it: built here
+	 * directly, since this version's {@code Mining} refuses the identifier
+	 */
+	private BlockBody underARetiredIdentifier(final String retired)
+	{
+		return Blocks.mine(new BlockBody(retired, 0L, Bytes.of(new byte[32]), holderKey,
+			List.of(), NOW, DifficultyRule.MINIMUM, "in the beginning"), 1_000_000L).orElseThrow();
 	}
 
 	@Test
@@ -91,7 +151,8 @@ class ChainIdentifierTest
 	}
 
 	@ParameterizedTest(name = "a block for {1} on a chain whose genesis says {0} is refused")
-	@CsvSource({ "lethenon-1, lethenon-test-1", "lethenon-test-1, lethenon-1" })
+	@CsvSource({ Chain.IDENTIFIER + ", " + Chain.TEST_IDENTIFIER,
+		Chain.TEST_IDENTIFIER + ", " + Chain.IDENTIFIER })
 	void aBlockForTheOtherChain_isRefusedBeforeMining(final String genesisIdentifier,
 		final String asked)
 	{
@@ -106,7 +167,7 @@ class ChainIdentifierTest
 	}
 
 	@ParameterizedTest(name = "the identifier \"{0}\" names no chain")
-	@ValueSource(strings = { "", "lethenon-2", "lethenon-test-2", "Lethenon-1", "lethenon-test-1 " })
+	@ValueSource(strings = { "", "lethenon-3", "lethenon-test-3", "Lethenon-2", "lethenon-test-2 " })
 	void anUnknownIdentifier_isRefused(final String unknown)
 	{
 		IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
@@ -116,7 +177,7 @@ class ChainIdentifierTest
 	}
 
 	@ParameterizedTest(name = "a genesis block for \"{0}\" is refused by the replay")
-	@ValueSource(strings = { "", "lethenon-2", "Lethenon-test-1" })
+	@ValueSource(strings = { "", "lethenon-3", "Lethenon-test-2" })
 	void aGenesisForAnUnknownChain_isRefusedByTheReplay(final String unknown)
 	{
 		BlockBody genesis = Blocks.mine(new BlockBody(unknown, 0L, Bytes.of(new byte[32]),
@@ -142,7 +203,7 @@ class ChainIdentifierTest
 		Replay replay = Replay.verify(minedOnto(chain, List.of(transfer)));
 
 		assertEquals(Chain.TEST_IDENTIFIER, replay.finalState().chainIdentifier());
-		assertEquals(Amount.ofLeth(3L).plus(Emission.BLOCK_REWARD),
+		assertEquals(Amount.ofLeth(3L).plus(TestChains.rewardOfBlock(2)),
 			replay.finalState().balanceOf(MINER));
 	}
 
@@ -167,11 +228,12 @@ class ChainIdentifierTest
 	}
 
 	@ParameterizedTest(name = "block 1 for {1} after a genesis for {0} is refused")
-	@CsvSource({ "lethenon-1, lethenon-test-1", "lethenon-test-1, lethenon-1" })
+	@CsvSource({ Chain.IDENTIFIER + ", " + Chain.TEST_IDENTIFIER,
+		Chain.TEST_IDENTIFIER + ", " + Chain.IDENTIFIER })
 	void aBlockOfTheOtherChain_isRefusedByTheReplay(final String genesisIdentifier,
 		final String foreign)
 	{
-		List<BlockBody> chain = new ArrayList<>(chainOf(genesisIdentifier));
+		List<BlockBody> chain = new ArrayList<>(chainOf(genesisIdentifier).subList(0, 1));
 		BlockBody genesis = chain.getFirst();
 		chain.add(Blocks.mine(new BlockBody(foreign, 1L, Blocks.hashOf(genesis), MINER, List.of(),
 			NOW + 60_000L, DifficultyRule.requiredFor(chain), "smuggled"), 1_000_000L).orElseThrow());
@@ -183,7 +245,8 @@ class ChainIdentifierTest
 	}
 
 	@ParameterizedTest(name = "a transfer signed for {1} inside a {0} chain is refused")
-	@CsvSource({ "lethenon-1, lethenon-test-1", "lethenon-test-1, lethenon-1" })
+	@CsvSource({ Chain.IDENTIFIER + ", " + Chain.TEST_IDENTIFIER,
+		Chain.TEST_IDENTIFIER + ", " + Chain.IDENTIFIER })
 	void aTransferSignedForTheOtherChain_isRefusedByTheReplay(final String genesisIdentifier,
 		final String foreign)
 	{
@@ -204,10 +267,13 @@ class ChainIdentifierTest
 		return chainOf(Chain.TEST_IDENTIFIER);
 	}
 
+	/**
+	 * A chain of its genesis block, which pays the burn account (#148), and block 1, which pays the
+	 * holder
+	 */
 	private List<BlockBody> chainOf(final String identifier)
 	{
-		return List.of(Blocks.mine(Mining.nextBlock(identifier, List.of(), holderKey, List.of(),
-			"in the beginning", NOW), 1_000_000L).orElseThrow());
+		return TestChains.funding(identifier, holderKey, NOW);
 	}
 
 	private static List<BlockBody> minedOnto(final List<BlockBody> chain,

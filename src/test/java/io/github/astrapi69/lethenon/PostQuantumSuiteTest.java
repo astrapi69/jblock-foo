@@ -51,7 +51,7 @@ class PostQuantumSuiteTest
 		final long nonce)
 	{
 		KeyPair signer = TransactionSigner.newKeyPair(suite);
-		TransactionBody body = new TransactionBody(Chain.IDENTIFIER, nonce,
+		TransactionBody body = new TransactionBody(Chain.TEST_IDENTIFIER, nonce,
 			TransactionSigner.asBytes(signer.getPublic()),
 			new Destination(AddressScheme.DIRECT, Bytes.of(new byte[] { 9 }), Bytes.of(new byte[0]),
 				0),
@@ -128,35 +128,32 @@ class PostQuantumSuiteTest
 		Bytes quantumKey = TransactionSigner.asBytes(quantumHolder.getPublic());
 		Bytes miner = Bytes.of(new byte[] { 7 });
 
-		// the genesis holder pays the post-quantum account first, so it can pay in turn
+		// the holder, whom block 1 paid, pays the post-quantum account first, so it can pay in turn
 		SignedTransaction classical = TransactionSigner.sign(
-			new TransactionBody(Chain.IDENTIFIER, 0L, holderKey,
+			new TransactionBody(Chain.TEST_IDENTIFIER, 0L, holderKey,
 				new Destination(AddressScheme.DIRECT, quantumKey, Bytes.of(new byte[0]), 0),
 				Amount.ofLeth(10L), Amount.ZERO, "signed the way every tool reads"),
 			SignatureSuite.ED25519, holder.getPrivate());
 		SignedTransaction postQuantum = TransactionSigner.sign(
-			new TransactionBody(Chain.IDENTIFIER, 0L, quantumKey,
+			new TransactionBody(Chain.TEST_IDENTIFIER, 0L, quantumKey,
 				new Destination(AddressScheme.DIRECT, holderKey, Bytes.of(new byte[0]), 0),
 				Amount.ofLeth(4L), Amount.ZERO, "signed against a machine that does not exist yet"),
 			SignatureSuite.ML_DSA_65, quantumHolder.getPrivate());
 
-		BlockBody genesis = Blocks
-			.mine(new BlockBody(Chain.IDENTIFIER, 0L, Bytes.of(new byte[32]), holderKey,
-				new ArrayList<>(), 1_759_000_000_000L, 8, "in the beginning was the pun"),
-				1_000_000L)
-			.orElseThrow();
-		BlockBody second = Blocks.mine(new BlockBody(Chain.IDENTIFIER, 1L, Blocks.hashOf(genesis),
-			miner, List.of(classical, postQuantum), 1_759_000_060_000L, 8, "two suites, one chain"),
-			1_000_000L).orElseThrow();
+		List<BlockBody> funded = TestChains.funding(Chain.TEST_IDENTIFIER, holderKey,
+			1_759_000_000_000L);
+		BlockBody second = Blocks.mine(new BlockBody(Chain.TEST_IDENTIFIER, 2L,
+			Blocks.hashOf(funded.get(1)), miner, List.of(classical, postQuantum),
+			1_759_000_120_000L, 8, "two suites, one chain"), 1_000_000L).orElseThrow();
 
-		byte[] file = CanonicalEncoding.encodeChain(List.of(genesis, second));
+		byte[] file = CanonicalEncoding.encodeChain(List.of(funded.get(0), funded.get(1), second));
 		System.out.println("a chain with one transfer of each suite is " + file.length + " bytes");
 
 		Replay replay = Replay.verify(CanonicalEncoding.readChain(file));
 
 		assertEquals(2L, replay.transactions());
 		assertEquals(2L, replay.signatures());
-		assertEquals(Emission.TOTAL_SUPPLY, replay.finalState().total());
+		assertEquals(Emission.GENESIS_SUPPLY, replay.finalState().total());
 		assertEquals(Amount.ofLeth(6L), replay.finalState().balanceOf(quantumKey),
 			"ten in, four out again");
 	}

@@ -65,8 +65,10 @@ Read from the Monero sources, commit f6a591c (2026-10-04), `git clone --depth 1 
 
 ### Only the test chain
 
-A node runs only on `lethenon-test-1`.
-- It refuses a chain file whose genesis block names `lethenon-1`.
+A node runs only on `lethenon-test-2`.
+- It refuses a chain file whose genesis block names `lethenon-2`.
+- It refuses a chain file under `lethenon-test-1` or `lethenon-1` with the reason that the chain was
+  started under the rules before 0.4.0 (#137).
 - It creates no main chain.
 - Its handshake refuses any peer that names another chain or another genesis block.
 
@@ -99,7 +101,7 @@ Both sides send `HELLO` first and read the other's within the handshake timeout.
 closed, with the reason logged, when any of these hold:
 - the magic is wrong;
 - the protocol version is not this build's;
-- the chain identifier is not `lethenon-test-1`;
+- the chain identifier is not `lethenon-test-2`;
 - the genesis hash differs;
 - the node identity is this node's own: the connection leads back to itself.
 
@@ -255,7 +257,8 @@ is the maintainer's decision, above all the allocation it carries.
   `mine` and `node` start chains through it. A node with an empty file on an anchored chain starts
   from the anchor, with no trust in a peer for its first block.
 - `lethenon genesis [--testnet] --wallet <file>` mines a candidate, prints its hash and canonical
-  bytes, and writes nothing.
+  bytes, and writes nothing. Since #148 it takes `--headline` instead of `--wallet`, and a build
+  without an anchor for the main chain refuses to start one (ADR 0005).
 - `ConsensusRules.LETHENON` carries no anchor for either chain.
 
 
@@ -300,21 +303,24 @@ node, this is what a wallet, a script or the desktop plugin needs.
 The prerequisites are built and tested on the test chain. For the main chain they wait on
 decisions, not on code:
 
-| Prerequisite | State on `lethenon-test-1` | What the main chain needs |
+| Prerequisite | State on `lethenon-test-2` | What the main chain needs |
 |---|---|---|
-| bound on future timestamps | two hours, from height 0 (#96) | done: two hours on `lethenon-1` too, from height 0 (#109) |
-| block size limit | 300,000 bytes, from height 0 (#99) | done: 300,000 bytes on `lethenon-1` too, from height 0 (#109) |
+| bound on future timestamps | two hours, from height 0 (#96) | done: two hours on the main chain too, from height 0 (#109) |
+| block size limit | 300,000 bytes, from height 0 (#99) | done: 300,000 bytes on the main chain too, from height 0 (#109) |
 | peer exchange | protocol version 2 (#102) | nothing chain-specific; a node still runs only on the test chain |
-| genesis block in the code | the mechanism, no anchor (#104) | the block: its content and above all its allocation, decided by the maintainer, then filed as a `GenesisAnchor` |
+| genesis block in the code | the mechanism, no anchor (#104) | the mechanism in 0.4.0, every genesis reward burned to `Genesis.NOBODY` (#148); the anchor of `lethenon-2` is mined on the start day and released as 1.0.0 (ADR 0005) |
+| a chain identifier of the rules from 0.4.0 on | `lethenon-test-2`; `lethenon-test-1` refused as started under the rules before 0.4.0 (#137) | `lethenon-2`; `lethenon-1` refused the same way, so no version computes another chain's balances without a word (#137) |
 
-The limits apply to `lethenon-1` from height 0 since #109. For main chains mined before, the
+The limits apply to the main chain from height 0 since #109. For main chains mined before, the
 timestamp bound changes nothing, because the clock only moves on. The size limit rejects a main
 chain that carries a block over 300,000 bytes: lethenon 0.2.0 mined without a byte cap, so that is
 a block with 56 or more ML-DSA-65 transfers, or 1,515 or more Ed25519 transfers, paying an Ed25519
 miner (5,375 and 198 bytes per transfer, 201 bytes for the block around them with the mining
 suffix, measured for #109).
-Whether existing main-chain files are kept at all depends on the anchor: once one is filed, a main
-chain that starts elsewhere does not verify. A node on the main chain is a further decision, and
+Existing main-chain files are not kept: since #137 the main chain is `lethenon-2`, a chain under
+`lethenon-1` is refused, naming its successor, and from 1.0.0 on a main chain starts only from its
+anchored genesis block (ADR 0005). The identifiers in this record were `lethenon-1` and
+`lethenon-test-1` when it was accepted. A node on the main chain is a further decision, and
 Tor comes before it.
 
 ## Consequences
@@ -324,7 +330,8 @@ Tor comes before it.
 - **Block size is bounded on the test chain (#99).** A block larger than 300,000 bytes, as
   `CanonicalEncoding.blockSize` counts it, does not verify. Monero has no fixed maximum; it uses a
   block weight median and a reward penalty above its full reward zone of 300,000 bytes. lethenon
-  pays its reward from a pre-minted pool and has no penalty for a dynamic scheme to act on, so
+  pays its reward from a pre-minted pool, with a tail emission after it (#133), and has no penalty
+  for a dynamic scheme to act on, so
   Monero's baseline is taken as a hard limit. Mining carries the longest prefix of the waiting
   transfers that fits, and `mine` keeps the rest waiting. The main chain has the same limit since
   #109.

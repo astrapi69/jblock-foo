@@ -52,10 +52,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import io.github.astrapi69.lethenon.BlockBody;
+import io.github.astrapi69.lethenon.Blocks;
 import io.github.astrapi69.lethenon.Bytes;
 import io.github.astrapi69.lethenon.CanonicalEncoding;
 import io.github.astrapi69.lethenon.Chain;
 import io.github.astrapi69.lethenon.ChainFile;
+import io.github.astrapi69.lethenon.DifficultyRule;
 
 /**
  * A one-shot sync brings a chain file up to a node's tip and stops (#107): every block verified by
@@ -113,7 +115,7 @@ class SyncTest
 			Sync.Synced synced = Sync.once(file, local(peer.listen(0)), WITHIN);
 
 			assertEquals(ahead, file.require());
-			assertEquals(1L, synced.blocksBefore());
+			assertEquals(genesis.size(), synced.blocksBefore());
 			assertEquals(ahead.size(), synced.blocksAfter());
 		}
 	}
@@ -189,7 +191,7 @@ class SyncTest
 
 			String message = refused.getMessage();
 			assertTrue(message.contains("height 1000"), message);
-			assertTrue(message.contains("height 0"), message);
+			assertTrue(message.contains("height " + (genesis.size() - 1)), message);
 			assertArrayEquals(before, Files.readAllBytes(path));
 		}
 		finally
@@ -213,6 +215,29 @@ class SyncTest
 				() -> Sync.once(file, address, WITHIN));
 
 			assertTrue(refused.getMessage().contains(Chain.IDENTIFIER), refused.getMessage());
+		}
+	}
+
+	@Test
+	@DisplayName("a test chain file from before the rules of 0.4.0 is refused before anything is sent, and the reason says so")
+	void aTestChainFileUnderTheRetiredIdentifier_isRefused() throws IOException
+	{
+		BlockBody retired = Blocks.mine(new BlockBody("lethenon-test-1", 0L,
+			Bytes.of(new byte[32]), Bytes.of(new byte[] { 1 }), List.of(), 1_759_000_000_000L,
+			DifficultyRule.MINIMUM, "in the beginning"), 1_000_000L).orElseThrow();
+		ChainFile file = new ChainFile(fileWith(List.of(retired)));
+		try (Node peer = Node.on(ahead))
+		{
+			PeerAddress address = local(peer.listen(0));
+
+			IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+				() -> Sync.once(file, address, WITHIN));
+
+			assertTrue(refused.getMessage().contains("'lethenon-test-1'"), refused.getMessage());
+			assertTrue(refused.getMessage().contains("started under the rules before lethenon 0.4.0"),
+				refused.getMessage());
+			assertTrue(refused.getMessage().contains("'" + Chain.TEST_IDENTIFIER + "'"),
+				refused.getMessage());
 		}
 	}
 

@@ -97,6 +97,8 @@ public record Replay(long blocks, long transactions, long signatures, ChainState
 			throw new ChainRejected("an empty chain has no genesis block");
 		}
 		BlockBody genesis = chain.getFirst();
+		Optional<String> retired = Chain.retiredBecause(genesis.chainIdentifier());
+		requireThat(retired.isEmpty(), "block 0: " + retired.orElse(""));
 		requireThat(Chain.isKnown(genesis.chainIdentifier()), "block 0 belongs to chain '"
 			+ genesis.chainIdentifier() + "', which is neither '" + Chain.IDENTIFIER + "' nor '"
 			+ Chain.TEST_IDENTIFIER + "'");
@@ -108,6 +110,9 @@ public record Replay(long blocks, long transactions, long signatures, ChainState
 				+ Blocks.hashOf(anchor.get()) + ", and this chain starts with "
 				+ Blocks.hashOf(genesis));
 		}
+		requireThat(Genesis.NOBODY.equals(genesis.beneficiary()), "block 0 pays its reward to "
+			+ genesis.beneficiary() + ", and a genesis block pays it to the burn account "
+			+ Genesis.NOBODY + " (#148)");
 		ChainState state = new ChainState(rules);
 		state.allocateGenesis(genesis);
 		long transactions = 0;
@@ -197,6 +202,7 @@ public record Replay(long blocks, long transactions, long signatures, ChainState
 	{
 		return "replayed " + blocks + " blocks, applied " + transactions + " transfers, checked "
 			+ signatures + " signatures; the sum of all balances is " + finalState.total()
-			+ " LETH, which is the supply";
+			+ " LETH, which is the supply: " + Emission.GENESIS_SUPPLY + " at genesis plus "
+			+ finalState.minted() + " minted";
 	}
 }

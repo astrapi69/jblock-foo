@@ -67,6 +67,8 @@ public final class ConsensusRules
 
 	private final Map<String, BlockBody> anchors;
 
+	private final EmissionSchedule emission;
+
 	/**
 	 * A rule made of the given lines
 	 *
@@ -113,6 +115,29 @@ public final class ConsensusRules
 	public ConsensusRules(final List<SchemeActivation> activations, final List<BlockLimits> limits,
 		final List<GenesisAnchor> anchors)
 	{
+		this(activations, limits, anchors, Emission.SCHEDULE);
+	}
+
+	/**
+	 * A rule made of the given lines, block limits, genesis anchors and emission schedule (#133)
+	 *
+	 * @param activations
+	 *            at most one line per chain and scheme
+	 * @param limits
+	 *            at most one set of block limits per chain
+	 * @param anchors
+	 *            at most one genesis block fixed in the code per chain
+	 * @param emission
+	 *            how the block reward declines and what it never falls below, the same on every
+	 *            chain
+	 * @throws IllegalArgumentException
+	 *             when anything appears twice for a chain, or an anchor is not a genesis block of
+	 *             its chain that verifies on its own
+	 */
+	public ConsensusRules(final List<SchemeActivation> activations, final List<BlockLimits> limits,
+		final List<GenesisAnchor> anchors, final EmissionSchedule emission)
+	{
+		this.emission = emission;
 		Set<String> chains = new HashSet<>();
 		for (BlockLimits each : limits)
 		{
@@ -135,15 +160,18 @@ public final class ConsensusRules
 			}
 		}
 		this.activations = List.copyOf(activations);
-		this.anchors = decoded(anchors, new ConsensusRules(this.activations, this.limits, Map.of()));
+		this.anchors = decoded(anchors,
+			new ConsensusRules(this.activations, this.limits, Map.of(), emission));
 	}
 
 	private ConsensusRules(final List<SchemeActivation> activations,
-		final List<BlockLimits> limits, final Map<String, BlockBody> anchors)
+		final List<BlockLimits> limits, final Map<String, BlockBody> anchors,
+		final EmissionSchedule emission)
 	{
 		this.activations = activations;
 		this.limits = limits;
 		this.anchors = anchors;
+		this.emission = emission;
 	}
 
 	/**
@@ -226,6 +254,16 @@ public final class ConsensusRules
 	{
 		return limits.stream().filter(each -> each.chainIdentifier().equals(chainIdentifier))
 			.findFirst();
+	}
+
+	/**
+	 * How the block reward declines and what it never falls below
+	 *
+	 * @return the emission schedule
+	 */
+	public EmissionSchedule emission()
+	{
+		return emission;
 	}
 
 	/**

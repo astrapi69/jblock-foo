@@ -141,17 +141,17 @@ class ConsensusRulesTest
 	@DisplayName("a scheme admitted from a later height is refused before it, and accepted from it")
 	void aSchemeAdmittedLater_isRefusedBefore_andAcceptedFrom()
 	{
-		ConsensusRules ed25519FromTwo = rulesWith(
-			SchemeActivation.from(Chain.TEST_IDENTIFIER, SignatureSuite.ED25519, 2L));
+		ConsensusRules ed25519FromThree = rulesWith(
+			SchemeActivation.from(Chain.TEST_IDENTIFIER, SignatureSuite.ED25519, 3L));
 		List<BlockBody> chain = testChain();
 
 		ChainRejected refused = assertThrows(ChainRejected.class,
-			() -> Replay.verify(minedOnto(chain, List.of(aTransfer(chain))), ed25519FromTwo));
-		assertEquals("block 1 carries a transfer whose authorization scheme 'ed25519' chain "
-			+ "'lethenon-test-1' admits from height 2", refused.getMessage());
+			() -> Replay.verify(minedOnto(chain, List.of(aTransfer(chain))), ed25519FromThree));
+		assertEquals("block 2 carries a transfer whose authorization scheme 'ed25519' chain '"
+			+ Chain.TEST_IDENTIFIER + "' admits from height 3", refused.getMessage());
 
 		List<BlockBody> waited = minedOnto(chain, List.of());
-		Replay replay = Replay.verify(minedOnto(waited, List.of(aTransfer(waited))), ed25519FromTwo);
+		Replay replay = Replay.verify(minedOnto(waited, List.of(aTransfer(waited))), ed25519FromThree);
 		assertEquals(1L, replay.transactions());
 	}
 
@@ -159,17 +159,17 @@ class ConsensusRulesTest
 	@DisplayName("a scheme switched off at a height is accepted before it, and refused from it")
 	void aSchemeSwitchedOff_isAcceptedBefore_andRefusedFrom()
 	{
-		ConsensusRules ed25519UntilTwo = rulesWith(
-			SchemeActivation.between(Chain.TEST_IDENTIFIER, SignatureSuite.ED25519, 0L, 2L));
+		ConsensusRules ed25519UntilThree = rulesWith(
+			SchemeActivation.between(Chain.TEST_IDENTIFIER, SignatureSuite.ED25519, 0L, 3L));
 		List<BlockBody> chain = testChain();
 		List<BlockBody> early = minedOnto(chain, List.of(aTransfer(chain)));
 
-		assertEquals(1L, Replay.verify(early, ed25519UntilTwo).transactions());
+		assertEquals(1L, Replay.verify(early, ed25519UntilThree).transactions());
 
 		ChainRejected refused = assertThrows(ChainRejected.class,
-			() -> Replay.verify(minedOnto(early, List.of(aTransfer(early))), ed25519UntilTwo));
-		assertEquals("block 2 carries a transfer whose authorization scheme 'ed25519' chain "
-			+ "'lethenon-test-1' admitted until height 2", refused.getMessage());
+			() -> Replay.verify(minedOnto(early, List.of(aTransfer(early))), ed25519UntilThree));
+		assertEquals("block 3 carries a transfer whose authorization scheme 'ed25519' chain '"
+			+ Chain.TEST_IDENTIFIER + "' admitted until height 3", refused.getMessage());
 	}
 
 	@Test
@@ -189,8 +189,8 @@ class ConsensusRulesTest
 
 		ChainRejected refused = assertThrows(ChainRejected.class,
 			() -> Replay.verify(minedOnto(chain, List.of(toAnAddress)), withoutStealth));
-		assertEquals("block 1 carries a transfer whose recipient scheme 'stealth-v2' chain "
-			+ "'lethenon-test-1' does not admit", refused.getMessage());
+		assertEquals("block 2 carries a transfer whose recipient scheme 'stealth-v2' chain '"
+			+ Chain.TEST_IDENTIFIER + "' does not admit", refused.getMessage());
 	}
 
 	@Test
@@ -206,8 +206,8 @@ class ConsensusRulesTest
 
 		ChainRejected refused = assertThrows(ChainRejected.class,
 			() -> Replay.verify(minedOnto(chain, List.of(aTransfer(chain))), withoutPlainAmounts));
-		assertEquals("block 1 carries a transfer whose amount scheme 'plain' chain "
-			+ "'lethenon-test-1' does not admit", refused.getMessage());
+		assertEquals("block 2 carries a transfer whose amount scheme 'plain' chain '"
+			+ Chain.TEST_IDENTIFIER + "' does not admit", refused.getMessage());
 	}
 
 	@Test
@@ -216,10 +216,12 @@ class ConsensusRulesTest
 	{
 		ConsensusRules ed25519FromTwoOnTheTestChain = rulesWith(
 			SchemeActivation.from(Chain.TEST_IDENTIFIER, SignatureSuite.ED25519, 2L));
-		List<BlockBody> main = List.of(Blocks.mine(Mining.nextBlock(Chain.IDENTIFIER, List.of(),
-			holderKey, List.of(), "main", NOW), 1_000_000L).orElseThrow());
+		List<BlockBody> main = TestChains.funding(Chain.IDENTIFIER, holderKey, NOW);
+		SignedTransaction transfer = holder.sign(new TransactionBody(Chain.IDENTIFIER, 0L,
+			holderKey, Destination.direct(MINER), Amount.ofLeth(1L), Amount.ZERO, "a transfer"),
+			SignatureSuite.ED25519);
 
-		assertEquals(1L, Replay.verify(minedOnto(main, List.of(aTransfer(main))),
+		assertEquals(1L, Replay.verify(minedOnto(main, List.of(transfer)),
 			ed25519FromTwoOnTheTestChain).transactions());
 	}
 
@@ -233,7 +235,7 @@ class ConsensusRulesTest
 				(Runnable)() -> SchemeActivation.between(Chain.IDENTIFIER, SignatureSuite.ED25519, 5L,
 					5L)),
 			Arguments.of("a chain that does not exist",
-				(Runnable)() -> SchemeActivation.from("lethenon-2", SignatureSuite.ED25519, 0L)),
+				(Runnable)() -> SchemeActivation.from("lethenon-3", SignatureSuite.ED25519, 0L)),
 			Arguments.of("two activations of one scheme on one chain",
 				(Runnable)() -> new ConsensusRules(List.of(
 					SchemeActivation.from(Chain.IDENTIFIER, SignatureSuite.ED25519, 0L),
@@ -271,8 +273,7 @@ class ConsensusRulesTest
 
 	private List<BlockBody> testChain()
 	{
-		return List.of(Blocks.mine(Mining.nextBlock(Chain.TEST_IDENTIFIER, List.of(), holderKey,
-			List.of(), "in the beginning", NOW), 1_000_000L).orElseThrow());
+		return TestChains.funding(Chain.TEST_IDENTIFIER, holderKey, NOW);
 	}
 
 	private static List<BlockBody> minedOnto(final List<BlockBody> chain,
