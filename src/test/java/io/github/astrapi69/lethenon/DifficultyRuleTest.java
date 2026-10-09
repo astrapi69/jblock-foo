@@ -63,6 +63,34 @@ class DifficultyRuleTest
 		assertEquals(11, DifficultyRule.requiredFor(blocks(31, 11, 1_000L)));
 	}
 
+	/**
+	 * The hypothesis put to #151: the difficulty moves only every 30 blocks, so a difficulty that
+	 * is too high for the miners there are stays until 30 more blocks have come, and falls by at
+	 * most two bits then. Set artificially to 40 bits, a day between blocks changes nothing until
+	 * the retarget. The property holds; it was not what stopped the miner in #151, whose next block
+	 * needed the 26 bits the 30 blocks before had come at 171.6 s apart (MiningRateTest is that
+	 * cause).
+	 */
+	@Test
+	void aDifficultySetTooHigh_staysUntilThirtyMoreBlocks_andFallsByTwoBitsAtMost()
+	{
+		long day = 24L * 60L * 60L * 1_000L;
+		List<BlockBody> tooHigh = blocks(30, 40, 1_000L);
+		List<BlockBody> slow = new java.util.ArrayList<>(tooHigh);
+		while (slow.size() < 60)
+		{
+			slow.add(block(slow.size(), slow.getLast().timestamp() + day, 40));
+			if (slow.size() < 60)
+			{
+				assertEquals(40, DifficultyRule.requiredFor(slow),
+					"a day per block, and block " + slow.size() + " still needs 40 bits");
+			}
+		}
+
+		assertEquals(38, DifficultyRule.requiredFor(slow),
+			"after 30 blocks a day apart: two bits less, the most one retarget moves");
+	}
+
 	@ParameterizedTest(name = "30 blocks at difficulty {0}, {1} ms apart: block 30 needs {2}")
 	@CsvSource({
 			// on target, and just inside the band where whole bits cannot move
