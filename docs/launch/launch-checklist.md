@@ -55,7 +55,7 @@ integration branch `consensus/lethenon-2` (#138), which carries develop's requir
 
 ### The network
 
-- [ ] **A node on the main chain.** Today a node runs only on the test chain, and "the main chain
+- [ ] **A node on the main chain.** Today a node runs only on the test chain: "The main chain
   gets a network only by a later decision" ([ADR 0003](../adr/0003-test-network.md), "Only the test
   chain"). The same ADR puts Tor before it; Tor as a transport is built
   ([ADR 0004](../adr/0004-tor-transport.md), [docs/tor.md](../tor.md)).
