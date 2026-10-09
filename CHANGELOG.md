@@ -1,6 +1,20 @@
 ## Change log
 ----------------------
 
+Version 0.4.1 (unreleased)
+-------------
+
+FIXED:
+
+- a configured peer is dialled again (#128). A peer given with `--peer` that could not be reached,
+  or whose connection ended, used to be gone for the rest of the run; with `--no-discovery`, or in
+  the anonymity zone before an onion address was learnt, that could be every peer a node had. It is
+  now dialled again while it is not connected, clearnet and zone alike, as Monero keeps
+  reconnecting to its configured peers: after 5 s, then after a pause that doubles with every
+  failed attempt, up to 5 minutes. The first failure is recorded among the refusals, once, not on
+  every attempt; a connection that ends after its handshake is dialled again after 5 s. The first
+  round still dials in the order given, so a full limit refuses the same peers as before
+
 Version 0.4.0 (unreleased)
 -------------
 

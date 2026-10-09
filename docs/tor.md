@@ -104,9 +104,10 @@ lethenon node --chain b.lethenon --listen 18432 --no-discovery \
 ```
 
 B has no clearnet peer and needs none for this run. Its only peer is A, reached through A's onion
-service, inside the zone. B dials it once, at the start; if that one attempt fails - Tor can give
-up on a first circuit - B stays without a zone peer until it is started again (#128). Its stop line
-says so: `0 anonymity peer(s)`, with the reason among the refusals.
+service, inside the zone. B dials it at the start, and while it is not connected again and again:
+after 5 s, then after a pause that doubles with every failed attempt, up to 5 minutes (#128). Tor
+can give up on a first circuit; B then reaches A on a later attempt. The first failure is among the
+refusals, once; the stop line says how many zone peers B had at the end.
 
 ## 6. A's own transfer goes only through the zone
 
