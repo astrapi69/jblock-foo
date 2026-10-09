@@ -61,8 +61,9 @@ onion service and nothing else, and an own transfer reached it through the zone 
 found that a connection through Tor needs more time to open than a direct one: from a freshly
 started Tor client, the first CONNECT to an onion service took 3.7 to 6.8 s in seven of eight
 samples, and Tor gave up on the eighth after its own 120 s. A connection through a SOCKS proxy now
-has Monero's `P2P_DEFAULT_SOCKS_CONNECT_TIMEOUT`, 45 s, a direct one keeps 5 s (#127). That a
-configured peer is dialled only once is recorded in #128.
+has Monero's `P2P_DEFAULT_SOCKS_CONNECT_TIMEOUT`, 45 s, a direct one keeps 5 s (#127). A
+configured peer that could not be reached was dialled only once (#128); it is now dialled again
+while it is not connected, after 5 s and then after a pause that doubles up to 5 minutes.
 
 ## Decision
 
