@@ -47,7 +47,11 @@ FORMAT:
   ADR 0005): a chain whose block 0 pays anybody else is refused, and so is every transfer from that
   account. The burned 1,984 LETH count in every balance sum. Block 1 pays the first wallet that
   mines, so nobody holds anything before then.
-- **No main chain yet.** 0.4.0 carries the anchor mechanism of #104 but no anchor for `lethenon-2`:
+- **No main chain yet, by any path** (#161): the replay refuses a chain under `lethenon-2` while the
+  rules carry no anchor for it, with the reason below, so a main chain whose genesis block was mined
+  through the library or by another program is neither replayed nor mined on. Measured before the
+  fix on the release candidate: such a chain replayed, and `mine` added block 2 to it.
+- 0.4.0 carries the anchor mechanism of #104 but no anchor for `lethenon-2`:
   `mine` without `--testnet` on a new chain exits 1, "the main chain 'lethenon-2' starts only from
   the genesis block fixed in the code, and this build has none: the main chain starts with lethenon
   1.0.0 (ADR 0005)". The main chain's genesis block is mined on its start day from a headline of

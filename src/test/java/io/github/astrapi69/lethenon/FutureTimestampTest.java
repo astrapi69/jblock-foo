@@ -89,7 +89,7 @@ class FutureTimestampTest
 		long now = chain.getLast().timestamp() - TWO_HOURS - tooEarly;
 
 		ChainRejected rejected = assertThrows(ChainRejected.class,
-			() -> Replay.verify(chain, UNANCHORED, now));
+			() -> TestChains.replay(chain, UNANCHORED, now));
 
 		assertTrue(rejected.getMessage().contains("block 1"), rejected.getMessage());
 		assertTrue(rejected.getMessage().contains("in the future"), rejected.getMessage());
@@ -102,7 +102,7 @@ class FutureTimestampTest
 	{
 		List<BlockBody> chain = chainOf(chainIdentifier, 1_759_000_000_000L, 1_759_000_120_000L);
 
-		assertEquals(2L, Replay.verify(chain, UNANCHORED,
+		assertEquals(2L, TestChains.replay(chain, UNANCHORED,
 			chain.getLast().timestamp() - TWO_HOURS).blocks());
 	}
 
@@ -127,7 +127,7 @@ class FutureTimestampTest
 	{
 		List<BlockBody> chain = chainOf(chainIdentifier, 1_759_000_000_000L, 1_759_000_120_000L);
 
-		assertEquals(2L, Replay.verify(chain, UNANCHORED).blocks());
+		assertEquals(2L, TestChains.replay(chain, UNANCHORED).blocks());
 	}
 
 	@ParameterizedTest(name = "{0}")
@@ -138,7 +138,7 @@ class FutureTimestampTest
 		long now = System.currentTimeMillis();
 		List<BlockBody> chain = chainOf(chainIdentifier, now, now + 3L * 60L * 60L * 1_000L);
 
-		assertThrows(ChainRejected.class, () -> Replay.verify(chain, UNANCHORED));
-		assertEquals(1L, Replay.verify(chain.subList(0, 1), UNANCHORED).blocks());
+		assertThrows(ChainRejected.class, () -> TestChains.replay(chain, UNANCHORED));
+		assertEquals(1L, TestChains.replay(chain.subList(0, 1), UNANCHORED).blocks());
 	}
 }

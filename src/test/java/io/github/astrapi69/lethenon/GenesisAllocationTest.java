@@ -67,7 +67,7 @@ class GenesisAllocationTest
 	@ValueSource(strings = { Chain.IDENTIFIER, Chain.TEST_IDENTIFIER })
 	void theGenesisBlock_isPaidTheOrdinaryReward_andNothingElse(final String chainIdentifier)
 	{
-		ChainState state = Replay.verify(chain(chainIdentifier, 0), RULES).finalState();
+		ChainState state = TestChains.replay(chain(chainIdentifier, 0), RULES).finalState();
 
 		assertEquals(Emission.FIRST_REWARD, state.balanceOf(Genesis.NOBODY),
 			"the burn account holds one block reward, not a share of the supply (#148)");
@@ -82,7 +82,7 @@ class GenesisAllocationTest
 	@ValueSource(strings = { Chain.IDENTIFIER, Chain.TEST_IDENTIFIER })
 	void everyBlock_includingTheGenesisBlock_takesAMillionthOfThePool(final String chainIdentifier)
 	{
-		ChainState state = Replay.verify(chain(chainIdentifier, 2), RULES).finalState();
+		ChainState state = TestChains.replay(chain(chainIdentifier, 2), RULES).finalState();
 
 		Amount pool = Emission.MINING_POOL;
 		Amount first = Emission.rewardFor(pool).total();
