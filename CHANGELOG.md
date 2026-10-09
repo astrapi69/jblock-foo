@@ -14,6 +14,13 @@ FIXED:
   failed attempt, up to 5 minutes. The first failure is recorded among the refusals, once, not on
   every attempt; a connection that ends after its handshake is dialled again after 5 s. The first
   round still dials in the order given, so a full limit refuses the same peers as before
+- a node stopped with Ctrl-C or SIGTERM prints its stop line and its refusals, as a stop through
+  `--for` does (#129). Both end the JVM through its shutdown sequence, which skipped the report: the
+  stop line, which peers were reached and what waits, and why a peer was not connected. A shutdown
+  hook now ends the node's wait and holds the JVM's exit, at most 5 s, until the report is printed;
+  it is printed once, whichever stop comes first. Measured in `NodeShutdownTest`: a node in a JVM of
+  its own, `Process.destroy()` (SIGTERM), then the stop line on standard output and the refusal of
+  its unreachable `--peer` on standard error
 
 Version 0.4.0
 -------------
