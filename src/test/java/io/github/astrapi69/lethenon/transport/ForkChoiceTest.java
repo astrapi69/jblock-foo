@@ -149,7 +149,7 @@ class ForkChoiceTest
 		SignedTransaction mined = transfer(0L, 3L);
 		SignedTransaction waiting = transfer(1L, 4L);
 		List<BlockBody> ours = extended(genesis, OURS, List.of(mined));
-		List<BlockBody> heavier = chainOf(THEIRS, 3);
+		List<BlockBody> heavier = chainOf(THEIRS, ours.size() + 1);
 		try (Node heavy = Node.on(heavier); Node light = Node.on(ours))
 		{
 			assertEquals(Outcome.ADMITTED, light.submitTransfer(waiting).outcome());

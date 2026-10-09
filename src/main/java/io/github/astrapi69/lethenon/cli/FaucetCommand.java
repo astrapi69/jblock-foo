@@ -35,19 +35,23 @@ import io.github.astrapi69.lethenon.Wallet;
 import picocli.CommandLine.Command;
 
 /**
- * Hands out a fixed amount from the genesis holder's account (lethenon#2, decision 7).
+ * Hands out a fixed amount from the first miner's account (lethenon#2, decision 7).
  * <p>
- * Not a mint and no rule of the chain: the chain sees an ordinary signed transfer from the account
- * the genesis block paid. Only that wallet can run it, and it pays out of what that account holds:
- * the genesis block's one block reward, and whatever the account has mined since (#111).
+ * Not a mint and no rule of the chain: the chain sees an ordinary signed transfer. It used to pay
+ * from the genesis block's beneficiary; since a genesis block pays its reward to the burn account
+ * (#148), it pays from the account block 1 paid, the first wallet that mined on the chain. Only
+ * that wallet can run it, and it pays out of what that account holds.
  */
 @Command(name = "faucet", description = "Send " + FaucetCommand.AMOUNT_TEXT + " LETH from the "
-	+ "genesis holder's wallet to an account. The password is the first line of standard input.")
+	+ "wallet that mined block 1 to an account. The password is the first line of standard input.")
 class FaucetCommand extends TransferCommand
 {
 
-	/** What the faucet hands out: one block reward's worth */
-	static final String AMOUNT_TEXT = "1984";
+	/**
+	 * What the faucet hands out: less than one reward of block 1, which pays 1,983.998016 LETH under
+	 * the declining reward (#133), so that the faucet works once block 1 is mined (#148)
+	 */
+	static final String AMOUNT_TEXT = "1000";
 
 	/**
 	 * Creates the command; picocli instantiates it reflectively
@@ -61,11 +65,16 @@ class FaucetCommand extends TransferCommand
 	{
 		Wallet holder = openWallet();
 		List<BlockBody> blocks = requireChain();
-		Bytes genesisHolder = blocks.getFirst().beneficiary();
-		if (!genesisHolder.equals(holder.spendKey(SignatureSuite.ED25519)))
+		if (blocks.size() < 2)
 		{
-			throw new IllegalArgumentException("the faucet pays from the genesis holder's account "
-				+ hex(genesisHolder) + ", and this wallet is not that account");
+			throw new IllegalArgumentException("the faucet pays from the account block 1 paid, and "
+				+ "this chain has no block 1 yet: mine it first");
+		}
+		Bytes firstMiner = blocks.get(1).beneficiary();
+		if (!firstMiner.equals(holder.spendKey(SignatureSuite.ED25519)))
+		{
+			throw new IllegalArgumentException("the faucet pays from the first miner's account "
+				+ hex(firstMiner) + ", and this wallet is not that account");
 		}
 		return transfer(out, holder, blocks, amountOf(AMOUNT_TEXT), "from the faucet");
 	}

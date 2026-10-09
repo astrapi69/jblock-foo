@@ -31,7 +31,7 @@ issues [#1](https://github.com/astrapi69/lethenon/issues/1) (reasoning) and
 | genesis supply | 1,984,000,000 LETH, held at the start in the mining pool | `Emission.GENESIS_SUPPLY`, `Emission.MINING_POOL` |
 | block reward | a millionth of the pool, for every block including the genesis block: 1,984 LETH first, then declining; half the pool is paid out after about 2.6 years | `Emission.EMISSION_DIVISOR`, `Emission.rewardFor`, `EmissionTest` |
 | tail | never less than 66 LETH a block; where the pool's share is smaller, the difference is minted, from block 3,403,214, after about 12.9 years. 0.8748 % of the genesis supply a year, against Monero's 0.8702 % at the start of its tail (#133) | `Emission.TAIL_REWARD`, `EmissionSchedule`, `TailEmissionTest` |
-| pre-allocation | none: nobody holds anything before the first block is mined (#111) | `GenesisAllocationTest` |
+| pre-allocation | none: nobody holds anything before the first block is mined (#111); every genesis reward is burned (section 8) | `GenesisAllocationTest`, `BurnedGenesisTest` |
 | invariant | the balances add up to the genesis supply plus what was minted, after every block | `ChainState.supply`, `ChainState.minted`, `TailEmissionTest` |
 
 The supply is not fixed: the tail adds at most 66 LETH a block, so a 64-bit integer of lethe lasts at
@@ -91,8 +91,9 @@ Evidence: `BlocksTest`, `MiningTest`, `DifficultyRuleTest`, `ChainWorkTest`.
 One table per chain (`ConsensusRules`): which scheme is admitted from which height (`SchemeActivation`,
 ADR 0001 and [ADR 0002](../adr/0002-privacy-building-blocks.md)), the block limits - at most
 300,000 bytes per block and timestamps at most two hours ahead of the verifying node's clock, on both
-chains from height 0 (`BlockLimits`, #96, #99, #109) - and at most one genesis block fixed in the
-code per chain (`GenesisAnchor`, #104) - and the emission schedule, the same on both chains
+chains from height 0 (`BlockLimits`, #96, #99, #109) - at most one genesis block fixed in the code
+per chain (`GenesisAnchor`, #104), filed for the main chain on its start day (section 8) - and the emission schedule,
+the same on both chains
 (`EmissionSchedule`, section 2). New cryptography enters only under the rules of
 [ADR 0001](../adr/0001-new-cryptographic-constructions.md): a peer-reviewed publication with its
 proof, the authors' test vectors, the test chain first, the main chain after an external review.
@@ -104,8 +105,15 @@ Two chains, the main chain and the test chain, and the identifier is inside ever
 signed transfer, so nothing signed for one is accepted on the other (`Chain`, `ChainIdentifierTest`,
 #50). They are `lethenon-2` and `lethenon-test-2`, and a chain under the identifiers before them,
 `lethenon-1` or `lethenon-test-1`, is refused with the reason that it was started under the rules
-before 0.4.0 (#137). The main chain gets its genesis block fixed in the code in the same break, as
-the last change onto the integration branch.
+before 0.4.0 (#137).
+
+Every genesis block, on both chains, pays its reward to `Genesis.NOBODY`, the burn account: a chain
+whose block 0 pays anybody else is refused, a transfer from it is refused, and its bytes are no key
+of any signature suite ([ADR 0005](../adr/0005-main-chain-genesis.md), `BurnedGenesisTest`,
+`NobodyIsNoKeyTest`). The main chain starts from a genesis block fixed in the code, mined on its
+start day from a headline of that day and released as 1.0.0; until then this build has no anchor
+for it, and `mine` refuses to start one. The test chain has no anchor, and a test chain is started
+by whoever runs `mine --testnet`; its block 1 pays the first wallet that mines on it.
 
 ## 9. Encoding and files
 
@@ -113,8 +121,8 @@ One canonical encoder for blocks (version 2) and transfers (version 1), with a r
 test (`CanonicalEncoding`, `CanonicalEncodingTest`). A decoder that is handed bytes from a file or a
 peer checks every announced length against what is left before allocating (#80,
 `UntrustedBytesTest`). A chain lives in one file and its waiting transfers next to it in
-`<chain>.pending` (`ChainFile`, `ChainFileTest`). A fixture written by an earlier process is replayed
-from its bytes alone, and a corrupted one refused (`ChainFixtureTest`).
+`<chain>.pending` (`ChainFile`, `ChainFileTest`). A fixture written by an earlier process, on the
+test chain, is replayed from its bytes alone, and a corrupted one refused (`ChainFixtureTest`).
 
 ## 10. Replay
 
@@ -153,5 +161,4 @@ shows them in use.
 
 Amount confidentiality and sender ambiguity, and a post-quantum hidden recipient: looked at and
 postponed for want of a construction that meets ADR 0001 (README, "Privacy, and its honest label";
-`docs/research/pq-privacy-literature.md`, sections 15 and 16). A network for the main chain, and the
-main chain's genesis block (section 8).
+`docs/research/pq-privacy-literature.md`, sections 15 and 16). A network for the main chain.

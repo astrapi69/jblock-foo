@@ -49,7 +49,8 @@ class LocalChainTest
 
 	private static final Bytes MINER = Bytes.of(new byte[] { 9 });
 
-	private final List<BlockBody> genesis = testGenesis(Bytes.of(new byte[] { 1 }));
+	/** Block 0 alone: nothing here spends, so the holder's block 1 would only shift the heights */
+	private final List<BlockBody> genesis = testGenesis(Bytes.of(new byte[] { 1 })).subList(0, 1);
 
 	private final List<BlockBody> two = extended(extended(genesis, MINER, List.of()), MINER,
 		List.of());

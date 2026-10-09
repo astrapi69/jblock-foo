@@ -257,7 +257,8 @@ is the maintainer's decision, above all the allocation it carries.
   `mine` and `node` start chains through it. A node with an empty file on an anchored chain starts
   from the anchor, with no trust in a peer for its first block.
 - `lethenon genesis [--testnet] --wallet <file>` mines a candidate, prints its hash and canonical
-  bytes, and writes nothing.
+  bytes, and writes nothing. Since #148 it takes `--headline` instead of `--wallet`, and a build
+  without an anchor for the main chain refuses to start one (ADR 0005).
 - `ConsensusRules.LETHENON` carries no anchor for either chain.
 
 
@@ -307,8 +308,8 @@ decisions, not on code:
 | bound on future timestamps | two hours, from height 0 (#96) | done: two hours on the main chain too, from height 0 (#109) |
 | block size limit | 300,000 bytes, from height 0 (#99) | done: 300,000 bytes on the main chain too, from height 0 (#109) |
 | peer exchange | protocol version 2 (#102) | nothing chain-specific; a node still runs only on the test chain |
-| genesis block in the code | the mechanism, no anchor (#104) | the block: its beneficiary and its message, decided by the maintainer, mined with the integration build and filed as a `GenesisAnchor` under `lethenon-2` (#137) |
-| a chain identifier of the rules from 0.3.0 on | `lethenon-test-2`; `lethenon-test-1` refused as started before those rules (#137) | `lethenon-2`; `lethenon-1` refused the same way, so no version computes another chain's balances without a word (#137) |
+| genesis block in the code | the mechanism, no anchor (#104) | the mechanism in 0.4.0, every genesis reward burned to `Genesis.NOBODY` (#148); the anchor of `lethenon-2` is mined on the start day and released as 1.0.0 (ADR 0005) |
+| a chain identifier of the rules from 0.4.0 on | `lethenon-test-2`; `lethenon-test-1` refused as started under the rules before 0.4.0 (#137) | `lethenon-2`; `lethenon-1` refused the same way, so no version computes another chain's balances without a word (#137) |
 
 The limits apply to the main chain from height 0 since #109. For main chains mined before, the
 timestamp bound changes nothing, because the clock only moves on. The size limit rejects a main
@@ -316,8 +317,10 @@ chain that carries a block over 300,000 bytes: lethenon 0.2.0 mined without a by
 a block with 56 or more ML-DSA-65 transfers, or 1,515 or more Ed25519 transfers, paying an Ed25519
 miner (5,375 and 198 bytes per transfer, 201 bytes for the block around them with the mining
 suffix, measured for #109).
-Whether existing main-chain files are kept at all depends on the anchor: once one is filed, a main
-chain that starts elsewhere does not verify. A node on the main chain is a further decision, and
+Existing main-chain files are not kept: since #137 the main chain is `lethenon-2`, a chain under
+`lethenon-1` is refused, naming its successor, and from 1.0.0 on a main chain starts only from its
+anchored genesis block (ADR 0005). The identifiers in this record were `lethenon-1` and
+`lethenon-test-1` when it was accepted. A node on the main chain is a further decision, and
 Tor comes before it.
 
 ## Consequences

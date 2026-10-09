@@ -50,11 +50,30 @@ integration branch `consensus/lethenon-2` (#138), which carries develop's requir
   LETH a year, 0.8748 % of the genesis supply. Of that, only the part the pool's share no longer
   covers is minted: about 2.1 million LETH in the tail's first year, approaching the full amount as
   the pool empties (the figures and the script that computed them are in #133).
-- [ ] **The main chain's genesis block, fixed in the code** (`GenesisAnchor`, the mechanism of
-  #104): its beneficiary and its message decided by the maintainer, the block mined with the
-  integration build, then filed - the last pull request onto the integration branch.
+- [ ] **The burn account** of [ADR 0005](../adr/0005-main-chain-genesis.md), decided in #148: every
+  genesis block pays its reward to `Genesis.NOBODY`, a transfer from it is refused, and the bytes are
+  no key of any signature suite. 0.4.0 carries the anchor mechanism of #104 but **no anchor for the
+  main chain**: without one, `mine` refuses to start `lethenon-2`. The anchor is the start day's,
+  below.
 - [ ] **Into develop**, right before the release: one pull request from the integration branch,
   with the full gate and the compatibility measurement against 0.1.0, 0.2.0 and 0.3.0 (#137).
+
+### The start day (1.0.0)
+
+The main chain starts in its own release, after 0.4.0, and only when everything above and below is
+ticked ([ADR 0005](../adr/0005-main-chain-genesis.md)).
+
+- [ ] **The headline.** On the start day the maintainer chooses a headline of that day. It goes
+  into the genesis block as its words and proves the block was not mined before.
+- [ ] **The block, mined with the release build.** From a checkout of the commit to be released as
+  1.0.0, built with `./gradlew clean build`, run `lethenon genesis --headline "<the headline>"`. It
+  prints the chain, the hash, the words, the burn account and the anchor, and writes nothing.
+- [ ] **The anchor, in its own pull request.** The printed anchor is filed as the `GenesisAnchor` of
+  `lethenon-2` in `ConsensusRules.LETHENON`, with a test that a chain on it replays, that `mine` on a
+  new main chain writes exactly that block, and that its beneficiary is `Genesis.NOBODY`. ADR 0005
+  records the hash, the headline and the day. Nothing else goes into that pull request.
+- [ ] **Release 1.0.0** from the merge of that pull request. A pushed tag is never moved; replacing
+  the anchor after the release is a new chain identifier.
 
 ### The network
 
@@ -94,8 +113,8 @@ integration branch `consensus/lethenon-2` (#138), which carries develop's requir
 
 - [ ] A tax advisor in the maintainer's country of residence has been asked, before the start and
   not after the first block, about at least:
-  - the genesis block's reward, which goes to a beneficiary the maintainer chooses, and any LETH
-    the maintainer mines afterwards: when, if at all, it counts as income, and at what value while
+  - any LETH the maintainer mines (the genesis block's reward is burned and belongs to nobody,
+    [ADR 0005](../adr/0005-main-chain-genesis.md)): when, if at all, it counts as income, and at what value while
     it has no market;
   - giving LETH away, and receiving donations for the project;
   - the costs of the seed nodes and the website ([infrastructure.md](infrastructure.md)): whether

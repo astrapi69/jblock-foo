@@ -276,7 +276,7 @@ class RelayTest
 				"do not decode as a transfer"),
 			new Misbehaviour("a BLOCK with two blocks",
 				test -> new Frame(MessageType.BLOCK,
-					CanonicalEncoding.encodeChain(extended(test.genesis, MINER, List.of()))),
+					CanonicalEncoding.encodeChain(test.genesis)),
 				"carries 2 blocks"),
 			new Misbehaviour("a BLOCK that does not verify",
 				test -> new Frame(MessageType.BLOCK,
@@ -395,9 +395,9 @@ class RelayTest
 					.decode(Frames.read(in, Frames.MAXIMUM_FRAME).payload());
 
 				Frames.write(out, new Frame(MessageType.BLOCKS, CanonicalEncoding.encodeChain(
-					ahead.subList(1, 1 + asked.count() + 1))));
+					ahead.subList(genesis.size(), genesis.size() + asked.count() + 1))));
 
-				assertEquals(new BlockRequest(1L, BlockRequest.LIMIT), asked);
+				assertEquals(new BlockRequest(genesis.size(), BlockRequest.LIMIT), asked);
 				assertThrows(EOFException.class, () -> Frames.read(in, Frames.MAXIMUM_FRAME),
 					"the node closes the connection");
 			}
@@ -436,7 +436,7 @@ class RelayTest
 				assertEquals(MessageType.GET_BLOCKS, Frames.read(in, Frames.MAXIMUM_FRAME).type(),
 					"the second unknown parent waits for the synchronisation in flight");
 				Frames.write(out, new Frame(MessageType.BLOCKS,
-					CanonicalEncoding.encodeChain(ahead.subList(1, ahead.size()))));
+					CanonicalEncoding.encodeChain(ahead.subList(genesis.size(), ahead.size()))));
 				await("the chain", () -> node.chain().equals(ahead));
 			}
 		}
@@ -470,7 +470,7 @@ class RelayTest
 					CanonicalEncoding.encodeChain(List.of(further.getLast()))));
 
 				Frames.write(out, new Frame(MessageType.BLOCKS,
-					CanonicalEncoding.encodeChain(ahead.subList(1, ahead.size()))));
+					CanonicalEncoding.encodeChain(ahead.subList(genesis.size(), ahead.size()))));
 
 				assertEquals(MessageType.GET_CHAIN, Frames.read(in, Frames.MAXIMUM_FRAME).type(),
 					"the block that arrived during the fetch is asked for after it");

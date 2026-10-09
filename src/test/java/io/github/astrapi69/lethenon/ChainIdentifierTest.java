@@ -203,7 +203,7 @@ class ChainIdentifierTest
 		Replay replay = Replay.verify(minedOnto(chain, List.of(transfer)));
 
 		assertEquals(Chain.TEST_IDENTIFIER, replay.finalState().chainIdentifier());
-		assertEquals(Amount.ofLeth(3L).plus(TestChains.rewardOfBlock(1)),
+		assertEquals(Amount.ofLeth(3L).plus(TestChains.rewardOfBlock(2)),
 			replay.finalState().balanceOf(MINER));
 	}
 
@@ -233,7 +233,7 @@ class ChainIdentifierTest
 	void aBlockOfTheOtherChain_isRefusedByTheReplay(final String genesisIdentifier,
 		final String foreign)
 	{
-		List<BlockBody> chain = new ArrayList<>(chainOf(genesisIdentifier));
+		List<BlockBody> chain = new ArrayList<>(chainOf(genesisIdentifier).subList(0, 1));
 		BlockBody genesis = chain.getFirst();
 		chain.add(Blocks.mine(new BlockBody(foreign, 1L, Blocks.hashOf(genesis), MINER, List.of(),
 			NOW + 60_000L, DifficultyRule.requiredFor(chain), "smuggled"), 1_000_000L).orElseThrow());
@@ -267,10 +267,13 @@ class ChainIdentifierTest
 		return chainOf(Chain.TEST_IDENTIFIER);
 	}
 
+	/**
+	 * A chain of its genesis block, which pays the burn account (#148), and block 1, which pays the
+	 * holder
+	 */
 	private List<BlockBody> chainOf(final String identifier)
 	{
-		return List.of(Blocks.mine(Mining.nextBlock(identifier, List.of(), holderKey, List.of(),
-			"in the beginning", NOW), 1_000_000L).orElseThrow());
+		return TestChains.funding(identifier, holderKey, NOW);
 	}
 
 	private static List<BlockBody> minedOnto(final List<BlockBody> chain,

@@ -55,7 +55,8 @@ class MiningTest
 
 		assertEquals(0L, genesis.height());
 		assertEquals(Bytes.of(new byte[32]), genesis.previousHash());
-		assertEquals(MINER, genesis.beneficiary(), "the genesis holder");
+		assertEquals(Genesis.NOBODY, genesis.beneficiary(),
+			"a genesis block pays the burn account, whoever mines it (#148)");
 		assertEquals(List.of(), genesis.transactions());
 		assertEquals(DifficultyRule.MINIMUM, genesis.difficulty());
 		assertEquals(NOW, genesis.timestamp());
@@ -71,7 +72,7 @@ class MiningTest
 
 		BlockBody next = Mining.nextBlock(chain, MINER, List.of(waiting), "a pun", NOW);
 
-		assertEquals(1L, next.height());
+		assertEquals(chain.size(), next.height());
 		assertEquals(Blocks.hashOf(chain.getLast()), next.previousHash());
 		assertEquals(MINER, next.beneficiary());
 		assertEquals(List.of(waiting), next.transactions());
@@ -101,7 +102,7 @@ class MiningTest
 			1_000_000L).orElseThrow());
 
 		Replay replay = Replay.verify(chain);
-		assertEquals(Amount.ofLeth(3L).plus(TestChains.rewardOfBlock(1)),
+		assertEquals(Amount.ofLeth(3L).plus(TestChains.rewardOfBlock(2)),
 			replay.finalState().balanceOf(MINER));
 	}
 
@@ -112,9 +113,10 @@ class MiningTest
 		// the rule raises the difficulty above the minimum - a Mining that ignored the rule and
 		// kept the minimum would only be caught here
 		List<SignedTransaction> transfers = new ArrayList<>();
-		for (long nonce = 0; nonce < DifficultyRule.INTERVAL - 1; nonce++)
+		// genesis and the holder's block 1 come first, so 28 transfer blocks make 30 blocks
+		for (long nonce = 0; nonce < DifficultyRule.INTERVAL - 2; nonce++)
 		{
-			transfers.add(holder.sign(new TransactionBody(Chain.IDENTIFIER, nonce, holderKey,
+			transfers.add(holder.sign(new TransactionBody(Chain.TEST_IDENTIFIER, nonce, holderKey,
 				Destination.direct(MINER), Amount.ofLeth(1L), Amount.ZERO, "block " + nonce),
 				SignatureSuite.ED25519));
 		}

@@ -40,6 +40,10 @@ import org.junit.jupiter.params.provider.ValueSource;
  * A block's timestamp may lie at most two hours after the verifying node's clock, Monero's
  * CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT; on the test chain from height 0 (#96), and on the main chain
  * from height 0 (#109)
+ * <p>
+ * The chains here start with genesis blocks mined at chosen times, so they replay under the rule both
+ * chains run with the main chain's genesis anchor (#137) left out: the limits are the subject, and
+ * the anchor would refuse every main chain but its own.
  */
 class FutureTimestampTest
 {
@@ -47,6 +51,11 @@ class FutureTimestampTest
 	private static final Bytes HOLDER = Bytes.of(new byte[] { 1 });
 
 	private static final long TWO_HOURS = 2L * 60L * 60L * 1_000L;
+
+	private static final ConsensusRules UNANCHORED = new ConsensusRules(
+		ConsensusRules.LETHENON.activations(),
+		List.of(ConsensusRules.LETHENON.limitsFor(Chain.IDENTIFIER).orElseThrow(),
+			ConsensusRules.LETHENON.limitsFor(Chain.TEST_IDENTIFIER).orElseThrow()));
 
 	private static List<BlockBody> chainOf(final String identifier, final long genesisTime,
 		final long nextTime)
@@ -80,7 +89,7 @@ class FutureTimestampTest
 		long now = chain.getLast().timestamp() - TWO_HOURS - tooEarly;
 
 		ChainRejected rejected = assertThrows(ChainRejected.class,
-			() -> Replay.verify(chain, ConsensusRules.LETHENON, now));
+			() -> Replay.verify(chain, UNANCHORED, now));
 
 		assertTrue(rejected.getMessage().contains("block 1"), rejected.getMessage());
 		assertTrue(rejected.getMessage().contains("in the future"), rejected.getMessage());
@@ -93,7 +102,7 @@ class FutureTimestampTest
 	{
 		List<BlockBody> chain = chainOf(chainIdentifier, 1_759_000_000_000L, 1_759_000_120_000L);
 
-		assertEquals(2L, Replay.verify(chain, ConsensusRules.LETHENON,
+		assertEquals(2L, Replay.verify(chain, UNANCHORED,
 			chain.getLast().timestamp() - TWO_HOURS).blocks());
 	}
 
@@ -105,7 +114,7 @@ class FutureTimestampTest
 		List<BlockBody> chain = chainOf(chainIdentifier, 1_759_000_000_000L, 1_759_000_120_000L);
 
 		ChainRejected rejected = assertThrows(ChainRejected.class, () -> Replay
-			.verify(chain.subList(0, 1), ConsensusRules.LETHENON,
+			.verify(chain.subList(0, 1), UNANCHORED,
 				chain.getFirst().timestamp() - TWO_HOURS - 1L));
 
 		assertTrue(rejected.getMessage().contains("block 0"), rejected.getMessage());
@@ -118,7 +127,7 @@ class FutureTimestampTest
 	{
 		List<BlockBody> chain = chainOf(chainIdentifier, 1_759_000_000_000L, 1_759_000_120_000L);
 
-		assertEquals(2L, Replay.verify(chain).blocks());
+		assertEquals(2L, Replay.verify(chain, UNANCHORED).blocks());
 	}
 
 	@ParameterizedTest(name = "{0}")
@@ -129,7 +138,7 @@ class FutureTimestampTest
 		long now = System.currentTimeMillis();
 		List<BlockBody> chain = chainOf(chainIdentifier, now, now + 3L * 60L * 60L * 1_000L);
 
-		assertThrows(ChainRejected.class, () -> Replay.verify(chain));
-		assertEquals(1L, Replay.verify(chain.subList(0, 1)).blocks());
+		assertThrows(ChainRejected.class, () -> Replay.verify(chain, UNANCHORED));
+		assertEquals(1L, Replay.verify(chain.subList(0, 1), UNANCHORED).blocks());
 	}
 }

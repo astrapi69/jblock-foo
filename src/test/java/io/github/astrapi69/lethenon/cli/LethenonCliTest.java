@@ -46,6 +46,7 @@ import io.github.astrapi69.lethenon.BlockBody;
 import io.github.astrapi69.lethenon.Blocks;
 import io.github.astrapi69.lethenon.CanonicalEncoding;
 import io.github.astrapi69.lethenon.Chain;
+import io.github.astrapi69.lethenon.Genesis;
 import io.github.astrapi69.lethenon.DifficultyRule;
 import io.github.astrapi69.lethenon.Replay;
 
@@ -82,6 +83,9 @@ class LethenonCliTest extends AbstractCliTest
 		holderPassword = aPassword();
 		holderWallet = directory.resolve("holder.wallet").toString();
 		holderAccount = createWallet(holderWallet, holderPassword);
+		// block 0 pays the burn account (#148), block 1 the holder, who then runs the faucet
+		assertEquals(0, run(holderPassword, "mine", "--testnet", "--chain", chain.toString(),
+			"--wallet", holderWallet), err);
 		assertEquals(0, run(holderPassword, "mine", "--chain", chain.toString(), "--wallet",
 			holderWallet), err);
 	}
@@ -113,11 +117,11 @@ class LethenonCliTest extends AbstractCliTest
 			holderWallet), err);
 
 		Replay replay = Replay.verify(CanonicalEncoding.readChain(Files.readAllBytes(chain)));
-		assertEquals(3L, replay.blocks(), replay.describe());
+		assertEquals(4L, replay.blocks(), replay.describe());
 		assertEquals(2L, replay.transactions(), replay.describe());
 		assertEquals(0, run(restoredPassword, "balance", "--chain", chain.toString(), "--wallet",
 			restored), err);
-		assertTrue(out.contains("account (ed25519): " + alice + " holds 1971.50000000 LETH"), out);
+		assertTrue(out.contains("account (ed25519): " + alice + " holds 987.50000000 LETH"), out);
 	}
 
 	@Test
@@ -131,9 +135,9 @@ class LethenonCliTest extends AbstractCliTest
 			minerWallet), err);
 
 		List<BlockBody> blocks = CanonicalEncoding.readChain(Files.readAllBytes(chain));
-		assertEquals(List.of(holderAccount, minerAccount),
+		assertEquals(List.of(Genesis.NOBODY.toString(), holderAccount, minerAccount),
 			blocks.stream().map(block -> block.beneficiary().toString()).toList());
-		assertTrue(out.contains("mined block 1"), out);
+		assertTrue(out.contains("mined block 2"), out);
 	}
 
 	@Test
@@ -144,7 +148,7 @@ class LethenonCliTest extends AbstractCliTest
 		while (fast.size() < DifficultyRule.INTERVAL)
 		{
 			BlockBody last = fast.getLast();
-			fast.add(Blocks.mine(new BlockBody(Chain.IDENTIFIER, last.height() + 1L,
+			fast.add(Blocks.mine(new BlockBody(Chain.TEST_IDENTIFIER, last.height() + 1L,
 				Blocks.hashOf(last), last.beneficiary(), List.of(), last.timestamp() + 1_000L,
 				DifficultyRule.requiredFor(fast), "fast"), 1_000_000L).orElseThrow());
 		}
@@ -165,12 +169,12 @@ class LethenonCliTest extends AbstractCliTest
 			holderWallet), err);
 
 		assertTrue(out.contains(
-			"account (ed25519): " + holderAccount + " holds 1984.00000000 LETH"), out);
-		assertTrue(out.contains("replayed 1 blocks"), out);
+			"account (ed25519): " + holderAccount + " holds 1983.99801600 LETH"), out);
+		assertTrue(out.contains("replayed 2 blocks"), out);
 	}
 
 	@Test
-	void faucet_fromAWalletThatIsNotTheGenesisHolder_isRefused_andNothingIsWaiting()
+	void faucet_fromAWalletThatIsNotTheFirstMiner_isRefused_andNothingIsWaiting()
 	{
 		String password = aPassword();
 		String wallet = directory.resolve("somebody.wallet").toString();
@@ -180,7 +184,7 @@ class LethenonCliTest extends AbstractCliTest
 			somebody);
 
 		assertEquals(1, exit, out);
-		assertTrue(err.contains("genesis"), err);
+		assertTrue(err.contains("first miner"), err);
 		assertFalse(Files.exists(pending()), "a refused faucet leaves no transfer waiting");
 	}
 

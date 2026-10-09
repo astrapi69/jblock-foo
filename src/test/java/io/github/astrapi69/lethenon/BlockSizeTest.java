@@ -80,8 +80,11 @@ class BlockSizeTest
 		SignedTransaction funding = holder.sign(new TransactionBody(chainIdentifier, 0L,
 			classical, Destination.direct(pq), Amount.ofLeth(1_000L), Amount.ZERO, ""),
 			SignatureSuite.ED25519);
-		chain.add(Blocks.mine(Mining.nextBlock(chain, MINER, List.of(funding), "funding",
+		// the genesis block pays the burn account (#148): block 1 pays the holder
+		chain.add(Blocks.mine(Mining.nextBlock(chain, classical, List.of(), "first reward",
 			GENESIS_TIME + STEP), 1_000_000L).orElseThrow());
+		chain.add(Blocks.mine(Mining.nextBlock(chain, MINER, List.of(funding), "funding",
+			GENESIS_TIME + 2 * STEP), 1_000_000L).orElseThrow());
 		List<SignedTransaction> postQuantum = new ArrayList<>();
 		for (long nonce = 0; nonce < 60; nonce++)
 		{
@@ -95,10 +98,11 @@ class BlockSizeTest
 		final List<SignedTransaction> transfers)
 	{
 		List<BlockBody> funded = funded(chainIdentifier).chain();
-		BlockBody unmined = Mining.nextBlock(Chain.IDENTIFIER, List.of(), MINER, List.of(), "",
+		BlockBody unmined = Mining.nextBlock(Chain.TEST_IDENTIFIER, List.of(), MINER, List.of(), "",
 			0L);
-		BlockBody next = new BlockBody(chainIdentifier, 2L, Blocks.hashOf(funded.getLast()), MINER,
-			transfers, GENESIS_TIME + 2 * STEP, unmined.difficulty(), "too large");
+		BlockBody next = new BlockBody(chainIdentifier, funded.size(),
+			Blocks.hashOf(funded.getLast()), MINER,
+			transfers, GENESIS_TIME + 3 * STEP, unmined.difficulty(), "too large");
 		List<BlockBody> chain = new ArrayList<>(funded);
 		chain.add(Blocks.mine(next, 1_000_000L).orElseThrow());
 		return List.copyOf(chain);
@@ -138,7 +142,7 @@ class BlockSizeTest
 
 		ChainRejected rejected = assertThrows(ChainRejected.class, () -> Replay.verify(chain));
 
-		assertTrue(rejected.getMessage().contains("block 2 is "), rejected.getMessage());
+		assertTrue(rejected.getMessage().contains("block 3 is "), rejected.getMessage());
 		assertTrue(rejected.getMessage().contains("allows 300000"), rejected.getMessage());
 	}
 
@@ -151,7 +155,7 @@ class BlockSizeTest
 			postQuantum(chainIdentifier).subList(0, 10));
 		int size = CanonicalEncoding.blockSize(chain.getLast());
 
-		assertEquals(3L,
+		assertEquals(4L,
 			Replay.verify(chain, rulesWithLimit(chainIdentifier, size), GENESIS_TIME).blocks());
 		assertThrows(ChainRejected.class,
 			() -> Replay.verify(chain, rulesWithLimit(chainIdentifier, size - 1), GENESIS_TIME));
@@ -171,7 +175,7 @@ class BlockSizeTest
 		List<BlockBody> funded = funded(chainIdentifier).chain();
 		List<SignedTransaction> postQuantum = postQuantum(chainIdentifier);
 		BlockBody next = Mining.nextBlock(funded, MINER, postQuantum, "a pun",
-			GENESIS_TIME + 2 * STEP);
+			GENESIS_TIME + 3 * STEP);
 		BlockBody mined = Blocks.mine(next, 1_000_000L).orElseThrow();
 		int carried = mined.transactions().size();
 
@@ -192,7 +196,7 @@ class BlockSizeTest
 	{
 		List<SignedTransaction> postQuantum = postQuantum(Chain.TEST_IDENTIFIER);
 		BlockBody empty = Mining.nextBlock(funded(Chain.TEST_IDENTIFIER).chain(), MINER,
-			List.of(), "a pun", GENESIS_TIME + 2 * STEP);
+			List.of(), "a pun", GENESIS_TIME + 3 * STEP);
 		SignedTransaction first = postQuantum.getFirst();
 		int exactly = CanonicalEncoding.blockSize(empty) + CanonicalEncoding.sizeInBlock(first)
 			+ Mining.MINING_SUFFIX_BYTES;

@@ -33,6 +33,7 @@ import io.github.astrapi69.lethenon.BlockBody;
 import io.github.astrapi69.lethenon.Blocks;
 import io.github.astrapi69.lethenon.Bytes;
 import io.github.astrapi69.lethenon.Chain;
+import io.github.astrapi69.lethenon.ConsensusRules;
 import io.github.astrapi69.lethenon.DifficultyRule;
 import io.github.astrapi69.lethenon.Genesis;
 import io.github.astrapi69.lethenon.Mining;
@@ -54,8 +55,9 @@ import picocli.CommandLine.Option;
  * {@link DifficultyRule} (lethenon#24), which the replay checks.
  */
 @Command(name = "mine", description = "Mine the next block with every waiting transfer, paying "
-	+ "this wallet. With no chain yet, mine the genesis block, which pays this wallet the first "
-	+ "block reward.")
+	+ "this wallet. With no chain yet, start it: with the genesis block fixed in the code where "
+	+ "there is one, otherwise with a newly mined one; a genesis block pays its reward to the burn "
+	+ "account.")
 class MineCommand extends ChainCommand
 {
 
@@ -92,8 +94,7 @@ class MineCommand extends ChainCommand
 		}
 		long now = System.currentTimeMillis();
 		BlockBody mined = blocks.isEmpty()
-			? Genesis.start(testnet ? Chain.TEST_IDENTIFIER : Chain.IDENTIFIER, beneficiary, pun,
-				now)
+			? Genesis.start(testnet ? Chain.TEST_IDENTIFIER : Chain.IDENTIFIER, pun, now)
 			: Blocks.mine(testnet
 				? Mining.nextBlock(Chain.TEST_IDENTIFIER, blocks, beneficiary, waiting, pun, now)
 				: Mining.nextBlock(blocks, beneficiary, waiting, pun, now), attempts)
@@ -106,9 +107,25 @@ class MineCommand extends ChainCommand
 		writeChain(extended);
 		List<SignedTransaction> left = waiting.subList(mined.transactions().size(), waiting.size());
 		writePending(left);
-		out.println("mined block " + mined.height() + " with " + mined.transactions().size()
-			+ " transfer(s), paying " + hex(beneficiary) + ": \"" + mined.pun() + "\""
-			+ (left.isEmpty() ? "" : "; " + left.size() + " did not fit and wait for the next"));
+		if (ConsensusRules.LETHENON.anchorFor(mined.chainIdentifier()).map(Blocks::hashOf)
+			.filter(Blocks.hashOf(mined)::equals).isPresent())
+		{
+			out.println("started the chain with its genesis block fixed in the code, "
+				+ Blocks.hashOf(mined) + ", which pays the burn account; the next mine mines "
+				+ "block 1");
+		}
+		else if (mined.height() == 0L)
+		{
+			out.println("mined block 0: \"" + mined.pun() + "\", paying its reward to the burn "
+				+ "account, which nobody can spend (#148); the next mine mines block 1 for this "
+				+ "wallet");
+		}
+		else
+		{
+			out.println("mined block " + mined.height() + " with " + mined.transactions().size()
+				+ " transfer(s), paying " + hex(beneficiary) + ": \"" + mined.pun() + "\""
+				+ (left.isEmpty() ? "" : "; " + left.size() + " did not fit and wait for the next"));
+		}
 		out.println("chain " + mined.chainIdentifier());
 		out.println(replay.describe());
 		return 0;

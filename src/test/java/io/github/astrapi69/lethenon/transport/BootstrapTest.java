@@ -56,7 +56,8 @@ import io.github.astrapi69.lethenon.Chain;
 class BootstrapTest
 {
 
-	private final List<BlockBody> genesis = testGenesis(Bytes.of(new byte[] { 1 }));
+	/** Block 0 alone: nothing here spends, so the holder's block 1 would only shift the heights */
+	private final List<BlockBody> genesis = testGenesis(Bytes.of(new byte[] { 1 })).subList(0, 1);
 
 	@Test
 	@DisplayName("the genesis block is taken from a peer, whatever the peer's height")

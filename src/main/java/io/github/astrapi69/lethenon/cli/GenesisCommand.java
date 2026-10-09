@@ -26,7 +26,6 @@ package io.github.astrapi69.lethenon.cli;
 
 import java.io.IOException;
 import java.io.PrintStream;
-import java.nio.file.Path;
 import java.util.concurrent.Callable;
 
 import io.github.astrapi69.lethenon.BlockBody;
@@ -35,29 +34,29 @@ import io.github.astrapi69.lethenon.Chain;
 import io.github.astrapi69.lethenon.ChainRejected;
 import io.github.astrapi69.lethenon.ConsensusRules;
 import io.github.astrapi69.lethenon.Genesis;
-import io.github.astrapi69.lethenon.SignatureSuite;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
 /**
  * Mines a candidate genesis block and prints what would be filed as its anchor in the code: the
  * chain, the block's hash and its canonical bytes. It writes nothing (#104).
+ * <p>
+ * The block's words are a headline of the day it is mined, chosen by the maintainer that day
+ * (#148, ADR 0005), so the block cannot have been mined before it. It pays its reward to the burn
+ * account, like every genesis block, so no wallet is needed.
  */
-@Command(name = "genesis", description = "Mine a candidate genesis block, allocating to this "
-	+ "wallet, and print its hash and canonical bytes for a genesis anchor in the code. Writes "
-	+ "nothing. The password is the first line of standard input.")
+@Command(name = "genesis", description = "Mine a candidate genesis block from a headline of the "
+	+ "day and print its hash and canonical bytes for a genesis anchor in the code. Its reward goes "
+	+ "to the burn account. Writes nothing.")
 class GenesisCommand implements Callable<Integer>
 {
-
-	@Option(names = "--wallet", required = true, description = "the wallet the genesis allocates to")
-	Path wallet;
 
 	@Option(names = "--testnet", description = "a genesis block of " + Chain.TEST_IDENTIFIER)
 	boolean testnet;
 
-	@Option(names = "--pun", defaultValue = "in the beginning was the pun",
-		description = "the words mining varies; default: ${DEFAULT-VALUE}")
-	String pun;
+	@Option(names = "--headline", required = true,
+		description = "a headline of the day the block is mined, the words mining varies")
+	String headline;
 
 	/**
 	 * Creates the command; picocli instantiates it reflectively
@@ -89,11 +88,16 @@ class GenesisCommand implements Callable<Integer>
 			throw new IllegalStateException("chain '" + chain
 				+ "' has a genesis block fixed in the code already");
 		}
-		BlockBody genesis = Genesis.start(chain, ChainCommand
-			.openWallet(wallet, ChainCommand.firstLineOfStandardInput())
-			.spendKey(SignatureSuite.ED25519), pun, System.currentTimeMillis());
+		if (headline.isBlank())
+		{
+			throw new IllegalArgumentException("the headline is empty: a genesis block carries a "
+				+ "headline of the day it is mined");
+		}
+		BlockBody genesis = Genesis.candidate(chain, headline.strip(), System.currentTimeMillis());
 		out.println("chain " + chain);
 		out.println("hash " + Blocks.hashOf(genesis));
+		out.println("words \"" + genesis.pun() + "\"");
+		out.println("reward to the burn account " + genesis.beneficiary());
 		out.println("anchor " + Genesis.anchorOf(genesis).canonicalHex());
 		return 0;
 	}

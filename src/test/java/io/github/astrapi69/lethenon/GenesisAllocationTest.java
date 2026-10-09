@@ -35,12 +35,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * What the genesis block allocates, on both chains alike (#111): the whole genesis supply goes into
  * the mining pool, and the genesis block is paid the ordinary block reward out of it, like every
- * other block. Nobody holds anything before the first block is mined.
+ * other block - to the burn account (#148). Nobody holds anything before block 1 is mined.
  */
 class GenesisAllocationTest
 {
-
-	private static final Bytes HOLDER = Bytes.of("genesis beneficiary".getBytes());
 
 	private static final Bytes MINER = Bytes.of("miner".getBytes());
 
@@ -51,8 +49,9 @@ class GenesisAllocationTest
 	private static List<BlockBody> chain(final String chainIdentifier, final int blocksAfterGenesis)
 	{
 		List<BlockBody> chain = new ArrayList<>();
-		chain.add(Blocks.mine(new BlockBody(chainIdentifier, 0L, Bytes.of(new byte[32]), HOLDER,
-			new ArrayList<>(), 1_759_000_000_000L, 8, "in the beginning was the pun"), 1_000_000L)
+		chain.add(Blocks.mine(new BlockBody(chainIdentifier, 0L, Bytes.of(new byte[32]),
+			Genesis.NOBODY, new ArrayList<>(), 1_759_000_000_000L, 8,
+			"in the beginning was the pun"), 1_000_000L)
 			.orElseThrow());
 		for (int height = 1; height <= blocksAfterGenesis; height++)
 		{
@@ -70,8 +69,8 @@ class GenesisAllocationTest
 	{
 		ChainState state = Replay.verify(chain(chainIdentifier, 0), RULES).finalState();
 
-		assertEquals(Emission.FIRST_REWARD, state.balanceOf(HOLDER),
-			"the genesis block's beneficiary holds one block reward, not a share of the supply");
+		assertEquals(Emission.FIRST_REWARD, state.balanceOf(Genesis.NOBODY),
+			"the burn account holds one block reward, not a share of the supply (#148)");
 		assertEquals(Emission.GENESIS_SUPPLY.minus(Emission.FIRST_REWARD),
 			state.balanceOf(ChainState.POOL),
 			"everything else is in the pool the rewards are paid from");
@@ -94,7 +93,7 @@ class GenesisAllocationTest
 		pool = pool.minus(third);
 		assertEquals(Amount.ofLeth(1_984L), first);
 		assertEquals(Amount.ofLethe(198_399_801_600L), second, "a millionth of what was left");
-		assertEquals(first, state.balanceOf(HOLDER));
+		assertEquals(first, state.balanceOf(Genesis.NOBODY));
 		assertEquals(second.plus(third), state.balanceOf(MINER));
 		assertEquals(pool, state.balanceOf(ChainState.POOL),
 			"three blocks, three rewards out of the pool");
