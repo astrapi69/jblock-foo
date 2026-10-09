@@ -109,7 +109,7 @@ class TailEmissionTest
 
 	private static ChainState stateAt(final List<BlockBody> chain, final int height)
 	{
-		return Replay.verify(chain.subList(0, height + 1), RULES).finalState();
+		return TestChains.replay(chain.subList(0, height + 1), RULES).finalState();
 	}
 
 	@ParameterizedTest(name = "on {0}")
@@ -117,7 +117,7 @@ class TailEmissionTest
 	void inTheTail_everyBalanceAddsUpToTheGenesisSupplyPlusWhatWasMinted(
 		final String chainIdentifier)
 	{
-		ChainState state = Replay.verify(chain(chainIdentifier, Map.of()), RULES).finalState();
+		ChainState state = TestChains.replay(chain(chainIdentifier, Map.of()), RULES).finalState();
 
 		Amount pool = Emission.MINING_POOL;
 		Amount minted = Amount.ZERO;
@@ -169,8 +169,8 @@ class TailEmissionTest
 		Amount poolBefore = stateAt(withFee, carrier - 1).balanceOf(ChainState.POOL);
 		Amount paid = stateAt(withFee, carrier).balanceOf(MINER)
 			.minus(stateAt(withFee, carrier - 1).balanceOf(MINER));
-		ChainState end = Replay.verify(withFee, RULES).finalState();
-		ChainState endWithout = Replay.verify(withoutFee, RULES).finalState();
+		ChainState end = TestChains.replay(withFee, RULES).finalState();
+		ChainState endWithout = TestChains.replay(withoutFee, RULES).finalState();
 
 		assertEquals(FAST.rewardFor(poolBefore.plus(FEE)).total(), paid,
 			"the block carrying the fee pays its share of the pool the fee went into");

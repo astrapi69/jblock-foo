@@ -110,6 +110,13 @@ public record Replay(long blocks, long transactions, long signatures, ChainState
 				+ Blocks.hashOf(anchor.get()) + ", and this chain starts with "
 				+ Blocks.hashOf(genesis));
 		}
+		else
+		{
+			// the main chain exists only from its anchor: a genesis block mined anywhere else, by
+			// whatever path, starts a chain that only shares the name (#161, ADR 0005)
+			requireThat(!Chain.IDENTIFIER.equals(genesis.chainIdentifier()),
+				"block 0: " + Genesis.NO_MAIN_CHAIN_WITHOUT_ITS_ANCHOR);
+		}
 		requireThat(Genesis.NOBODY.equals(genesis.beneficiary()), "block 0 pays its reward to "
 			+ genesis.beneficiary() + ", and a genesis block pays it to the burn account "
 			+ Genesis.NOBODY + " (#148)");

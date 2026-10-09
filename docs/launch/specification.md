@@ -112,7 +112,8 @@ whose block 0 pays anybody else is refused, a transfer from it is refused, and i
 of any signature suite ([ADR 0005](../adr/0005-main-chain-genesis.md), `BurnedGenesisTest`,
 `NobodyIsNoKeyTest`). The main chain starts from a genesis block fixed in the code, mined on its
 start day from a headline of that day and released as 1.0.0; until then this build has no anchor
-for it, and `mine` refuses to start one. The test chain has no anchor, and a test chain is started
+for it, `mine` refuses to start one, and the replay refuses every chain under the main chain's
+identifier, whoever mined its genesis block (#161, `GenesisAnchorTest`). The test chain has no anchor, and a test chain is started
 by whoever runs `mine --testnet`; its block 1 pays the first wallet that mines on it.
 
 ## 9. Encoding and files
@@ -128,7 +129,7 @@ test chain, is replayed from its bytes alone, and a corrupted one refused (`Chai
 
 `Replay.verify` checks a chain from its genesis block: every block hash and difficulty, every
 signature, every nonce and balance, the scheme activations and block limits, the anchor where one
-exists, and the supply invariant after every block. Nothing is taken from anybody: a balance is
+exists - and for the main chain that one exists (#161) - and the supply invariant after every block. Nothing is taken from anybody: a balance is
 computed from the chain, and the chain package cannot name a networking type at all
 (`NoBalanceQueryTest`). Evidence: `ReplayTest`, `ChainFixtureTest`.
 

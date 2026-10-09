@@ -176,7 +176,8 @@ public final class ConsensusRules
 
 	/**
 	 * The anchors as blocks, each checked: exactly one block, at height 0, of the chain it is filed
-	 * under, verifying on its own under the same rule without anchors
+	 * under, verifying on its own under the same rule with itself as the only anchor - a main chain
+	 * verifies only from its anchor (#161), so it is checked as the chain it will start
 	 */
 	private static Map<String, BlockBody> decoded(final List<GenesisAnchor> anchors,
 		final ConsensusRules unanchored)
@@ -221,7 +222,8 @@ public final class ConsensusRules
 		}
 		try
 		{
-			Replay.verify(blocks, unanchored, genesis.timestamp());
+			Replay.verify(blocks, new ConsensusRules(unanchored.activations, unanchored.limits,
+				Map.of(chain, genesis), unanchored.emission), genesis.timestamp());
 		}
 		catch (ChainRejected rejected)
 		{
