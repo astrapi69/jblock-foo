@@ -1,6 +1,20 @@
 ## Change log
 ----------------------
 
+Version 0.4.0 (unreleased)
+-------------
+
+FIXED:
+
+- a mining node slowed down with every transfer it carried, until it found no block at all (#151).
+  `Blocks.mine` computed the block's Merkle root again for every pun it tried, although only the
+  pun changes, so a block of 40 transfers mined at 12,004 attempts a second against 351,952 for an
+  empty one (lethenon 0.3.0 on 4 hardware threads). On a test network where transfers arrive every
+  two minutes, every slower block left more transfers waiting for the next; in a three-hour run of
+  the seed node measurement (#150) the miner found no block for its last 79 minutes. The root is
+  now computed once per candidate: 578,054 attempts a second empty and 723,775 with 40 transfers,
+  measured the same way. The block hash is unchanged, so nothing about the chain changes
+
 Version 0.3.0
 -------------
 
