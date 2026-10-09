@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import io.github.astrapi69.lethenon.BlockBody;
 import io.github.astrapi69.lethenon.Bytes;
@@ -163,15 +164,98 @@ class NodeCommand implements Callable<Integer>
 				+ node.listeningOn().getHostAddress() + " port " + port + ", "
 				+ addresses.size() + " peer(s) configured, connecting " + outbound + zone
 				+ (mine ? ", mining for " + ChainCommand.hex(beneficiary) : ""));
-			long minedBlocks = runUntilStopped(node, beneficiary);
-			out.println("stopped at height " + (node.chain().size() - 1) + ", mined " + minedBlocks
-				+ " block(s), " + node.pending().size() + " transfer(s) waiting, "
-				+ node.peers().size() + " peer(s) connected"
-				+ (txProxy == null ? "" : ", " + node.anonymousPeers().size()
-					+ " anonymity peer(s)"));
-			node.refusals().forEach(System.err::println);
+			Stop stop = Stop.onShutdown();
+			try
+			{
+				long minedBlocks = runUntilStopped(node, beneficiary, stop);
+				out.println("stopped at height " + (node.chain().size() - 1) + ", mined "
+					+ minedBlocks + " block(s), " + node.pending().size()
+					+ " transfer(s) waiting, " + node.peers().size() + " peer(s) connected"
+					+ (txProxy == null ? "" : ", " + node.anonymousPeers().size()
+						+ " anonymity peer(s)"));
+				node.refusals().forEach(System.err::println);
+			}
+			finally
+			{
+				stop.reported();
+			}
 		}
 		return 0;
+	}
+
+	/**
+	 * How a running node learns that it is to stop, besides --for: a shutdown hook, which SIGTERM
+	 * and Ctrl-C both run (#129). The hook ends the wait and then waits, at most
+	 * {@link #REPORT_MILLIS}, until the stop line and the refusals are printed, so that a node
+	 * stopped by hand gives the same account of its run as one stopped by --for, and gives it once.
+	 */
+	static final class Stop
+	{
+
+		/** How long the JVM's shutdown waits for the stop line */
+		static final long REPORT_MILLIS = 5_000L;
+
+		private final CountDownLatch requested = new CountDownLatch(1);
+
+		private final CountDownLatch done = new CountDownLatch(1);
+
+		private final Thread hook = new Thread(this::stopAndWaitForTheReport, "lethenon-node-stop");
+
+		private Stop()
+		{
+		}
+
+		static Stop onShutdown()
+		{
+			Stop stop = new Stop();
+			Runtime.getRuntime().addShutdownHook(stop.hook);
+			return stop;
+		}
+
+		private void stopAndWaitForTheReport()
+		{
+			requested.countDown();
+			try
+			{
+				done.await(REPORT_MILLIS, TimeUnit.MILLISECONDS);
+			}
+			catch (InterruptedException interrupted)
+			{
+				Thread.currentThread().interrupt();
+			}
+		}
+
+		/**
+		 * Waits for a stop, at most the given time
+		 *
+		 * @param millis
+		 *            the longest wait, 0 for no limit
+		 */
+		void await(final long millis) throws InterruptedException
+		{
+			if (millis > 0)
+			{
+				requested.await(millis, TimeUnit.MILLISECONDS);
+			}
+			else
+			{
+				requested.await();
+			}
+		}
+
+		/** The stop line is printed: the hook has nothing left to wait for and is withdrawn */
+		void reported()
+		{
+			done.countDown();
+			try
+			{
+				Runtime.getRuntime().removeShutdownHook(hook);
+			}
+			catch (IllegalStateException shuttingDown)
+			{
+				// the JVM is already running its hooks, this one among them; it returns at once
+			}
+		}
 	}
 
 	/**
@@ -299,19 +383,12 @@ class NodeCommand implements Callable<Integer>
 		throw new IOException("no peer gave a genesis block: " + String.join("; ", reasons));
 	}
 
-	private long runUntilStopped(final Node node, final Bytes beneficiary)
+	private long runUntilStopped(final Node node, final Bytes beneficiary, final Stop stop)
 	{
 		Miner miner = beneficiary == null ? null : Miner.start(node, beneficiary, pun);
 		try
 		{
-			if (seconds > 0)
-			{
-				Thread.sleep(seconds * 1_000L);
-			}
-			else
-			{
-				new CountDownLatch(1).await();
-			}
+			stop.await(seconds * 1_000L);
 		}
 		catch (InterruptedException interrupted)
 		{

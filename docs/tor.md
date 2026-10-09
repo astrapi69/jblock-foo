@@ -76,8 +76,7 @@ node on lethenon-test-2, listening on 0.0.0.0 port 18431, 0 peer(s) configured, 
 ```
 
 Let it mine a few blocks, so that A holds money to send. `--for` ends the node and prints its stop
-line and its refusals; stopped with Ctrl-C it prints neither (#129), so give it enough seconds for
-the whole run.
+line and its refusals; Ctrl-C or SIGTERM does the same (#129), so a run can also be ended by hand.
 
 ## 4. B takes the chain over Tor
 

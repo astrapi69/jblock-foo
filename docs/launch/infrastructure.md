@@ -268,7 +268,8 @@ it is not a permission.
   ```
 
   Without `--for` a node "runs until interrupted" (ADR 0003, "The node command"). The port is the
-  operator's choice. Stopping it with SIGTERM prints no stop line today (#129).
+  operator's choice. Stopping it with SIGTERM, as a service
+  manager does, prints its stop line and its refusals, the same as `--for` (#129).
 - **Updates**: the operating system's security updates automatically (on Debian and Ubuntu the
   `unattended-upgrades` package); lethenon itself by hand, from a signed release whose signature is
   checked against the fingerprint in section 10 before it is installed.
