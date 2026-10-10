@@ -6,6 +6,14 @@ Version 0.5.0 (unreleased)
 
 FIXED:
 
+- the library no longer names a command line option in its refusals (#135). An onion address
+  reached without a proxy was refused with "give its SOCKS proxy with --proxy", which a caller of
+  the library - mystic-crypt-ui's plugin, through `Sync.once`, `Handover.send` or
+  `Bootstrap.genesisFrom` - has no option for. The library now says that the address is reached
+  only through Tor's SOCKS proxy and the connection has none; `sync` and `node` refuse an onion
+  `--peer` without a proxy themselves, before anything is dialled, and name their options:
+  `--proxy`, and for `node` also `--tx-proxy`. A node used to start and then fail to dial such a
+  peer; it now refuses to start. Measured in `ProxyTest` and `ProxyOnTheCommandLineTest`
 - a configured peer is dialled again (#128). A peer given with `--peer` that could not be reached,
   or whose connection ended, used to be gone for the rest of the run; with `--no-discovery`, or in
   the anonymity zone before an onion address was learnt, that could be every peer a node had. It is
