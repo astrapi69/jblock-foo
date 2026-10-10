@@ -26,6 +26,7 @@ package io.github.astrapi69.lethenon.transport;
 
 import static io.github.astrapi69.lethenon.transport.Networks.testGenesis;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -39,16 +40,20 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import io.github.astrapi69.lethenon.Bytes;
 
 /**
  * Discovery does not dial an address whose connection is still in its handshake: between the
  * open socket and the added peer, the address is neither dialling nor a peer, and dialling it
- * again opened a second connection to the same node (#117)
+ * again opened a second connection to the same node (#117). A dial this node refused for its own
+ * limit leaves the address in the book; one that failed forgets it (#126).
  */
 class DiscoveryTest
 {
@@ -109,6 +114,83 @@ class DiscoveryTest
 			threads.shutdown();
 			threads.awaitTermination(5, TimeUnit.SECONDS);
 			assertEquals(List.of(NEW), dialled);
+		}
+		finally
+		{
+			threads.shutdownNow();
+		}
+	}
+
+	/** How a dial ends, and whether the address is still heard of afterwards */
+	record Ending(String name, IOException thrown, boolean keptInTheBook)
+	{
+		@Override
+		public String toString()
+		{
+			return name;
+		}
+	}
+
+	static Stream<Ending> endings()
+	{
+		return Stream.of(
+			new Ending("refused for this node's own limit: the address is kept",
+				new NoRoom("this node has 12 outgoing connections, its limit (ADR 0003)"), true),
+			new Ending("refused for the anonymity zone's limit: the address is kept",
+				new NoRoom("the anonymity zone has 2 anonymity connection(s), its limit (ADR 0004)"),
+				true),
+			new Ending("the address could not be reached: it is forgotten",
+				new IOException("Connection refused"), false));
+	}
+
+	@ParameterizedTest(name = "{0}")
+	@MethodSource("endings")
+	void aDialThatThrows_keepsOrForgetsTheAddress(final Ending ending) throws Exception
+	{
+		Discovery.Dialer dialer = new Discovery.Dialer()
+		{
+			@Override
+			public int outgoing()
+			{
+				return 0;
+			}
+
+			@Override
+			public int maximum()
+			{
+				return Node.MAXIMUM_OUTGOING;
+			}
+
+			@Override
+			public void dial(final PeerAddress address) throws IOException
+			{
+				throw ending.thrown();
+			}
+
+			@Override
+			public Set<PeerAddress> handshaking()
+			{
+				return Set.of();
+			}
+		};
+		List<String> refusals = new CopyOnWriteArrayList<>();
+		ExecutorService threads = Executors.newVirtualThreadPerTaskExecutor();
+		try (ServerSocket server = new ServerSocket(0);
+			Socket ours = new Socket("127.0.0.1", server.getLocalPort());
+			Socket theirs = server.accept())
+		{
+			Discovery discovery = new Discovery(List.of(), refusals, dialer, threads);
+			Peer peer = peerOver(ours);
+			peer.expectPeers();
+
+			discovery.learn(peer, new PeerList(List.of(NEW)));
+
+			threads.shutdown();
+			threads.awaitTermination(5, TimeUnit.SECONDS);
+			assertEquals(ending.keptInTheBook(), discovery.heardOf().contains(NEW),
+				"heard of afterwards: " + discovery.heardOf());
+			assertTrue(refusals.stream().anyMatch(reason -> reason.startsWith(NEW.toString())
+				&& reason.contains(ending.thrown().getMessage())), refusals.toString());
 		}
 		finally
 		{

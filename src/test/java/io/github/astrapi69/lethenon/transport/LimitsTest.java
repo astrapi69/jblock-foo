@@ -77,7 +77,8 @@ class LimitsTest
 				.anyMatch(reason -> reason.contains(Node.MAXIMUM_OUTGOING + " outgoing")),
 				hub.refusals().toString());
 			PeerAddress last = addresses.getLast();
-			IOException refused = assertThrows(IOException.class,
+			// a refusal for this node's own limit, not a failure of the address (#126)
+			NoRoom refused = assertThrows(NoRoom.class,
 				() -> hub.connect(last.host(), last.port()));
 			assertTrue(refused.getMessage().contains("12"), refused.getMessage());
 		}

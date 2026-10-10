@@ -311,6 +311,9 @@ class AnonymityZoneTest
 			await("one zone peer", () -> node.anonymousPeers().size() == 1);
 			assertTrue(node.refusals().stream().anyMatch(reason -> reason.contains(OTHER_ONION)
 				&& reason.contains("1 anonymity")), node.refusals().toString());
+			// a refusal for the zone's own limit, not a failure of the address (#126)
+			NoRoom refused = assertThrows(NoRoom.class, () -> node.connect(OTHER_ONION, 18480));
+			assertTrue(refused.getMessage().contains("1 anonymity"), refused.getMessage());
 		}
 	}
 

@@ -274,8 +274,9 @@ public final class Node implements AutoCloseable
 	 *            the peer's port
 	 * @throws IOException
 	 *             when the peer cannot be reached within the route's connect time
-	 *             ({@link Outbound#connectMillis()}), or this node has {@link #MAXIMUM_OUTGOING}
-	 *             outgoing connections already
+	 *             ({@link Outbound#connectMillis()}); a {@link NoRoom} when this node has
+	 *             {@link #MAXIMUM_OUTGOING} outgoing connections already, or the anonymity zone its
+	 *             maximum, which says nothing about the address (#126)
 	 */
 	public void connect(final String host, final int port) throws IOException
 	{
@@ -289,7 +290,7 @@ public final class Node implements AutoCloseable
 		if (outgoing.incrementAndGet() > MAXIMUM_OUTGOING)
 		{
 			outgoing.decrementAndGet();
-			throw new IOException("this node has " + MAXIMUM_OUTGOING
+			throw new NoRoom("this node has " + MAXIMUM_OUTGOING
 				+ " outgoing connections, its limit (ADR 0003)");
 		}
 		Socket socket;
@@ -947,7 +948,7 @@ public final class Node implements AutoCloseable
 	{
 		if (!anonymous.reserve())
 		{
-			throw new IOException("the anonymity zone has " + anonymous.maximum()
+			throw new NoRoom("the anonymity zone has " + anonymous.maximum()
 				+ " anonymity connection(s), its limit (ADR 0004)");
 		}
 		Socket socket;

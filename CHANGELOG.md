@@ -21,6 +21,14 @@ FIXED:
   it is printed once, whichever stop comes first. Measured in `NodeShutdownTest`: a node in a JVM of
   its own, `Process.destroy()` (SIGTERM), then the stop line on standard output and the refusal of
   its unreachable `--peer` on standard error
+- peer exchange keeps an address that this node did not dial only because it was full (#126). When
+  its own limit was reached between the check for room and the dial - 12 outgoing connections, or
+  the anonymity zone's maximum - the refusal was taken for a failure of the address, which was
+  forgotten. The limit refusals now have a type of their own, `NoRoom`, a kind of `IOException`
+  with the same message, and peer exchange keeps such an address in its book to dial when there is
+  room; it records the refusal. An address that cannot be reached is still forgotten. Measured in
+  `DiscoveryTest` (the address kept for both limits, forgotten when unreachable), `LimitsTest` and
+  `AnonymityZoneTest` (each limit throws `NoRoom`)
 
 Version 0.4.0
 -------------
