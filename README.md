@@ -109,7 +109,9 @@ A node keeps its chain file and `<chain>.pending` up to date and owns them while
 `send --node` hands the transfer to the node that serves the file named by `--chain`. A node
 with an empty file takes the genesis block from the first peer that answers; everything after
 it is verified block by block. The longer chain by cumulative work wins, and a fork is followed
-up to 500 blocks deep.
+up to 500 blocks deep. While it runs, a node prints a status line once a minute (`--status-every`,
+0 for none): height, tip, peers, waiting transfers and the number of refusals, without their
+addresses.
 
 The chain is called Lethenon, from
 [Lethe](https://en.wikipedia.org/wiki/Lethe), the river of forgetting - the opposite of a permanent

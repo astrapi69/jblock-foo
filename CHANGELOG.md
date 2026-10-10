@@ -4,6 +4,20 @@
 Version 0.5.0 (unreleased)
 -------------
 
+ADDED:
+
+- a running node prints a status line, once a minute by default (#149): its height, the hash of its
+  tip, the connected peers with the outgoing and incoming connections it holds, the anonymity
+  zone's peers where there is a zone, the waiting transfers, the blocks it mined, and how many
+  connections were refused since the last line. A seed node runs for months without stopping, and
+  until now said how it stood only in its stop line. The refusals are counted, not listed: a remote
+  address is personal data, and a line repeated every minute would leave the journal's retention to
+  decide how long it is kept; the stop report still names them, once. `--status-every <seconds>`
+  sets the interval, 0 turns the line off. `Node.outgoingConnections()` and
+  `Node.incomingConnections()` give the two counts to a library caller. Measured in
+  `NodeStatusLineTest`, with a timeout, because a wait that comes out as 0 milliseconds would let a
+  node's `--for` run forever
+
 FIXED:
 
 - the library no longer names a command line option in its refusals (#135). An onion address
