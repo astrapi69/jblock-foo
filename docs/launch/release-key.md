@@ -212,32 +212,57 @@ GNUPGHOME="$CIHOME/gnupg" gpg --armor --export-secret-subkeys '6D67F8442A6FCC96B
 
 ## 7. Switch the CI secrets
 
-For lethenon first, once #155 is merged:
+All six repositories at once, each once its issue under "Before you start" is merged. The CI
+passphrase is read first, without echo, in a block of its own: a question in the middle of a block
+takes the next pasted line as its answer (#170). Paste this line alone, type the passphrase, press
+Enter:
 
 ```sh
-export SUBID=10E2BD8D
-export CIHOME="$HOME/release-key-ci"
-gh secret set GPG_PRIVATE_KEY --repo astrapi69/lethenon < "$CIHOME/ci-subkey.asc"
-gh secret set GPG_PASSPHRASE --repo astrapi69/lethenon
-gh secret set GPG_KEY_ID --repo astrapi69/lethenon --body "$SUBID"
+printf 'CI passphrase: '; read -rs CIPW; echo
 ```
 
-The second command asks for the value, so the CI passphrase is never on a command line or in the
-shell's history. `GPG_KEY_ID` is the subkey's last 8 hex digits. It is not secret, and it is a secret
-only so that all three travel together; Gradle 9.7.1 refuses the 16-digit form.
+Then, in the same terminal, the three secrets. The block first checks that the passphrase signs
+with the CI copy, after stopping that keyring's agent so that a cached passphrase cannot hide a
+typo, and sets nothing otherwise:
 
-The other five repositories follow the same way, each after its issue under "Before you start" is
-merged.
+```sh
+export CIHOME="$HOME/release-key-ci"
+export SUBID=10E2BD8D
+GNUPGHOME="$CIHOME/gnupg" gpgconf --kill gpg-agent
+if [ -n "${CIPW:-}" ] && GNUPGHOME="$CIHOME/gnupg" gpg --batch --yes --pinentry-mode loopback --passphrase-fd 3 --local-user '9FCF7C9710E2BD8D!' --output /dev/null --sign "$CIHOME/ci-subkey.asc" 3<<<"$CIPW"; then
+  for repo in lethenon mystic-crypt crypt-data crypt-api resourcebundle-core checksum-up; do
+    echo "== $repo"
+    gh secret set GPG_PRIVATE_KEY --repo "astrapi69/$repo" < "$CIHOME/ci-subkey.asc"
+    printf '%s' "$CIPW" | gh secret set GPG_PASSPHRASE --repo "astrapi69/$repo"
+    gh secret set GPG_KEY_ID --repo "astrapi69/$repo" --body "$SUBID"
+  done
+else
+  echo "NOT SET: the passphrase is empty or does not sign with the CI copy - read it again"
+fi
+unset CIPW
+```
+
+The passphrase reaches `gh` on its standard input, through `printf`, a shell builtin, so it is on no
+command line, in no process list and in no shell history. `GPG_KEY_ID` is the subkey's last 8 hex
+digits. It is not secret, and it is a secret only so that all three travel together; Gradle 9.7.1
+refuses the 16-digit form. This is how the secrets were set on 2026-10-10.
 
 ## 8. Rehearse before a release depends on it
 
-The build, signing as CI will, from the CI copy. The passphrase is read without echo:
+The build, signing as CI will, from the CI copy. The CI passphrase is read without echo, in a block
+of its own:
+
+```sh
+printf 'CI passphrase: '; read -rs GPG_PASSPHRASE; echo
+```
+
+Then, in the same terminal:
 
 ```sh
 export SUBID=10E2BD8D
 export CIHOME="$HOME/release-key-ci"
-cd ~/dev/git/hub/astrapi69/lethenon && git switch develop && git pull --ff-only
-read -rs GPG_PASSPHRASE && export GPG_PASSPHRASE
+export GPG_PASSPHRASE
+cd "$HOME/dev/git/hub/astrapi69/lethenon" && git switch develop && git pull --ff-only
 GPG_PRIVATE_KEY="$(cat "$CIHOME/ci-subkey.asc")" GPG_KEY_ID="$SUBID" ./gradlew signMavenJavaPublication
 unset GPG_PASSPHRASE
 V=$(sed -n 's/^projectVersion=//p' gradle.properties)
@@ -264,18 +289,40 @@ Only after step 8 has passed, at the latest after the first release validated wi
 machine keeps the subkeys, for signing and for decrypting; the primary key stays on the offline media
 only.
 
+Before it: two offline media hold a complete copy of the key, the primary key itself and not a
+stub. Step 4's check in a keyring of its own shows that as `sec`, where a stub shows `sec#`. Run on
+the export file directly, `gpg --show-keys` prints `sec` for a stub too; `gpg --list-packets` tells
+them apart, because a stub is a packet marked `gnu-dummy` (measured on 2026-10-10 with a throwaway
+key).
+
+Each of the next three blocks is pasted on its own, because the second one asks.
+
+First the subkeys, into a folder of its own; the CI folder of step 6 may be gone already:
+
 ```sh
 export FPR=5B2FA6B11E298BC09287F423D8C403518C49CA75
-export CIHOME="$HOME/release-key-ci"
-gpg --armor --export-secret-subkeys "$FPR" > "$CIHOME/daily-subkeys.asc"
-gpg --delete-secret-keys "$FPR"
-gpg --import "$CIHOME/daily-subkeys.asc"
+export STEP9="$HOME/release-key-step9"
+mkdir -m 700 "$STEP9"
+gpg --armor --export-secret-subkeys "$FPR" > "$STEP9/daily-subkeys.asc"
+```
+
+Without a `!` after the fingerprint, `--export-secret-subkeys` exports every subkey. Then the secret
+key, with all its subkeys. gpg asks for confirmation for the key and for each subkey:
+
+```sh
+gpg --delete-secret-keys 5B2FA6B11E298BC09287F423D8C403518C49CA75
+```
+
+Then the subkeys back:
+
+```sh
+export FPR=5B2FA6B11E298BC09287F423D8C403518C49CA75
+export STEP9="$HOME/release-key-step9"
+gpg --import "$STEP9/daily-subkeys.asc"
 gpg --list-secret-keys --keyid-format long "$FPR"
 ```
 
-`--delete-secret-keys` asks for confirmation for the key and each subkey. Without a `!` after the
-fingerprint, `--export-secret-subkeys` exports every subkey. Expected afterwards: `sec#`,
-`ssb ... [E]` and `ssb ... [S]`. Signing still works and uses the subkey; whatever needs the primary
+Expected afterwards: `sec#`, `ssb ... [E]` and `ssb ... [S]`. Signing still works and uses the subkey; whatever needs the primary
 key (a new subkey, a renewal, a revocation) now fails on this machine with "No secret key", as it
 should (rehearsed).
 
@@ -283,8 +330,9 @@ Then remove the working copies from the machine:
 
 ```sh
 export CIHOME="$HOME/release-key-ci"
+export STEP9="$HOME/release-key-step9"
 gpgconf --kill gpg-agent
-rm -rf "$CIHOME"
+rm -rf "$CIHOME" "$STEP9"
 rm -rf ~/release-key-offline
 ```
 
@@ -395,6 +443,18 @@ primary for sign and certify, no expiry, an encryption subkey.
   - The subkey was revoked with `revkey`.
   - The imported revocation certificate revoked the whole key.
   - An earlier signature by the subkey then still verified as good, with a warning in both cases.
+
+On 2026-10-10, with the real key, and in a sandbox:
+
+- **Step 7 as written:** run in an interactive zsh and bash against a throwaway key, with `gh`
+  replaced by a function that records what it receives.
+  - An empty or a wrong passphrase set nothing and printed "NOT SET".
+  - The right one set 18 secrets; the passphrase arrived only on standard input, six times, and never
+    on the screen (#170).
+- **The workflow part of step 8:** in mystic-crypt, run 38046383079. Its snapshot
+  `13.6-20261010.105221-4` verified, in an empty keyring holding only the key from keys.openpgp.org,
+  as signed by `6D67F8442A6FCC96BD7C1B5E9FCF7C9710E2BD8D`. The first release after it, mystic-crypt
+  13.6, passed the Central Portal's validation and verified the same way on repo1.
 
 Not rehearsed:
 
