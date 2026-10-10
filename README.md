@@ -227,6 +227,35 @@ primitives; when it uses a new construction, [ADR 0001](docs/adr/0001-new-crypto
 5. an internal plugin for [mystic-crypt-ui](https://github.com/astrapi69/mystic-crypt-ui), once
    milestone 4 is green
 
+## Verifying the release signatures
+
+The releases on Maven Central are signed with the OpenPGP key
+
+```text
+5B2F A6B1 1E29 8BC0 9287  F423 D8C4 0351 8C49 CA75
+```
+
+Releases after 0.4.0 are signed by its signing subkey
+
+```text
+6D67 F844 2A6F CC96 BD7C  1B5E 9FCF 7C97 10E2 BD8D
+```
+
+valid until 2028-10-09; 0.4.0 and earlier were signed by the primary key itself. The key, with the subkey, is on keyserver.ubuntu.com and keys.openpgp.org. How the key is kept, with its primary key offline, is in [docs/launch/release-key.md](docs/launch/release-key.md).
+
+To check a download, fetch the key once, then verify the signature that lies next to each file on
+Maven Central:
+
+```sh
+gpg --keyserver hkps://keys.openpgp.org --recv-keys 5B2FA6B11E298BC09287F423D8C403518C49CA75
+gpg --verify lethenon-0.4.0.jar.asc lethenon-0.4.0.jar
+```
+
+gpg answers `Good signature` and prints the `Primary key fingerprint`, for a release signed by the
+subkey also the `Subkey fingerprint`. Both have to be the ones above. The warning that the key "is
+not certified with a trusted signature" only says that you have not marked the key as trusted in your
+own keyring; the fingerprints are what to compare.
+
 ## Releasing
 
 What a release consists of, in the order it is run (0.2.0 was the first one run this way):
