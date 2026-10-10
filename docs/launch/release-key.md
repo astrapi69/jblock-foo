@@ -64,7 +64,10 @@ release has passed Central's validation:
 - **GnuPG 2.2 or later** (`gpg --version`; rehearsed with 2.4.8), and `gh` logged in.
 - On a German system gpg asks `(j/N)`: answer `j` where this text says `y`.
 
-Set the fingerprint once per shell; every command below uses it:
+Every block below sets the variables it uses, so each one runs on its own, in a new terminal, in
+bash and in zsh. A fingerprint followed by `!` stands in single quotes: zsh reads `!` inside double
+quotes as history expansion and waits with `dquote>` (measured with zsh 5.9; bash 5.3.9 runs either
+form; #168). First, the key as it is:
 
 ```sh
 export FPR=5B2FA6B11E298BC09287F423D8C403518C49CA75
@@ -78,6 +81,7 @@ Expected: `sec rsa2048/D8C403518C49CA75 2016-05-01 [SC]` and `ssb rsa2048/1C664D
 Before anything changes. The export is protected by the key's passphrase only.
 
 ```sh
+export FPR=5B2FA6B11E298BC09287F423D8C403518C49CA75
 mkdir -m 700 ~/release-key-offline
 gpg --armor --export-secret-keys "$FPR" > ~/release-key-offline/D8C403518C49CA75-secret-before.asc
 gpg --armor --export "$FPR" > ~/release-key-offline/D8C403518C49CA75-public-before.asc
@@ -89,6 +93,7 @@ Copy the folder onto both offline media.
 ## 2. The revocation certificate
 
 ```sh
+export FPR=5B2FA6B11E298BC09287F423D8C403518C49CA75
 gpg --armor --output ~/release-key-offline/D8C403518C49CA75-revoke.asc --generate-revocation "$FPR"
 ```
 
@@ -107,17 +112,19 @@ importing it revokes the key at once (rehearsed, section "How this was rehearsed
 ## 3. A subkey that only signs, for two years
 
 ```sh
+export FPR=5B2FA6B11E298BC09287F423D8C403518C49CA75
 gpg --quick-add-key "$FPR" rsa4096 sign 2y
 gpg --list-keys --keyid-format long --with-subkey-fingerprints "$FPR"
 ```
 
 A new line appears: `sub rsa4096/<16 hex digits> <today> [S] [expires: <today + 2 years>]`, with its
-fingerprint below it. Take that fingerprint:
+fingerprint below it. The subkey made on 2026-10-10 is `rsa4096/9FCF7C9710E2BD8D`, valid until
+2028-10-09, and the blocks below carry its fingerprint; a later subkey (section 12) puts its own in
+their place. `SUBID` is the fingerprint's last 8 hex digits:
 
 ```sh
-export SUBFPR=<the 40 hex digits under the [S] line>
-export SUBID=${SUBFPR: -8}
-echo "$SUBID"
+export SUBFPR=6D67F8442A6FCC96BD7C1B5E9FCF7C9710E2BD8D
+export SUBID=10E2BD8D
 ```
 
 From now on gpg signs with this subkey by default, as the newest key that can sign. RSA like the
@@ -126,6 +133,7 @@ primary key: it is what the rehearsal signed with through Gradle; Ed25519 was no
 ## 4. The offline copies, with the subkey
 
 ```sh
+export FPR=5B2FA6B11E298BC09287F423D8C403518C49CA75
 gpg --armor --export-secret-keys "$FPR" > ~/release-key-offline/D8C403518C49CA75-secret.asc
 gpg --armor --export "$FPR" > ~/release-key-offline/D8C403518C49CA75-public.asc
 ```
@@ -134,6 +142,7 @@ Copy both onto the two offline media, next to the safety copy of step 1. Then ch
 keyring of its own: the primary key must be complete (`sec`, not `sec#`), with the new `[S]` subkey.
 
 ```sh
+export FPR=5B2FA6B11E298BC09287F423D8C403518C49CA75
 export GNUPGHOME="$(mktemp -d)"
 gpg --import /path/to/medium/D8C403518C49CA75-secret.asc
 gpg --list-secret-keys --keyid-format long "$FPR"
@@ -147,6 +156,7 @@ public key on a keyserver, and the subkey has to be in it. Central reads keyserv
 keys.openpgp.org and pgp.mit.edu (Central, "GPG").
 
 ```sh
+export FPR=5B2FA6B11E298BC09287F423D8C403518C49CA75
 gpg --keyserver hkps://keyserver.ubuntu.com --send-keys "$FPR"
 ```
 
@@ -158,6 +168,7 @@ identity information" (keys.openpgp.org, FAQ).
 Check both, in an empty keyring:
 
 ```sh
+export FPR=5B2FA6B11E298BC09287F423D8C403518C49CA75
 export GNUPGHOME="$(mktemp -d)"
 gpg --keyserver hkps://keyserver.ubuntu.com --recv-keys "$FPR"
 gpg --list-keys --keyid-format long "$FPR"
@@ -173,17 +184,20 @@ The CI secret gets the signing subkey and nothing else, protected by a passphras
 primary key's.
 
 ```sh
-export CIHOME=~/release-key-ci
+export CIHOME="$HOME/release-key-ci"
 mkdir -m 700 "$CIHOME" "$CIHOME/gnupg"
-gpg --armor --export-secret-subkeys "${SUBFPR}!" > "$CIHOME/subkey.asc"
+gpg --armor --export-secret-subkeys '6D67F8442A6FCC96BD7C1B5E9FCF7C9710E2BD8D!' > "$CIHOME/subkey.asc"
 GNUPGHOME="$CIHOME/gnupg" gpg --import "$CIHOME/subkey.asc"
 GNUPGHOME="$CIHOME/gnupg" gpg --list-secret-keys --keyid-format long
 ```
 
 Expected: `sec#` (the primary key is not there) and a single `ssb rsa4096/... [S]`. The `!` after the
-fingerprint is what limits the export to that one subkey.
+fingerprint is what limits the export to that one subkey; it stands with the fingerprint in single
+quotes, so that zsh does not take it for history expansion.
 
 ```sh
+export FPR=5B2FA6B11E298BC09287F423D8C403518C49CA75
+export CIHOME="$HOME/release-key-ci"
 GNUPGHOME="$CIHOME/gnupg" gpg --passwd "$FPR"
 ```
 
@@ -192,7 +206,8 @@ reports an error for the primary key, "No secret key", which is expected: only t
 and its passphrase is changed. Then export it for CI:
 
 ```sh
-GNUPGHOME="$CIHOME/gnupg" gpg --armor --export-secret-subkeys "${SUBFPR}!" > "$CIHOME/ci-subkey.asc"
+export CIHOME="$HOME/release-key-ci"
+GNUPGHOME="$CIHOME/gnupg" gpg --armor --export-secret-subkeys '6D67F8442A6FCC96BD7C1B5E9FCF7C9710E2BD8D!' > "$CIHOME/ci-subkey.asc"
 ```
 
 ## 7. Switch the CI secrets
@@ -200,6 +215,8 @@ GNUPGHOME="$CIHOME/gnupg" gpg --armor --export-secret-subkeys "${SUBFPR}!" > "$C
 For lethenon first, once #155 is merged:
 
 ```sh
+export SUBID=10E2BD8D
+export CIHOME="$HOME/release-key-ci"
 gh secret set GPG_PRIVATE_KEY --repo astrapi69/lethenon < "$CIHOME/ci-subkey.asc"
 gh secret set GPG_PASSPHRASE --repo astrapi69/lethenon
 gh secret set GPG_KEY_ID --repo astrapi69/lethenon --body "$SUBID"
@@ -217,6 +234,8 @@ merged.
 The build, signing as CI will, from the CI copy. The passphrase is read without echo:
 
 ```sh
+export SUBID=10E2BD8D
+export CIHOME="$HOME/release-key-ci"
 cd ~/dev/git/hub/astrapi69/lethenon && git switch develop && git pull --ff-only
 read -rs GPG_PASSPHRASE && export GPG_PASSPHRASE
 GPG_PRIVATE_KEY="$(cat "$CIHOME/ci-subkey.asc")" GPG_KEY_ID="$SUBID" ./gradlew signMavenJavaPublication
@@ -246,6 +265,8 @@ machine keeps the subkeys, for signing and for decrypting; the primary key stays
 only.
 
 ```sh
+export FPR=5B2FA6B11E298BC09287F423D8C403518C49CA75
+export CIHOME="$HOME/release-key-ci"
 gpg --armor --export-secret-subkeys "$FPR" > "$CIHOME/daily-subkeys.asc"
 gpg --delete-secret-keys "$FPR"
 gpg --import "$CIHOME/daily-subkeys.asc"
@@ -261,6 +282,7 @@ should (rehearsed).
 Then remove the working copies from the machine:
 
 ```sh
+export CIHOME="$HOME/release-key-ci"
 gpgconf --kill gpg-agent
 rm -rf "$CIHOME"
 rm -rf ~/release-key-offline
@@ -301,6 +323,8 @@ builds; sign one snapshot locally and run `gpg --verify` on it before the next r
 Two months before it expires, on the offline machine with a medium from step 4:
 
 ```sh
+export FPR=5B2FA6B11E298BC09287F423D8C403518C49CA75
+export SUBFPR=6D67F8442A6FCC96BD7C1B5E9FCF7C9710E2BD8D
 gpg --import /path/to/medium/D8C403518C49CA75-secret.asc
 gpg --quick-set-expire "$FPR" 2y "$SUBFPR"
 gpg --armor --export "$FPR" > D8C403518C49CA75-public.asc
@@ -316,12 +340,13 @@ the date in the README.
 **The CI secret leaked, or the subkey is compromised.** On the offline machine, revoke the subkey:
 
 ```sh
+export FPR=5B2FA6B11E298BC09287F423D8C403518C49CA75
 gpg --edit-key "$FPR"
 ```
 
 At the prompt:
 
-1. `key <SUBFPR>` selects the subkey;
+1. `key 6D67F8442A6FCC96BD7C1B5E9FCF7C9710E2BD8D` selects the subkey;
 2. `revkey` revokes it: confirm, reason `1` (key has been compromised), an empty description,
    confirm again;
 3. `save`.
@@ -333,6 +358,7 @@ subkey was revoked by its owner and the reason given (rehearsed).
 **The primary key is compromised or lost.** Import the revocation certificate, then publish:
 
 ```sh
+export FPR=5B2FA6B11E298BC09287F423D8C403518C49CA75
 gpg --import D8C403518C49CA75-revoke.asc
 gpg --keyserver hkps://keyserver.ubuntu.com --send-keys "$FPR"
 ```
