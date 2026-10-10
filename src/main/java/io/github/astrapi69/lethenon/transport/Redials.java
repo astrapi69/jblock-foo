@@ -64,6 +64,9 @@ final class Redials
 		private int failures;
 
 		private long dueAtMillis;
+
+		/** Whether a refusal for this node's own limit was recorded since the peer was last connected */
+		private boolean refusedForRoom;
 	}
 
 	Redials(final Duration first, final Duration longest)
@@ -125,6 +128,23 @@ final class Redials
 		return state.failures == 1;
 	}
 
+	/**
+	 * This node refused the dial for its own limit ({@link NoRoom}): no failure of the peer, so its
+	 * pause stays as it was, and it is due again on the next round of the redial loop (#177)
+	 *
+	 * @return whether this is the first such refusal since the peer was last connected, the one
+	 *         worth recording
+	 */
+	synchronized boolean full(final PeerAddress address, final long nowMillis)
+	{
+		State state = configured.computeIfAbsent(address, unused -> new State());
+		state.busy = false;
+		state.dueAtMillis = nowMillis;
+		boolean first = !state.refusedForRoom;
+		state.refusedForRoom = true;
+		return first;
+	}
+
 	/** A configured peer completed its handshake: it is not dialled while it stays connected */
 	synchronized void connected(final PeerAddress address)
 	{
@@ -133,6 +153,7 @@ final class Redials
 		{
 			state.busy = true;
 			state.failures = 0;
+			state.refusedForRoom = false;
 		}
 	}
 

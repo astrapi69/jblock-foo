@@ -335,6 +335,14 @@ public final class Node implements AutoCloseable
 		{
 			connect(address.host(), address.port());
 		}
+		catch (NoRoom full)
+		{
+			if (redials.full(address, nowMillis()))
+			{
+				refusals.add(address + " was not connected: " + full.getMessage()
+					+ "; it is dialled again on the next round, its pause unchanged");
+			}
+		}
 		catch (IOException notConnected)
 		{
 			if (redials.failed(address, nowMillis()))

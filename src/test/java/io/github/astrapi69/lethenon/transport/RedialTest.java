@@ -27,24 +27,30 @@ package io.github.astrapi69.lethenon.transport;
 import static io.github.astrapi69.lethenon.transport.Networks.await;
 import static io.github.astrapi69.lethenon.transport.Networks.testGenesis;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import io.github.astrapi69.lethenon.BlockBody;
 import io.github.astrapi69.lethenon.Bytes;
 
 /**
  * A configured peer that could not be reached is dialled again, after a pause that grows with every
- * failed attempt, as Monero keeps redialling its priority peers (#128)
+ * failed attempt, as Monero keeps redialling its priority peers (#128). An attempt this node refused
+ * for its own limit is no failure of the peer: its pause stays, and it is dialled on the next round
+ * (#177).
  */
 class RedialTest
 {
@@ -131,6 +137,85 @@ class RedialTest
 	void thePause_doublesUpToTheLongest(final int failures, final long millis)
 	{
 		assertEquals(Duration.ofMillis(millis), new Redials(FIRST, LONGEST).pauseAfter(failures));
+	}
+
+	/** How one attempt at a configured peer ended */
+	enum Outcome
+	{
+		/** the peer could not be reached */
+		UNREACHABLE,
+		/** this node refused the dial for its own limit: NoRoom */
+		FULL
+	}
+
+	/** A sequence of attempts and the pause before each next one, in milliseconds */
+	record Attempts(String name, List<Outcome> outcomes, List<Long> pauses)
+	{
+		@Override
+		public String toString()
+		{
+			return name;
+		}
+	}
+
+	static Stream<Attempts> attempts()
+	{
+		return Stream.of(
+			new Attempts("unreachable three times: the pause grows, 100, 200, 400 ms",
+				List.of(Outcome.UNREACHABLE, Outcome.UNREACHABLE, Outcome.UNREACHABLE),
+				List.of(100L, 200L, 400L)),
+			new Attempts("unreachable twice, then this node is full: dialled on the next round, and the pause does not grow",
+				List.of(Outcome.UNREACHABLE, Outcome.UNREACHABLE, Outcome.FULL,
+					Outcome.UNREACHABLE),
+				List.of(100L, 200L, 0L, 400L)),
+			new Attempts("full twice, then unreachable: the first real failure waits the first pause",
+				List.of(Outcome.FULL, Outcome.FULL, Outcome.UNREACHABLE),
+				List.of(0L, 0L, 100L)));
+	}
+
+	@ParameterizedTest(name = "{0}")
+	@MethodSource("attempts")
+	void thePause_growsOnlyWithRealFailures(final Attempts attempts)
+	{
+		Redials redials = new Redials(FIRST, LONGEST);
+		PeerAddress peer = new PeerAddress("127.0.0.1", 18480);
+		redials.dialling(peer);
+		long now = 1_000_000L;
+		List<Long> pauses = new ArrayList<>();
+		for (Outcome outcome : attempts.outcomes())
+		{
+			if (outcome == Outcome.FULL)
+			{
+				redials.full(peer, now);
+			}
+			else
+			{
+				redials.failed(peer, now);
+			}
+			// the earliest moment the redial loop finds the peer due again; due marks it as dialled
+			long pause = 0;
+			while (!redials.due(now + pause).contains(peer))
+			{
+				pause++;
+				assertTrue(pause <= LONGEST.toMillis(), "never due again after " + pauses);
+			}
+			pauses.add(pause);
+			now += pause;
+		}
+		assertEquals(attempts.pauses(), pauses);
+	}
+
+	@Test
+	@DisplayName("a full node's refusal is worth recording once, not on every round")
+	void aFullNodesRefusal_isRecordedOnce()
+	{
+		Redials redials = new Redials(FIRST, LONGEST);
+		PeerAddress peer = new PeerAddress("127.0.0.1", 18480);
+		redials.dialling(peer);
+
+		assertTrue(redials.full(peer, 0L), "the first refusal is recorded");
+		redials.due(0L);
+		assertFalse(redials.full(peer, 1L), "the next one on the next round is not");
 	}
 
 	@Test
