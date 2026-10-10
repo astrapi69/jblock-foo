@@ -58,6 +58,14 @@ final class Discovery
 		 */
 		int maximum();
 
+		/**
+		 * Opens a connection to the address
+		 *
+		 * @throws NoRoom
+		 *             when this node's own limit is reached: the address stays in the book (#126)
+		 * @throws IOException
+		 *             when the address cannot be dialled: it is forgotten
+		 */
 		void dial(PeerAddress address) throws IOException;
 
 		/**
@@ -169,6 +177,12 @@ final class Discovery
 		try
 		{
 			dialer.dial(address);
+		}
+		catch (NoRoom busy)
+		{
+			// this node was full, the address is not at fault: it stays to be dialled when there is room
+			refusals.add(address + ", learnt from a peer, was not dialled, it stays in the book: "
+				+ busy.getMessage());
 		}
 		catch (IOException failed)
 		{
