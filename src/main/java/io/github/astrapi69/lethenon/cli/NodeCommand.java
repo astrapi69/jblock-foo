@@ -143,6 +143,8 @@ class NodeCommand implements Callable<Integer>
 			throw new IllegalArgumentException("--mine pays a wallet: name it with --wallet");
 		}
 		List<PeerAddress> addresses = peers.stream().map(PeerAddress::parse).toList();
+		ChainCommand.refuseAnOnionPeerWithoutTor(addresses, proxy != null || txProxy != null,
+			"--proxy, or with --tx-proxy for the anonymity zone");
 		Outbound outbound = proxy == null ? Outbound.DIRECT
 			: Outbound.through(PeerAddress.parse(proxy));
 		Bytes beneficiary = mine ? ChainCommand
