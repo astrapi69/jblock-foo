@@ -32,6 +32,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
+import java.util.function.Consumer;
 
 import io.github.astrapi69.mystic.crypt.secret.SecretBuffers;
 import io.github.astrapi69.mystic.crypt.pw.PassphraseCryptor;
@@ -100,9 +101,27 @@ public final class WalletFile
 	public static void write(final Path file, final Wallet wallet, final char[] password)
 		throws IOException
 	{
+		write(file, wallet, password, held -> {
+		});
+	}
+
+	/**
+	 * {@link #write(Path, Wallet, char[])}, handing every buffer that holds the wallet's secret to
+	 * {@code held} as soon as it exists, so that a test can keep the buffers and assert they are
+	 * zero-filled once this returns (#43). The wipe is the property; a test that only saw a
+	 * reference dropped would not notice it gone.
+	 *
+	 * @param held
+	 *            given the entropy and the content, each before it is used
+	 */
+	static void write(final Path file, final Wallet wallet, final char[] password,
+		final Consumer<byte[]> held) throws IOException
+	{
 		byte[] entropy = wallet.entropy();
+		held.accept(entropy);
 		byte[] content = ByteBuffer.allocate(CONTENT_LENGTH).put(MAGIC).put(VERSION).put(entropy)
 			.array();
+		held.accept(content);
 		try
 		{
 			// the envelope reads the password and leaves it alone; the array stays the caller's
@@ -137,8 +156,24 @@ public final class WalletFile
 	 */
 	public static Wallet read(final Path file, final char[] password) throws IOException
 	{
+		return read(file, password, held -> {
+		});
+	}
+
+	/**
+	 * {@link #read(Path, char[])}, handing the buffer the file decrypts into to {@code held} as soon
+	 * as it exists, so that a test can keep it and assert it is zero-filled once this returns, the
+	 * wallet read or refused (#43)
+	 *
+	 * @param held
+	 *            given the decrypted content before it is checked
+	 */
+	static Wallet read(final Path file, final char[] password, final Consumer<byte[]> held)
+		throws IOException
+	{
 		byte[] sealed = Files.readAllBytes(file);
 		byte[] content = open(file, sealed, password);
+		held.accept(content);
 		try
 		{
 			requireWalletContent(file, content);

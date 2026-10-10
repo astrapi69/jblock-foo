@@ -35,9 +35,13 @@ import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.List;
+import java.util.function.Consumer;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -207,6 +211,93 @@ class WalletFileTest
 	{
 		assertFalse(java.util.Arrays.equals(PassphraseCryptor.MAGIC, WalletFile.FILE_MAGIC),
 			"MCRYPT means the old layout and nothing else, or the two could not be told apart");
+	}
+
+	/**
+	 * Keeps every buffer handed out, and a copy of it as it was then: the copy shows the buffer held
+	 * a secret, the buffer itself shows whether it still does
+	 */
+	private static final class Buffers implements Consumer<byte[]>
+	{
+		final List<byte[]> held = new ArrayList<>();
+
+		final List<byte[]> asHanded = new ArrayList<>();
+
+		@Override
+		public void accept(final byte[] buffer)
+		{
+			held.add(buffer);
+			asHanded.add(buffer.clone());
+		}
+
+		void assertEachHeldASecretAndIsZeroNow(final int expected)
+		{
+			assertEquals(expected, held.size(), "buffers handed out");
+			for (int index = 0; index < held.size(); index++)
+			{
+				byte[] then = asHanded.get(index);
+				assertFalse(java.util.Arrays.equals(new byte[then.length], then),
+					"buffer " + index + " held something when it was handed out");
+				assertArrayEquals(new byte[then.length], held.get(index),
+					"buffer " + index + " is zero-filled now, not merely dropped");
+			}
+		}
+	}
+
+	@Test
+	@DisplayName("writing overwrites the entropy and the content it held before it returns (#43)")
+	void write_overwritesEveryBufferThatHeldTheSecret() throws Exception
+	{
+		Buffers buffers = new Buffers();
+
+		WalletFile.write(directory.resolve("wallet.lethwf"), Wallet.create(), password.clone(),
+			buffers);
+
+		buffers.assertEachHeldASecretAndIsZeroNow(2);
+	}
+
+	@Test
+	@DisplayName("reading overwrites the content it decrypted before it returns (#43)")
+	void read_overwritesTheDecryptedContent() throws Exception
+	{
+		Wallet original = Wallet.create();
+		Path file = directory.resolve("wallet.lethwf");
+		WalletFile.write(file, original, password.clone());
+		Buffers buffers = new Buffers();
+
+		Wallet read = WalletFile.read(file, password.clone(), buffers);
+
+		assertArrayEquals(original.entropy(), read.entropy(), "the wallet read is the wallet written");
+		buffers.assertEachHeldASecretAndIsZeroNow(1);
+	}
+
+	@Test
+	@DisplayName("reading a wallet 0.1.0 wrote overwrites the content it decrypted too (#43)")
+	void read_ofAWalletWrittenBy010_overwritesTheDecryptedContent(@TempDir Path copyDirectory)
+		throws Exception
+	{
+		Buffers buffers = new Buffers();
+
+		WalletFile.read(copyOf010Wallet(copyDirectory), PASSWORD_OF_THE_010_WALLET.clone(), buffers);
+
+		buffers.assertEachHeldASecretAndIsZeroNow(1);
+	}
+
+	@Test
+	@DisplayName("content that is refused as not a wallet is overwritten as well (#43)")
+	void read_ofSomethingThatIsNotAWallet_overwritesTheContent() throws Exception
+	{
+		Path file = directory.resolve("other.lethwf");
+		byte[] notAWallet = new byte[37];
+		java.util.Arrays.fill(notAWallet, (byte)7);
+		Files.write(file, PassphraseEnvelope.encrypt(WalletFile.FILE_MAGIC, notAWallet,
+			password.clone()));
+		Buffers buffers = new Buffers();
+
+		assertThrows(IllegalArgumentException.class,
+			() -> WalletFile.read(file, password.clone(), buffers));
+
+		buffers.assertEachHeldASecretAndIsZeroNow(1);
 	}
 
 	private static Path copyOf010Wallet(final Path directory) throws Exception

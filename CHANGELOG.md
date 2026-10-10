@@ -37,6 +37,13 @@ FIXED:
   before. Measured in `RedialTest`, where the pauses before each next attempt are read from the
   redial loop's own view: unreachable three times gives 100, 200 and 400 ms; unreachable twice,
   then full, then unreachable gives 100, 200, the next round, and 400 ms
+- the wipes of a wallet's secret are asserted (#43). `WalletFile` overwrites the entropy and the
+  content it holds while writing, and the content it decrypts while reading, but no test noticed
+  when those wipes went: with the three `SecretBuffers.wipe` calls commented out, the whole suite
+  stayed green. Four tests now hold the very buffers, through a package-visible seam, and assert
+  that each held a secret when it was handed out and is zero-filled after the call returns: for
+  writing, for reading both file layouts, and for content refused as not a wallet. The same
+  counter-run now fails exactly those four
 
 Version 0.4.0
 -------------
