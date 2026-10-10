@@ -295,22 +295,37 @@ the export file directly, `gpg --show-keys` prints `sec` for a stub too; `gpg --
 them apart, because a stub is a packet marked `gnu-dummy` (measured on 2026-10-10 with a throwaway
 key).
 
-Each of the next three blocks is pasted on its own, because the second one asks.
+Each of the next four blocks is pasted on its own: the third one asks, and the second one decides
+whether the third may run at all (#174).
 
 First the subkeys, into a folder of its own; the CI folder of step 6 may be gone already:
 
 ```sh
 export FPR=5B2FA6B11E298BC09287F423D8C403518C49CA75
 export STEP9="$HOME/release-key-step9"
-mkdir -m 700 "$STEP9"
+mkdir -p -m 700 "$STEP9" && chmod 700 "$STEP9"
 gpg --armor --export-secret-subkeys "$FPR" > "$STEP9/daily-subkeys.asc"
 ```
 
-Without a `!` after the fingerprint, `--export-secret-subkeys` exports every subkey. Then the secret
-key, with all its subkeys. gpg asks for confirmation for the key and for each subkey:
+Without a `!` after the fingerprint, `--export-secret-subkeys` exports every subkey. Then check the
+export before anything is deleted: both subkeys, each with its secret part (a secret subkey packet in
+`gpg --list-packets`), the `[S]` subkey and the `[E]` subkey:
 
 ```sh
-gpg --delete-secret-keys 5B2FA6B11E298BC09287F423D8C403518C49CA75
+export STEP9="$HOME/release-key-step9"
+f="$STEP9/daily-subkeys.asc"
+n=$(gpg --batch --list-packets "$f" 2>/dev/null | grep -c '^:secret sub key packet')
+s=$(gpg --batch --show-keys --keyid-format long "$f" 2>/dev/null | grep -c '9FCF7C9710E2BD8D .*\[S\]')
+e=$(gpg --batch --show-keys --keyid-format long "$f" 2>/dev/null | grep -c '1C664D394E31A6E2 .*\[E\]')
+if [ "$n" = 2 ] && [ "$s" = 1 ] && [ "$e" = 1 ]; then echo "OK: $f holds both subkeys with their secret parts - go on"; else echo "STOP: $f is missing or incomplete (secret subkeys $n, [S] $s, [E] $e) - do not delete anything"; fi
+```
+
+Only after `OK`: the secret key, with all its subkeys. The line checks the export once more and runs
+the deletion only when it holds both secret subkeys. gpg asks for confirmation for the key and for each
+subkey:
+
+```sh
+if [ "$(gpg --batch --list-packets "$HOME/release-key-step9/daily-subkeys.asc" 2>/dev/null | grep -c '^:secret sub key packet')" = 2 ]; then gpg --delete-secret-keys 5B2FA6B11E298BC09287F423D8C403518C49CA75; else echo "STOP: no complete export in ~/release-key-step9 - nothing deleted"; fi
 ```
 
 Then the subkeys back:
