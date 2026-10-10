@@ -29,6 +29,14 @@ FIXED:
   room; it records the refusal. An address that cannot be reached is still forgotten. Measured in
   `DiscoveryTest` (the address kept for both limits, forgotten when unreachable), `LimitsTest` and
   `AnonymityZoneTest` (each limit throws `NoRoom`)
+- a configured peer keeps its pause when only this node was full (#177). An attempt this node
+  refused for its own limit counted as a failed attempt of the peer, so its pause doubled, up to 5
+  minutes, and after a slot freed up the next attempt could be minutes away. A `NoRoom` now leaves
+  the pause as it was, and the peer is dialled again on the next round of the redial loop; the
+  refusal is recorded once, saying "its pause unchanged". Real unreachability doubles the pause as
+  before. Measured in `RedialTest`, where the pauses before each next attempt are read from the
+  redial loop's own view: unreachable three times gives 100, 200 and 400 ms; unreachable twice,
+  then full, then unreachable gives 100, 200, the next round, and 400 ms
 
 Version 0.4.0
 -------------

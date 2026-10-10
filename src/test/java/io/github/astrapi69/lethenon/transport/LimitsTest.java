@@ -76,6 +76,11 @@ class LimitsTest
 			assertTrue(hub.refusals().stream()
 				.anyMatch(reason -> reason.contains(Node.MAXIMUM_OUTGOING + " outgoing")),
 				hub.refusals().toString());
+			// a configured peer refused for the node's own limit keeps its pause (#177)
+			assertTrue(hub.refusals().stream()
+				.anyMatch(reason -> reason.contains(Node.MAXIMUM_OUTGOING + " outgoing")
+					&& reason.contains("its pause unchanged")),
+				hub.refusals().toString());
 			PeerAddress last = addresses.getLast();
 			// a refusal for this node's own limit, not a failure of the address (#126)
 			NoRoom refused = assertThrows(NoRoom.class,
